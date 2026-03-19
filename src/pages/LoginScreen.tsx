@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
+import rfidReaderImg from "@/assets/rfid-reader.png";
 import { Button } from "@/components/ui/button";
 import { RegistrationForm } from "@/components/RegistrationForm";
 import { RFIDSimulator } from "@/components/RFIDSimulator";
@@ -214,14 +215,14 @@ export default function LoginScreen() {
           animate={{ opacity: 1 }}
           className="flex flex-col items-center gap-4">
           
-            <div className="h-32 w-32 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-              <motion.div
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-              className="h-20 w-20 rounded-full border-2 border-primary/60 flex items-center justify-center">
-              
-                <Shield className="h-10 w-10 text-primary/60" />
-              </motion.div>
+            <div className="flex items-center justify-center">
+              <motion.img
+                src={rfidReaderImg}
+                alt="RFID Reader"
+                className="h-32 w-auto"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+              />
             </div>
             <p className="text-lg text-muted-foreground">Place your tag near the reader</p>
           </motion.div>
