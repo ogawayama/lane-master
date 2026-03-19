@@ -67,7 +67,7 @@ export function LaneCard({ lane }: LaneCardProps) {
               <Crosshair className="h-4 w-4" />
               <span className="font-semibold text-sm">{lane.weapon_name}</span>
             </div>
-            <span className="text-xs text-muted-foreground">{lane.weapon_type}</span>
+            <span className="mt-1 inline-flex items-center rounded-full border border-purple-500/30 bg-purple-600/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple-400">{lane.weapon_type}</span>
           </div>
 
           {/* Status */}
