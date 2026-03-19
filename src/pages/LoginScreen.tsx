@@ -39,10 +39,11 @@ export default function LoginScreen() {
   }, []);
 
   useEffect(() => {
+    if (state === "register") return;
     focusInput();
     const interval = setInterval(focusInput, 2000);
     return () => clearInterval(interval);
-  }, [focusInput]);
+  }, [focusInput, state]);
 
   const handleScan = async (rfid: string) => {
     if (!rfid.trim() || isLoading) return;
