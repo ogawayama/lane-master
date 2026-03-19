@@ -155,7 +155,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center p-8" onClick={focusInput}>
+    <div className="relative flex min-h-screen flex-col items-center justify-center p-8" onClick={() => state !== "register" && focusInput()}>
       {/* Header */}
       <div className="absolute top-6 left-8 flex items-center gap-3">
         <Shield className="h-8 w-8 text-primary" />
