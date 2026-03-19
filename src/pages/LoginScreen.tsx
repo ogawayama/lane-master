@@ -274,6 +274,7 @@ export default function LoginScreen() {
               <RegistrationForm
                 rfid={pendingRfid}
                 onRegister={handleRegister}
+                onLink={handleLink}
                 onCancel={handleCancelRegistration}
                 isLoading={isLoading}
               />
