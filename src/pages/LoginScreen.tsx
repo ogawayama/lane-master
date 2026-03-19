@@ -12,8 +12,8 @@ import {
   relinkRfid,
   resetAllAssignments,
   type AssignmentResult,
-  type User,
-} from "@/services/assignmentService";
+  type User } from
+"@/services/assignmentService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,8 +23,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  AlertDialogTrigger } from
+"@/components/ui/alert-dialog";
 
 type ScreenState = "idle" | "loading" | "success" | "error" | "register";
 
@@ -81,7 +81,7 @@ export default function LoginScreen() {
     }
   };
 
-  const handleRegister = async (data: { user_id: string; first_name: string; last_name: string }) => {
+  const handleRegister = async (data: {user_id: string;first_name: string;last_name: string;}) => {
     setIsLoading(true);
     try {
       const user = await registerUser({ ...data, rfid: pendingRfid });
@@ -93,7 +93,7 @@ export default function LoginScreen() {
       const result = await assignLaneAndWeapon(user);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => { setState("idle"); setMessage(""); focusInput(); }, 6000);
+      setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
     } catch (err) {
       setState("error");
       setMessage("Registration error. Please try again.");
@@ -115,7 +115,7 @@ export default function LoginScreen() {
       const result = await assignLaneAndWeapon(updated);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => { setState("idle"); setMessage(""); focusInput(); }, 6000);
+      setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
     } catch (err) {
       setState("error");
       setMessage("Linking error. Please try again.");
@@ -159,7 +159,7 @@ export default function LoginScreen() {
       {/* Header */}
       <div className="absolute top-6 left-8 flex items-center gap-3">
         <Shield className="h-8 w-8 text-primary" />
-        <span className="text-xl font-bold tracking-wide text-primary font-['Share_Tech_Mono']">
+        <span className="font-bold tracking-wide text-sky-500 text-4xl font-sans">
           RANGE CONTROL
         </span>
       </div>
@@ -195,95 +195,95 @@ export default function LoginScreen() {
         className="absolute opacity-0 pointer-events-none"
         onKeyDown={handleKeyDown}
         tabIndex={0}
-        autoFocus
-      />
+        autoFocus />
+      
 
       {/* Main content */}
       <div className="flex flex-col items-center gap-8 w-full max-w-2xl">
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-5xl md:text-6xl font-bold text-foreground tracking-tight text-center"
-        >
+          className="text-5xl md:text-6xl font-bold text-foreground tracking-tight text-center">
+          
           Scan Your <span className="text-primary">RFID Tag</span>
         </motion.h1>
 
-        {state === "idle" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center gap-4"
-          >
+        {state === "idle" &&
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center gap-4">
+          
             <div className="h-32 w-32 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
               <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="h-20 w-20 rounded-full border-2 border-primary/60 flex items-center justify-center"
-              >
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="h-20 w-20 rounded-full border-2 border-primary/60 flex items-center justify-center">
+              
                 <Shield className="h-10 w-10 text-primary/60" />
               </motion.div>
             </div>
             <p className="text-lg text-muted-foreground">Place your tag near the reader</p>
           </motion.div>
-        )}
+        }
 
-        {state === "loading" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4">
+        {state === "loading" &&
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4">
             <div className="h-16 w-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
             <p className="text-lg text-muted-foreground">Processing...</p>
           </motion.div>
-        )}
+        }
 
         <AnimatePresence mode="wait">
-          {state === "success" && (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="flex flex-col items-center gap-4 rounded-2xl border border-accent/40 bg-accent/5 p-8 w-full text-center"
-            >
+          {state === "success" &&
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="flex flex-col items-center gap-4 rounded-2xl border border-accent/40 bg-accent/5 p-8 w-full text-center">
+            
               <CheckCircle2 className="h-16 w-16 text-accent" />
               <p className="text-2xl font-bold text-foreground">{message}</p>
             </motion.div>
-          )}
+          }
 
-          {state === "error" && (
-            <motion.div
-              key="error"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="flex flex-col items-center gap-4 rounded-2xl border border-destructive/40 bg-destructive/5 p-8 w-full text-center"
-            >
+          {state === "error" &&
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="flex flex-col items-center gap-4 rounded-2xl border border-destructive/40 bg-destructive/5 p-8 w-full text-center">
+            
               <AlertTriangle className="h-16 w-16 text-destructive" />
               <p className="text-2xl font-bold text-foreground">{message}</p>
             </motion.div>
-          )}
+          }
 
-          {state === "register" && (
-            <motion.div
-              key="register"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="flex flex-col items-center gap-4 rounded-2xl border border-primary/30 bg-card p-8 w-full"
-            >
+          {state === "register" &&
+          <motion.div
+            key="register"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="flex flex-col items-center gap-4 rounded-2xl border border-primary/30 bg-card p-8 w-full">
+            
               <AlertTriangle className="h-10 w-10 text-primary" />
               <p className="text-lg text-primary font-semibold">{message}</p>
               <RegistrationForm
-                rfid={pendingRfid}
-                onRegister={handleRegister}
-                onLink={handleLink}
-                onCancel={handleCancelRegistration}
-                isLoading={isLoading}
-              />
+              rfid={pendingRfid}
+              onRegister={handleRegister}
+              onLink={handleLink}
+              onCancel={handleCancelRegistration}
+              isLoading={isLoading} />
+            
             </motion.div>
-          )}
+          }
         </AnimatePresence>
       </div>
 
       <RFIDSimulator onSimulate={handleScan} />
-    </div>
-  );
+    </div>);
+
 }
