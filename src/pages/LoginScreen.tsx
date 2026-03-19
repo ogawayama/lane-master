@@ -9,8 +9,10 @@ import {
   lookupUserByRfid,
   assignLaneAndWeapon,
   registerUser,
+  relinkRfid,
   resetAllAssignments,
   type AssignmentResult,
+  type User,
 } from "@/services/assignmentService";
 import {
   AlertDialog,
@@ -82,10 +84,7 @@ export default function LoginScreen() {
   const handleRegister = async (data: { user_id: string; first_name: string; last_name: string }) => {
     setIsLoading(true);
     try {
-      const user = await registerUser({
-        ...data,
-        rfid: pendingRfid,
-      });
+      const user = await registerUser({ ...data, rfid: pendingRfid });
       if (!user) {
         setState("error");
         setMessage("Registration failed. User ID or RFID may already exist.");
@@ -94,14 +93,32 @@ export default function LoginScreen() {
       const result = await assignLaneAndWeapon(user);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {
-        setState("idle");
-        setMessage("");
-        focusInput();
-      }, 6000);
+      setTimeout(() => { setState("idle"); setMessage(""); focusInput(); }, 6000);
     } catch (err) {
       setState("error");
       setMessage("Registration error. Please try again.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLink = async (user: User) => {
+    setIsLoading(true);
+    try {
+      const updated = await relinkRfid(user.id, pendingRfid);
+      if (!updated) {
+        setState("error");
+        setMessage("Failed to link RFID. Please try again.");
+        return;
+      }
+      const result = await assignLaneAndWeapon(updated);
+      setState(result.success ? "success" : "error");
+      setMessage(result.message);
+      setTimeout(() => { setState("idle"); setMessage(""); focusInput(); }, 6000);
+    } catch (err) {
+      setState("error");
+      setMessage("Linking error. Please try again.");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -257,6 +274,7 @@ export default function LoginScreen() {
               <RegistrationForm
                 rfid={pendingRfid}
                 onRegister={handleRegister}
+                onLink={handleLink}
                 onCancel={handleCancelRegistration}
                 isLoading={isLoading}
               />

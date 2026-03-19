@@ -174,3 +174,24 @@ export async function fetchAllLanes(): Promise<LaneAssignment[]> {
     .order("lane_number", { ascending: true });
   return data || [];
 }
+
+export async function searchUsersByName(query: string): Promise<User[]> {
+  const q = `%${query}%`;
+  const { data } = await supabase
+    .from("users")
+    .select("*")
+    .or(`first_name.ilike.${q},last_name.ilike.${q}`)
+    .order("first_name", { ascending: true })
+    .limit(10);
+  return data || [];
+}
+
+export async function relinkRfid(userId: string, newRfid: string): Promise<User | null> {
+  const { data } = await supabase
+    .from("users")
+    .update({ rfid: newRfid })
+    .eq("id", userId)
+    .select()
+    .single();
+  return data;
+}
