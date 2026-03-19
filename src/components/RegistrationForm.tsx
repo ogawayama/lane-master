@@ -11,14 +11,14 @@ interface RegistrationFormProps {
 }
 
 export function RegistrationForm({ rfid, onRegister, onCancel, isLoading }: RegistrationFormProps) {
-  const [userId, setUserId] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId.trim() || !firstName.trim()) return;
-    onRegister({ user_id: userId.trim(), first_name: firstName.trim(), last_name: lastName.trim() });
+    if (!firstName.trim()) return;
+    const generatedId = `USR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    onRegister({ user_id: generatedId, first_name: firstName.trim(), last_name: lastName.trim() });
   };
 
   return (
@@ -32,17 +32,6 @@ export function RegistrationForm({ rfid, onRegister, onCancel, isLoading }: Regi
 
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="userId" className="text-muted-foreground">User ID</Label>
-          <Input
-            id="userId"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="e.g. USR004"
-            className="bg-secondary border-border text-foreground placeholder:text-muted-foreground/50 h-12 text-lg"
-            required
-          />
-        </div>
-        <div className="space-y-1.5">
           <Label htmlFor="firstName" className="text-muted-foreground">First Name</Label>
           <Input
             id="firstName"
@@ -50,6 +39,7 @@ export function RegistrationForm({ rfid, onRegister, onCancel, isLoading }: Regi
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="First name"
             className="bg-secondary border-border text-foreground placeholder:text-muted-foreground/50 h-12 text-lg"
+            autoFocus
             required
           />
         </div>
@@ -78,7 +68,7 @@ export function RegistrationForm({ rfid, onRegister, onCancel, isLoading }: Regi
         <Button
           type="submit"
           className="flex-1 h-12 text-lg font-bold"
-          disabled={isLoading || !userId.trim() || !firstName.trim()}
+          disabled={isLoading || !firstName.trim()}
         >
           {isLoading ? "Registering..." : "Register & Assign"}
         </Button>
