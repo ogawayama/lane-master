@@ -160,7 +160,7 @@ export default function LoginScreen() {
       {/* Header */}
       <div className="absolute top-6 left-8 flex items-center gap-3">
         <Shield className="h-8 w-8 text-primary" />
-        <span className="font-bold tracking-wide text-inherit text-4xl font-sans">
+        <span className="font-bold tracking-wide text-primary text-4xl font-sans">
           RANGE CONTROL
         </span>
       </div>
