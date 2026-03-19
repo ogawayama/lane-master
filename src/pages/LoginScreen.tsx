@@ -9,8 +9,10 @@ import {
   lookupUserByRfid,
   assignLaneAndWeapon,
   registerUser,
+  relinkRfid,
   resetAllAssignments,
   type AssignmentResult,
+  type User,
 } from "@/services/assignmentService";
 import {
   AlertDialog,
