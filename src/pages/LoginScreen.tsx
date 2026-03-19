@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
+import rfidReaderImg from "@/assets/rfid-reader.png";
 import { Button } from "@/components/ui/button";
 import { RegistrationForm } from "@/components/RegistrationForm";
 import { RFIDSimulator } from "@/components/RFIDSimulator";
