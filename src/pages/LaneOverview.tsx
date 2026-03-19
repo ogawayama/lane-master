@@ -5,8 +5,8 @@ import { LaneCard } from "@/components/LaneCard";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import {
   fetchAllLanes,
-  type LaneAssignment,
-} from "@/services/assignmentService";
+  type LaneAssignment } from
+"@/services/assignmentService";
 import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
 
 export default function LaneOverview() {
@@ -30,8 +30,8 @@ export default function LaneOverview() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Shield className="h-8 w-8 text-primary" />
-          <span className="text-xl font-bold tracking-wide text-primary font-['Share_Tech_Mono']">
-            RANGE CONTROL
+          <span className="font-bold tracking-wide text-primary text-4xl font-sans">
+
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -43,25 +43,25 @@ export default function LaneOverview() {
       </div>
 
       {/* Status heading */}
-      <motion.h1
-        key={allOccupied ? "full" : "waiting"}
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`text-4xl md:text-5xl font-bold text-center mb-10 ${
-          allOccupied ? "text-primary" : "text-foreground"
-        }`}
-      >
-        {allOccupied ? "All Lanes Assigned" : "Waiting for Users"}
-      </motion.h1>
+      
+
+
+
+
+
+
+
+
+      
 
       {/* Lane cards */}
       <div className="flex-1 flex items-center justify-center">
         <div className="grid grid-cols-5 gap-5 w-full max-w-7xl">
-          {lanes.map((lane) => (
-            <LaneCard key={lane.lane_number} lane={lane} />
-          ))}
+          {lanes.map((lane) =>
+          <LaneCard key={lane.lane_number} lane={lane} />
+          )}
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 }
