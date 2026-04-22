@@ -1,20 +1,16 @@
 import { useState } from "react";
-import { LogIn, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AdminAuthCardProps {
   loading: boolean;
-  onSignIn: (email: string, password: string) => Promise<void>;
-  onSignUp: (email: string, password: string) => Promise<void>;
-  onGoogle: () => Promise<void>;
+  onVerifyPin: (pin: string) => Promise<void>;
 }
 
-export function AdminAuthCard({ loading, onSignIn, onSignUp, onGoogle }: AdminAuthCardProps) {
-  const [signInData, setSignInData] = useState({ email: "", password: "" });
-  const [signUpData, setSignUpData] = useState({ email: "", password: "" });
+export function AdminAuthCard({ loading, onVerifyPin }: AdminAuthCardProps) {
+  const [pin, setPin] = useState("");
 
   return (
     <div className="min-h-screen bg-background px-6 py-10 text-foreground">
@@ -25,9 +21,9 @@ export function AdminAuthCard({ loading, onSignIn, onSignUp, onGoogle }: AdminAu
             Admin access
           </div>
           <div className="space-y-4">
-            <h1 className="max-w-2xl text-5xl font-bold leading-none text-foreground">Control users, weapons, and USB-friendly bulk imports.</h1>
+            <h1 className="max-w-2xl text-5xl font-bold leading-none text-foreground">Enter the 4-digit admin PIN.</h1>
             <p className="max-w-xl text-lg text-muted-foreground">
-              Sign in to manage the live range database, export files for USB transfer, and safely review imports before applying changes.
+              This unlocks the admin console for user management, weapon management, and USB-friendly import/export workflows.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -46,55 +42,27 @@ export function AdminAuthCard({ loading, onSignIn, onSignUp, onGoogle }: AdminAu
 
         <Card className="border-border bg-card/95 shadow-2xl shadow-black/20">
           <CardHeader>
-            <CardTitle>Admin sign-in</CardTitle>
-            <CardDescription>Email/password is enabled, and Google sign-in is available for faster access.</CardDescription>
+            <CardTitle>Admin PIN</CardTitle>
+            <CardDescription>Enter the 4-digit code to continue.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button type="button" variant="outline" className="w-full" onClick={() => void onGoogle()} disabled={loading}>
-              <LogIn className="h-4 w-4" />
-              Continue with Google
+            <Input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="••••"
+              value={pin}
+              onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void onVerifyPin(pin);
+                }
+              }}
+              className="h-14 text-center text-3xl tracking-[0.6em]"
+            />
+            <Button className="w-full" onClick={() => void onVerifyPin(pin)} disabled={loading || pin.length !== 4}>
+              {loading ? "Checking PIN..." : "Unlock admin"}
             </Button>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign in</TabsTrigger>
-                <TabsTrigger value="signup">Create admin</TabsTrigger>
-              </TabsList>
-              <TabsContent value="signin" className="space-y-3 pt-3">
-                <Input
-                  type="email"
-                  placeholder="admin@company.com"
-                  value={signInData.email}
-                  onChange={(event) => setSignInData((current) => ({ ...current, email: event.target.value }))}
-                />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={signInData.password}
-                  onChange={(event) => setSignInData((current) => ({ ...current, password: event.target.value }))}
-                />
-                <Button className="w-full" onClick={() => void onSignIn(signInData.email, signInData.password)} disabled={loading}>
-                  Sign in
-                </Button>
-              </TabsContent>
-              <TabsContent value="signup" className="space-y-3 pt-3">
-                <Input
-                  type="email"
-                  placeholder="admin@company.com"
-                  value={signUpData.email}
-                  onChange={(event) => setSignUpData((current) => ({ ...current, email: event.target.value }))}
-                />
-                <Input
-                  type="password"
-                  placeholder="Create a password"
-                  value={signUpData.password}
-                  onChange={(event) => setSignUpData((current) => ({ ...current, password: event.target.value }))}
-                />
-                <Button className="w-full" onClick={() => void onSignUp(signUpData.email, signUpData.password)} disabled={loading}>
-                  Create account
-                </Button>
-                <p className="text-xs text-muted-foreground">Email verification stays on, so new admins must verify before signing in.</p>
-              </TabsContent>
-            </Tabs>
           </CardContent>
         </Card>
       </div>
