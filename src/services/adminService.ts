@@ -1,10 +1,7 @@
-import { lovable } from "@/integrations/lovable";
-import { supabase } from "@/integrations/supabase/client";
-import type { Session } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 import { z } from "zod";
 
-const db = supabase as any;
+const adminApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-panel`;
 
 export const userSchema = z.object({
   user_id: z.string().trim().min(1, "User ID is required").max(80, "User ID is too long"),
@@ -47,6 +44,19 @@ export type UserImportPreviewRow = {
   errors: string[];
   existingId?: string;
 };
+
+type AdminAction =
+  | "verify_pin"
+  | "fetch_users"
+  | "create_user"
+  | "update_user"
+  | "delete_user"
+  | "fetch_weapons"
+  | "create_weapon"
+  | "update_weapon"
+  | "delete_weapon"
+  | "reset_assignments"
+  | "purge_all_users";
 
 function normalizeUserPayload(values: EditableUser) {
   return {
@@ -97,191 +107,78 @@ function extractCell(row: Record<string, unknown>, headers: Record<string, strin
   return "";
 }
 
-async function assertSuccess<T>(promise: PromiseLike<{ data: T; error: { message: string } | null }>, fallback: string) {
-  const { data, error } = await promise;
-  if (error) throw new Error(error.message || fallback);
-  return data;
-}
-
-export async function getSession() {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  return data.session;
-}
-
-export async function signInAdmin(email: string, password: string) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-}
-
-export async function signUpAdmin(email: string, password: string) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${window.location.origin}/admin`,
+async function callAdminApi<T>(pin: string, action: AdminAction, payload: Record<string, unknown> = {}) {
+  const response = await fetch(adminApiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-pin": pin,
     },
+    body: JSON.stringify({ action, ...payload }),
   });
-  if (error) throw error;
-  return data;
-}
 
-export async function signInWithGoogle() {
-  const result = await lovable.auth.signInWithOAuth("google", {
-    redirect_uri: `${window.location.origin}/admin`,
-  });
-  if (result?.error) throw result.error;
-  return result;
-}
-
-export async function signOutAdmin() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
-
-export async function isCurrentUserAdmin(session?: Session | null) {
-  const activeSession = session ?? (await getSession());
-  if (!activeSession?.user) return false;
-  const { data, error } = await db.rpc("has_role", {
-    _user_id: activeSession.user.id,
-    _role: "admin",
-  });
-  if (error) throw new Error(error.message);
-  return Boolean(data);
-}
-
-export async function isAdminBootstrapAvailable() {
-  const { data, error } = await db.rpc("is_admin_bootstrap_available");
-  if (error) throw new Error(error.message);
-  return Boolean(data);
-}
-
-export async function bootstrapFirstAdmin() {
-  const { data, error } = await db.rpc("bootstrap_first_admin");
-  if (error) throw new Error(error.message);
-  return Boolean(data);
-}
-
-export async function fetchUsers(search = "") {
-  let query = supabase.from("users").select("*").order("created_at", { ascending: false });
-  const trimmed = search.trim();
-  if (trimmed) {
-    const q = `%${trimmed}%`;
-    query = query.or(`user_id.ilike.${q},rfid.ilike.${q},first_name.ilike.${q},last_name.ilike.${q}`);
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result?.error || "Admin request failed.");
   }
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as UserRecord[];
+  return result as T;
 }
 
-export async function createUser(values: EditableUser) {
-  const payload = normalizeUserPayload(userSchema.parse(values));
-  const data = await assertSuccess(
-    supabase.from("users").insert(payload).select("*").single(),
-    "Unable to create user",
-  );
-  return data as UserRecord;
-}
-
-export async function updateUser(id: string, values: EditableUser) {
-  const payload = normalizeUserPayload(userSchema.parse(values));
-  const data = await assertSuccess(
-    supabase.from("users").update(payload).eq("id", id).select("*").single(),
-    "Unable to update user",
-  );
-  return data as UserRecord;
-}
-
-export async function deleteUser(id: string) {
-  await assertSuccess(
-    supabase
-      .from("lane_assignments")
-      .update({
-        user_id: null,
-        first_name: null,
-        last_name: null,
-        weapon_id: null,
-        weapon_name: null,
-        weapon_type: null,
-        status: "empty",
-        assigned_at: null,
-      })
-      .eq("user_id", id),
-    "Unable to clear lane assignments",
-  );
-
-  await assertSuccess(
-    supabase.from("weapons").update({ is_assigned: false, assigned_to_user_id: null }).eq("assigned_to_user_id", id),
-    "Unable to reset weapon assignments",
-  );
-
-  await assertSuccess(supabase.from("users").delete().eq("id", id), "Unable to delete user");
-}
-
-export async function fetchWeapons(search = "") {
-  let query = supabase.from("weapons").select("*").order("weapon_id", { ascending: true });
-  const trimmed = search.trim();
-  if (trimmed) {
-    const q = `%${trimmed}%`;
-    query = query.or(`weapon_name.ilike.${q},weapon_type.ilike.${q}`);
+export async function verifyAdminPin(pin: string) {
+  if (!/^\d{4}$/.test(pin)) {
+    throw new Error("Enter a 4-digit PIN.");
   }
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as WeaponRecord[];
+  await callAdminApi(pin, "verify_pin");
 }
 
-export async function createWeapon(values: EditableWeapon) {
+export async function fetchUsers(pin: string, search = "") {
+  const result = await callAdminApi<{ data: UserRecord[] }>(pin, "fetch_users", { search });
+  return result.data ?? [];
+}
+
+export async function createUser(pin: string, values: EditableUser) {
+  const payload = normalizeUserPayload(userSchema.parse(values));
+  const result = await callAdminApi<{ data: UserRecord }>(pin, "create_user", { values: payload });
+  return result.data;
+}
+
+export async function updateUser(pin: string, id: string, values: EditableUser) {
+  const payload = normalizeUserPayload(userSchema.parse(values));
+  const result = await callAdminApi<{ data: UserRecord }>(pin, "update_user", { id, values: payload });
+  return result.data;
+}
+
+export async function deleteUser(pin: string, id: string) {
+  await callAdminApi(pin, "delete_user", { id });
+}
+
+export async function fetchWeapons(pin: string, search = "") {
+  const result = await callAdminApi<{ data: WeaponRecord[] }>(pin, "fetch_weapons", { search });
+  return result.data ?? [];
+}
+
+export async function createWeapon(pin: string, values: EditableWeapon) {
   const payload = normalizeWeaponPayload(weaponSchema.parse(values));
-  const data = await assertSuccess(
-    supabase.from("weapons").insert(payload).select("*").single(),
-    "Unable to create weapon",
-  );
-  return data as WeaponRecord;
+  const result = await callAdminApi<{ data: WeaponRecord }>(pin, "create_weapon", { values: payload });
+  return result.data;
 }
 
-export async function updateWeapon(weaponId: number, values: EditableWeapon) {
+export async function updateWeapon(pin: string, weaponId: number, values: EditableWeapon) {
   const payload = normalizeWeaponPayload(weaponSchema.parse(values));
-  const data = await assertSuccess(
-    supabase.from("weapons").update(payload).eq("weapon_id", weaponId).select("*").single(),
-    "Unable to update weapon",
-  );
-  return data as WeaponRecord;
+  const result = await callAdminApi<{ data: WeaponRecord }>(pin, "update_weapon", { weaponId, values: payload });
+  return result.data;
 }
 
-export async function deleteWeapon(weaponId: number) {
-  await assertSuccess(
-    supabase.from("lane_assignments").update({ weapon_id: null, weapon_name: null, weapon_type: null }).eq("weapon_id", weaponId),
-    "Unable to clear weapon from lanes",
-  );
-  await assertSuccess(supabase.from("weapons").delete().eq("weapon_id", weaponId), "Unable to delete weapon");
+export async function deleteWeapon(pin: string, weaponId: number) {
+  await callAdminApi(pin, "delete_weapon", { weaponId });
 }
 
-export async function resetAssignments() {
-  await assertSuccess(
-    supabase
-      .from("lane_assignments")
-      .update({
-        user_id: null,
-        first_name: null,
-        last_name: null,
-        weapon_id: null,
-        weapon_name: null,
-        weapon_type: null,
-        status: "empty",
-        assigned_at: null,
-      })
-      .not("lane_number", "is", null),
-    "Unable to reset lanes",
-  );
-  await assertSuccess(
-    supabase.from("weapons").update({ is_assigned: false, assigned_to_user_id: null }).not("weapon_id", "is", null),
-    "Unable to reset weapons",
-  );
+export async function resetAssignments(pin: string) {
+  await callAdminApi(pin, "reset_assignments");
 }
 
-export async function purgeAllUsers() {
-  await resetAssignments();
-  await assertSuccess(supabase.from("users").delete().not("id", "is", null), "Unable to purge users");
+export async function purgeAllUsers(pin: string) {
+  await callAdminApi(pin, "purge_all_users");
 }
 
 export async function exportUsers(format: "csv" | "xlsx", rows: UserRecord[]) {
@@ -341,7 +238,7 @@ export async function downloadUserTemplate(format: "csv" | "xlsx") {
   );
 }
 
-export async function parseUserImportFile(file: File, mode: ImportMode) {
+export async function parseUserImportFile(pin: string, file: File, mode: ImportMode) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
   const sheetName = workbook.SheetNames[0];
@@ -354,7 +251,7 @@ export async function parseUserImportFile(file: File, mode: ImportMode) {
 
   if (!rawRows.length) throw new Error("No data rows were found in the selected file.");
 
-  const existingUsers = await fetchUsers();
+  const existingUsers = await fetchUsers(pin);
   const byUserId = new Map(existingUsers.map((user) => [user.user_id.toLowerCase(), user]));
   const byRfid = new Map(existingUsers.map((user) => [user.rfid.toLowerCase(), user]));
   const seenUserIds = new Set<string>();
@@ -400,7 +297,7 @@ export async function parseUserImportFile(file: File, mode: ImportMode) {
   });
 }
 
-export async function importUsersFromPreview(rows: UserImportPreviewRow[], mode: ImportMode) {
+export async function importUsersFromPreview(pin: string, rows: UserImportPreviewRow[], mode: ImportMode) {
   const results = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   for (const row of rows) {
@@ -420,10 +317,10 @@ export async function importUsersFromPreview(rows: UserImportPreviewRow[], mode:
           results.skipped += 1;
           continue;
         }
-        await updateUser(row.existingId, row.values);
+        await updateUser(pin, row.existingId, row.values);
         results.updated += 1;
       } else {
-        await createUser(row.values);
+        await createUser(pin, row.values);
         results.created += 1;
       }
     } catch {
