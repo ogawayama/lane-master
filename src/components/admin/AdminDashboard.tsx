@@ -45,11 +45,11 @@ import {
 } from "@/services/adminService";
 
 interface AdminDashboardProps {
-  email: string;
-  onSignOut: () => Promise<void>;
+  pin: string;
+  onLock: () => void;
 }
 
-export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
+export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [weapons, setWeapons] = useState<WeaponRecord[]>([]);
   const [userSearch, setUserSearch] = useState("");
@@ -76,7 +76,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
   const load = async () => {
     setLoading(true);
     try {
-      const [nextUsers, nextWeapons] = await Promise.all([fetchUsers(userSearch), fetchWeapons(weaponSearch)]);
+      const [nextUsers, nextWeapons] = await Promise.all([fetchUsers(pin, userSearch), fetchWeapons(pin, weaponSearch)]);
       setUsers(nextUsers);
       setWeapons(nextWeapons);
     } catch (error) {
@@ -88,33 +88,33 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [pin]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       void (async () => {
         try {
-          setUsers(await fetchUsers(userSearch));
+          setUsers(await fetchUsers(pin, userSearch));
         } catch {
           return;
         }
       })();
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [userSearch]);
+  }, [pin, userSearch]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       void (async () => {
         try {
-          setWeapons(await fetchWeapons(weaponSearch));
+          setWeapons(await fetchWeapons(pin, weaponSearch));
         } catch {
           return;
         }
       })();
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [weaponSearch]);
+  }, [pin, weaponSearch]);
 
   const withAction = async (action: () => Promise<void>, successMessage: string) => {
     setSaving(true);
@@ -131,8 +131,8 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
 
   const handleUserSave = async (values: EditableUser) => {
     await withAction(async () => {
-      if (editingUser) await updateUser(editingUser.id, values);
-      else await createUser(values);
+      if (editingUser) await updateUser(pin, editingUser.id, values);
+      else await createUser(pin, values);
       setUserDialogOpen(false);
       setEditingUser(null);
     }, editingUser ? "User updated" : "User created");
@@ -140,8 +140,8 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
 
   const handleWeaponSave = async (values: EditableWeapon) => {
     await withAction(async () => {
-      if (editingWeapon) await updateWeapon(editingWeapon.weapon_id, values);
-      else await createWeapon(values);
+      if (editingWeapon) await updateWeapon(pin, editingWeapon.weapon_id, values);
+      else await createWeapon(pin, values);
       setWeaponDialogOpen(false);
       setEditingWeapon(null);
     }, editingWeapon ? "Weapon updated" : "Weapon created");
@@ -150,7 +150,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
   const handleImportFile = async (file: File, mode: ImportMode) => {
     setSaving(true);
     try {
-      const preview = await parseUserImportFile(file, mode);
+      const preview = await parseUserImportFile(pin, file, mode);
       setImportRows(preview);
     } catch (error) {
       toast({ title: "Import file error", description: error instanceof Error ? error.message : "Please try another file.", variant: "destructive" });
@@ -161,7 +161,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
 
   const handleImportApply = async () => {
     await withAction(async () => {
-      const result = await importUsersFromPreview(importRows, importMode);
+      const result = await importUsersFromPreview(pin, importRows, importMode);
       setImportOpen(false);
       setImportRows([]);
       toast({
@@ -181,7 +181,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
               Admin console
             </div>
             <h1 className="mt-4 text-4xl font-bold">Range operations hub</h1>
-            <p className="mt-2 text-muted-foreground">Signed in as {email}. Export files for USB transfer, manage the live roster, and keep the inventory aligned.</p>
+            <p className="mt-2 text-muted-foreground">Admin console unlocked. Export files for USB transfer, manage the live roster, and keep the inventory aligned.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="outline" onClick={() => void load()} disabled={loading}>
@@ -191,9 +191,9 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
             <Button variant="outline" asChild>
               <a href="/" target="_blank" rel="noreferrer">Open kiosk</a>
             </Button>
-            <Button variant="ghost" onClick={() => void onSignOut()}>
+            <Button variant="ghost" onClick={onLock}>
               <LogOut className="h-4 w-4" />
-              Sign out
+              Lock
             </Button>
           </div>
         </header>
@@ -274,7 +274,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => void withAction(() => deleteUser(user.id), "User removed")}>Delete</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => void withAction(() => deleteUser(pin, user.id), "User removed")}>Delete</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -338,7 +338,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => void withAction(() => deleteWeapon(weapon.weapon_id), "Weapon removed")}>Delete</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => void withAction(() => deleteWeapon(pin, weapon.weapon_id), "Weapon removed")}>Delete</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -376,7 +376,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => void withAction(resetAssignments, "Assignments reset")}>Reset</AlertDialogAction>
+                        <AlertDialogAction onClick={() => void withAction(() => resetAssignments(pin), "Assignments reset")}>Reset</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -395,7 +395,7 @@ export function AdminDashboard({ email, onSignOut }: AdminDashboardProps) {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => void withAction(purgeAllUsers, "All users removed")}>Purge</AlertDialogAction>
+                        <AlertDialogAction onClick={() => void withAction(() => purgeAllUsers(pin), "All users removed")}>Purge</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
