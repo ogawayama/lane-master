@@ -165,10 +165,7 @@ export function AdminDashboard() {
     <div className="min-h-screen bg-background px-6 py-6 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="icon" aria-label="Manage weapons" onClick={() => setActivePanel("weapons")}>
-            <Wrench className="h-5 w-5" />
-          </Button>
-          <Button variant="outline" size="icon" aria-label="System actions" onClick={() => setActivePanel("system")}>
+          <Button variant="outline" size="icon" aria-label="System and weapons" onClick={() => setActivePanel("system")}>
             <Settings className="h-5 w-5" />
           </Button>
         </div>
