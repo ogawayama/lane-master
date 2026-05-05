@@ -235,118 +235,119 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Dialog open={activePanel === "weapons"} onOpenChange={(open) => !open && setActivePanel(null)}>
+        <Dialog open={activePanel === "system"} onOpenChange={(open) => !open && setActivePanel(null)}>
           <DialogContent className="max-w-5xl border-border bg-card">
             <DialogHeader>
-              <DialogTitle>Weapon inventory</DialogTitle>
-              <DialogDescription>Track names, types, and assignment state for every range weapon.</DialogDescription>
+              <DialogTitle>Settings</DialogTitle>
+              <DialogDescription>Manage system actions and weapon inventory.</DialogDescription>
             </DialogHeader>
-            <Card className="border-border bg-card/80">
-              <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void exportWeapons("csv", weapons)}><Download className="h-4 w-4" />Export CSV</Button>
-                  <Button variant="outline" onClick={() => void exportWeapons("xlsx", weapons)}><Download className="h-4 w-4" />Export Excel</Button>
-                  <Button onClick={() => { setEditingWeapon(null); setWeaponDialogOpen(true); }}>Add weapon</Button>
+            <Tabs defaultValue="system" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="system">System actions</TabsTrigger>
+                <TabsTrigger value="weapons">Weapon inventory</TabsTrigger>
+              </TabsList>
+              <TabsContent value="system" className="mt-4">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-lg border border-border bg-secondary/30 p-5">
+                    <div className="text-lg font-semibold">Reset lane and weapon assignments</div>
+                    <p className="mt-2 text-sm text-muted-foreground">Clears all active lanes and makes every weapon available again.</p>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button className="mt-4" variant="outline">Reset assignments</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="border-border bg-card">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Reset all assignments?</AlertDialogTitle>
+                          <AlertDialogDescription>This keeps users and weapons, but clears the live operational state.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => void withAction(() => resetAssignments(), "Assignments reset")}>Reset</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                  <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5">
+                    <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><Trash2 className="h-4 w-4 text-destructive" />Purge all users</div>
+                    <p className="mt-2 text-sm text-muted-foreground">Removes every user from the database and clears assignments before deletion.</p>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button className="mt-4" variant="destructive">Purge users</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="border-border bg-card">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Purge all users?</AlertDialogTitle>
+                          <AlertDialogDescription>This permanently deletes every user record. Export a backup before continuing.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => void withAction(() => purgeAllUsers(), "All users removed")}>Purge</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input placeholder="Search by weapon name or type" value={weaponSearch} onChange={(event) => setWeaponSearch(event.target.value)} />
-                <div className="max-h-[50vh] overflow-auto rounded-lg border border-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-[180px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {weapons.length ? weapons.map((weapon) => (
-                        <TableRow key={weapon.weapon_id}>
-                          <TableCell className="font-medium">#{weapon.weapon_id}</TableCell>
-                          <TableCell>{weapon.weapon_name}</TableCell>
-                          <TableCell>{weapon.weapon_type}</TableCell>
-                          <TableCell>{weapon.is_assigned ? "Assigned" : "Available"}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => { setEditingWeapon(weapon); setWeaponDialogOpen(true); }}>Edit</Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="sm" variant="outline">Delete</Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="border-border bg-card">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete this weapon?</AlertDialogTitle>
-                                    <AlertDialogDescription>The weapon will also be removed from any lane currently showing it.</AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => void withAction(() => deleteWeapon(weapon.weapon_id), "Weapon removed")}>Delete</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )) : (
-                        <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No weapons found.</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={activePanel === "system"} onOpenChange={(open) => !open && setActivePanel(null)}>
-          <DialogContent className="max-w-3xl border-border bg-card">
-            <DialogHeader>
-              <DialogTitle>System actions</DialogTitle>
-              <DialogDescription>Use these destructive tools carefully. They affect the live kiosk experience immediately.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-lg border border-border bg-secondary/30 p-5">
-                <div className="text-lg font-semibold">Reset lane and weapon assignments</div>
-                <p className="mt-2 text-sm text-muted-foreground">Clears all active lanes and makes every weapon available again.</p>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button className="mt-4" variant="outline">Reset assignments</Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="border-border bg-card">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Reset all assignments?</AlertDialogTitle>
-                      <AlertDialogDescription>This keeps users and weapons, but clears the live operational state.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => void withAction(() => resetAssignments(), "Assignments reset")}>Reset</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5">
-                <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><Trash2 className="h-4 w-4 text-destructive" />Purge all users</div>
-                <p className="mt-2 text-sm text-muted-foreground">Removes every user from the database and clears assignments before deletion.</p>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button className="mt-4" variant="destructive">Purge users</Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="border-border bg-card">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Purge all users?</AlertDialogTitle>
-                      <AlertDialogDescription>This permanently deletes every user record. Export a backup before continuing.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => void withAction(() => purgeAllUsers(), "All users removed")}>Purge</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
+              </TabsContent>
+              <TabsContent value="weapons" className="mt-4">
+                <Card className="border-border bg-card/80">
+                  <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={() => void exportWeapons("csv", weapons)}><Download className="h-4 w-4" />Export CSV</Button>
+                      <Button variant="outline" onClick={() => void exportWeapons("xlsx", weapons)}><Download className="h-4 w-4" />Export Excel</Button>
+                      <Button onClick={() => { setEditingWeapon(null); setWeaponDialogOpen(true); }}>Add weapon</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Input placeholder="Search by weapon name or type" value={weaponSearch} onChange={(event) => setWeaponSearch(event.target.value)} />
+                    <div className="max-h-[50vh] overflow-auto rounded-lg border border-border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="w-[180px]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {weapons.length ? weapons.map((weapon) => (
+                            <TableRow key={weapon.weapon_id}>
+                              <TableCell className="font-medium">#{weapon.weapon_id}</TableCell>
+                              <TableCell>{weapon.weapon_name}</TableCell>
+                              <TableCell>{weapon.weapon_type}</TableCell>
+                              <TableCell>{weapon.is_assigned ? "Assigned" : "Available"}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => { setEditingWeapon(weapon); setWeaponDialogOpen(true); }}>Edit</Button>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button size="sm" variant="outline">Delete</Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="border-border bg-card">
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete this weapon?</AlertDialogTitle>
+                                        <AlertDialogDescription>The weapon will also be removed from any lane currently showing it.</AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => void withAction(() => deleteWeapon(weapon.weapon_id), "Weapon removed")}>Delete</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )) : (
+                            <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No weapons found.</TableCell></TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
