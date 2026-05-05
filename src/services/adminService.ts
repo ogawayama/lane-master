@@ -70,9 +70,10 @@ type AdminAction =
   | "purge_all_users";
 
 function normalizeUserPayload(values: EditableUser) {
+  const userIdInput = (values.user_id ?? "").trim();
   return {
-    user_id: values.user_id.trim(),
-    rfid: values.rfid.trim(),
+    user_id: userIdInput || generateUserId(),
+    rfid: (values.rfid ?? "").trim() || null,
     first_name: values.first_name.trim(),
     last_name: values.last_name?.trim() || null,
   };
