@@ -44,12 +44,7 @@ import {
   type WeaponRecord,
 } from "@/services/adminService";
 
-interface AdminDashboardProps {
-  pin: string;
-  onLock: () => void;
-}
-
-export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
+export function AdminDashboard() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [weapons, setWeapons] = useState<WeaponRecord[]>([]);
   const [userSearch, setUserSearch] = useState("");
@@ -88,7 +83,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
 
   useEffect(() => {
     void load();
-  }, [pin]);
+  }, []);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -101,7 +96,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
       })();
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [pin, userSearch]);
+  }, [userSearch]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -114,7 +109,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
       })();
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [pin, weaponSearch]);
+  }, [weaponSearch]);
 
   const withAction = async (action: () => Promise<void>, successMessage: string) => {
     setSaving(true);
@@ -190,10 +185,6 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
             </Button>
             <Button variant="outline" asChild>
               <a href="/" target="_blank" rel="noreferrer">Open kiosk</a>
-            </Button>
-            <Button variant="ghost" onClick={onLock}>
-              <LogOut className="h-4 w-4" />
-              Lock
             </Button>
           </div>
         </header>
