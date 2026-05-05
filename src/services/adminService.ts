@@ -4,11 +4,23 @@ import { z } from "zod";
 const adminApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-panel`;
 
 export const userSchema = z.object({
-  user_id: z.string().trim().min(1, "User ID is required").max(80, "User ID is too long"),
-  rfid: z.string().trim().min(1, "RFID is required").max(120, "RFID is too long"),
+  user_id: z
+    .string()
+    .trim()
+    .max(80, "User ID is too long")
+    .refine((value) => value === "" || /^\d{5}$/.test(value), {
+      message: "User ID must be exactly 5 digits",
+    })
+    .optional()
+    .or(z.literal("")),
+  rfid: z.string().trim().max(120, "RFID is too long").optional().or(z.literal("")),
   first_name: z.string().trim().min(1, "First name is required").max(80, "First name is too long"),
   last_name: z.string().trim().max(80, "Last name is too long").optional().or(z.literal("")),
 });
+
+function generateUserId(): string {
+  return Math.floor(10000 + Math.random() * 90000).toString();
+}
 
 export const weaponSchema = z.object({
   weapon_name: z.string().trim().min(1, "Weapon name is required").max(120, "Weapon name is too long"),
@@ -58,9 +70,10 @@ type AdminAction =
   | "purge_all_users";
 
 function normalizeUserPayload(values: EditableUser) {
+  const userIdInput = (values.user_id ?? "").trim();
   return {
-    user_id: values.user_id.trim(),
-    rfid: values.rfid.trim(),
+    user_id: userIdInput || generateUserId(),
+    rfid: (values.rfid ?? "").trim(),
     first_name: values.first_name.trim(),
     last_name: values.last_name?.trim() || null,
   };
