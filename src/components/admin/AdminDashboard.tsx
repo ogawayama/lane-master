@@ -167,7 +167,7 @@ export function AdminDashboard() {
         <Card className="border-border bg-card/80">
           <CardHeader className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
-              <CardTitle>User management</CardTitle>
+              <CardTitle>Admin panel</CardTitle>
               <Button variant="outline" size="icon" aria-label="System and weapons" onClick={() => setActivePanel("system")}>
                 <Settings className="h-5 w-5" />
               </Button>
