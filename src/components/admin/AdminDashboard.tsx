@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Settings, Trash2, Upload } from "lucide-react";
+import { Download, Pencil, Settings, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -194,8 +194,7 @@ export function AdminDashboard() {
                     <TableHead>User ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>RFID</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-[180px]">Actions</TableHead>
+                    <TableHead className="w-[120px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -204,13 +203,16 @@ export function AdminDashboard() {
                       <TableCell className="font-medium">{user.user_id}</TableCell>
                       <TableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ")}</TableCell>
                       <TableCell>{user.rfid}</TableCell>
-                      <TableCell>{new Date(user.created_at).toLocaleString()}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => { setEditingUser(user); setUserDialogOpen(true); }}>Edit</Button>
+                          <Button size="icon" variant="outline" aria-label="Edit user" onClick={() => { setEditingUser(user); setUserDialogOpen(true); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button size="sm" variant="outline">Delete</Button>
+                              <Button size="icon" variant="outline" aria-label="Delete user">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent className="border-border bg-card">
                               <AlertDialogHeader>
@@ -227,7 +229,7 @@ export function AdminDashboard() {
                       </TableCell>
                     </TableRow>
                   )) : (
-                    <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No users found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="py-10 text-center text-muted-foreground">No users found.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
