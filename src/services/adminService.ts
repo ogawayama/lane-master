@@ -46,7 +46,6 @@ export type UserImportPreviewRow = {
 };
 
 type AdminAction =
-  | "verify_pin"
   | "fetch_users"
   | "create_user"
   | "update_user"
@@ -107,13 +106,10 @@ function extractCell(row: Record<string, unknown>, headers: Record<string, strin
   return "";
 }
 
-async function callAdminApi<T>(pin: string, action: AdminAction, payload: Record<string, unknown> = {}) {
+async function callAdminApi<T>(action: AdminAction, payload: Record<string, unknown> = {}) {
   const response = await fetch(adminApiUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-admin-pin": pin,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, ...payload }),
   });
 
@@ -124,61 +120,54 @@ async function callAdminApi<T>(pin: string, action: AdminAction, payload: Record
   return result as T;
 }
 
-export async function verifyAdminPin(pin: string) {
-  if (!/^\d{4}$/.test(pin)) {
-    throw new Error("Enter a 4-digit PIN.");
-  }
-  await callAdminApi(pin, "verify_pin");
-}
-
-export async function fetchUsers(pin: string, search = "") {
-  const result = await callAdminApi<{ data: UserRecord[] }>(pin, "fetch_users", { search });
+export async function fetchUsers(search = "") {
+  const result = await callAdminApi<{ data: UserRecord[] }>("fetch_users", { search });
   return result.data ?? [];
 }
 
-export async function createUser(pin: string, values: EditableUser) {
+export async function createUser(values: EditableUser) {
   const payload = normalizeUserPayload(userSchema.parse(values));
-  const result = await callAdminApi<{ data: UserRecord }>(pin, "create_user", { values: payload });
+  const result = await callAdminApi<{ data: UserRecord }>("create_user", { values: payload });
   return result.data;
 }
 
-export async function updateUser(pin: string, id: string, values: EditableUser) {
+export async function updateUser(id: string, values: EditableUser) {
   const payload = normalizeUserPayload(userSchema.parse(values));
-  const result = await callAdminApi<{ data: UserRecord }>(pin, "update_user", { id, values: payload });
+  const result = await callAdminApi<{ data: UserRecord }>("update_user", { id, values: payload });
   return result.data;
 }
 
-export async function deleteUser(pin: string, id: string) {
-  await callAdminApi(pin, "delete_user", { id });
+export async function deleteUser(id: string) {
+  await callAdminApi("delete_user", { id });
 }
 
-export async function fetchWeapons(pin: string, search = "") {
-  const result = await callAdminApi<{ data: WeaponRecord[] }>(pin, "fetch_weapons", { search });
+export async function fetchWeapons(search = "") {
+  const result = await callAdminApi<{ data: WeaponRecord[] }>("fetch_weapons", { search });
   return result.data ?? [];
 }
 
-export async function createWeapon(pin: string, values: EditableWeapon) {
+export async function createWeapon(values: EditableWeapon) {
   const payload = normalizeWeaponPayload(weaponSchema.parse(values));
-  const result = await callAdminApi<{ data: WeaponRecord }>(pin, "create_weapon", { values: payload });
+  const result = await callAdminApi<{ data: WeaponRecord }>("create_weapon", { values: payload });
   return result.data;
 }
 
-export async function updateWeapon(pin: string, weaponId: number, values: EditableWeapon) {
+export async function updateWeapon(weaponId: number, values: EditableWeapon) {
   const payload = normalizeWeaponPayload(weaponSchema.parse(values));
-  const result = await callAdminApi<{ data: WeaponRecord }>(pin, "update_weapon", { weaponId, values: payload });
+  const result = await callAdminApi<{ data: WeaponRecord }>("update_weapon", { weaponId, values: payload });
   return result.data;
 }
 
-export async function deleteWeapon(pin: string, weaponId: number) {
-  await callAdminApi(pin, "delete_weapon", { weaponId });
+export async function deleteWeapon(weaponId: number) {
+  await callAdminApi("delete_weapon", { weaponId });
 }
 
-export async function resetAssignments(pin: string) {
-  await callAdminApi(pin, "reset_assignments");
+export async function resetAssignments() {
+  await callAdminApi("reset_assignments");
 }
 
-export async function purgeAllUsers(pin: string) {
-  await callAdminApi(pin, "purge_all_users");
+export async function purgeAllUsers() {
+  await callAdminApi("purge_all_users");
 }
 
 export async function exportUsers(format: "csv" | "xlsx", rows: UserRecord[]) {
@@ -238,7 +227,7 @@ export async function downloadUserTemplate(format: "csv" | "xlsx") {
   );
 }
 
-export async function parseUserImportFile(pin: string, file: File, mode: ImportMode) {
+export async function parseUserImportFile(file: File, mode: ImportMode) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
   const sheetName = workbook.SheetNames[0];
@@ -251,7 +240,7 @@ export async function parseUserImportFile(pin: string, file: File, mode: ImportM
 
   if (!rawRows.length) throw new Error("No data rows were found in the selected file.");
 
-  const existingUsers = await fetchUsers(pin);
+  const existingUsers = await fetchUsers();
   const byUserId = new Map(existingUsers.map((user) => [user.user_id.toLowerCase(), user]));
   const byRfid = new Map(existingUsers.map((user) => [user.rfid.toLowerCase(), user]));
   const seenUserIds = new Set<string>();
@@ -297,7 +286,7 @@ export async function parseUserImportFile(pin: string, file: File, mode: ImportM
   });
 }
 
-export async function importUsersFromPreview(pin: string, rows: UserImportPreviewRow[], mode: ImportMode) {
+export async function importUsersFromPreview(rows: UserImportPreviewRow[], mode: ImportMode) {
   const results = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   for (const row of rows) {
@@ -317,10 +306,10 @@ export async function importUsersFromPreview(pin: string, rows: UserImportPrevie
           results.skipped += 1;
           continue;
         }
-        await updateUser(pin, row.existingId, row.values);
+        await updateUser(row.existingId, row.values);
         results.updated += 1;
       } else {
-        await createUser(pin, row.values);
+        await createUser(row.values);
         results.created += 1;
       }
     } catch {

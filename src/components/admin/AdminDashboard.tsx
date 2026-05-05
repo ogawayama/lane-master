@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, LogOut, RefreshCw, Shield, Trash2, Upload, Users2, Wrench } from "lucide-react";
+import { Download, RefreshCw, Shield, Trash2, Upload, Users2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,12 +44,7 @@ import {
   type WeaponRecord,
 } from "@/services/adminService";
 
-interface AdminDashboardProps {
-  pin: string;
-  onLock: () => void;
-}
-
-export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
+export function AdminDashboard() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [weapons, setWeapons] = useState<WeaponRecord[]>([]);
   const [userSearch, setUserSearch] = useState("");
@@ -76,7 +71,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
   const load = async () => {
     setLoading(true);
     try {
-      const [nextUsers, nextWeapons] = await Promise.all([fetchUsers(pin, userSearch), fetchWeapons(pin, weaponSearch)]);
+      const [nextUsers, nextWeapons] = await Promise.all([fetchUsers(userSearch), fetchWeapons(weaponSearch)]);
       setUsers(nextUsers);
       setWeapons(nextWeapons);
     } catch (error) {
@@ -88,33 +83,33 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
 
   useEffect(() => {
     void load();
-  }, [pin]);
+  }, []);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       void (async () => {
         try {
-          setUsers(await fetchUsers(pin, userSearch));
+          setUsers(await fetchUsers(userSearch));
         } catch {
           return;
         }
       })();
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [pin, userSearch]);
+  }, [userSearch]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       void (async () => {
         try {
-          setWeapons(await fetchWeapons(pin, weaponSearch));
+          setWeapons(await fetchWeapons(weaponSearch));
         } catch {
           return;
         }
       })();
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [pin, weaponSearch]);
+  }, [weaponSearch]);
 
   const withAction = async (action: () => Promise<void>, successMessage: string) => {
     setSaving(true);
@@ -131,8 +126,8 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
 
   const handleUserSave = async (values: EditableUser) => {
     await withAction(async () => {
-      if (editingUser) await updateUser(pin, editingUser.id, values);
-      else await createUser(pin, values);
+      if (editingUser) await updateUser(editingUser.id, values);
+      else await createUser(values);
       setUserDialogOpen(false);
       setEditingUser(null);
     }, editingUser ? "User updated" : "User created");
@@ -140,8 +135,8 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
 
   const handleWeaponSave = async (values: EditableWeapon) => {
     await withAction(async () => {
-      if (editingWeapon) await updateWeapon(pin, editingWeapon.weapon_id, values);
-      else await createWeapon(pin, values);
+      if (editingWeapon) await updateWeapon(editingWeapon.weapon_id, values);
+      else await createWeapon(values);
       setWeaponDialogOpen(false);
       setEditingWeapon(null);
     }, editingWeapon ? "Weapon updated" : "Weapon created");
@@ -150,7 +145,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
   const handleImportFile = async (file: File, mode: ImportMode) => {
     setSaving(true);
     try {
-      const preview = await parseUserImportFile(pin, file, mode);
+      const preview = await parseUserImportFile(file, mode);
       setImportRows(preview);
     } catch (error) {
       toast({ title: "Import file error", description: error instanceof Error ? error.message : "Please try another file.", variant: "destructive" });
@@ -161,7 +156,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
 
   const handleImportApply = async () => {
     await withAction(async () => {
-      const result = await importUsersFromPreview(pin, importRows, importMode);
+      const result = await importUsersFromPreview(importRows, importMode);
       setImportOpen(false);
       setImportRows([]);
       toast({
@@ -190,10 +185,6 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
             </Button>
             <Button variant="outline" asChild>
               <a href="/" target="_blank" rel="noreferrer">Open kiosk</a>
-            </Button>
-            <Button variant="ghost" onClick={onLock}>
-              <LogOut className="h-4 w-4" />
-              Lock
             </Button>
           </div>
         </header>
@@ -274,7 +265,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => void withAction(() => deleteUser(pin, user.id), "User removed")}>Delete</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => void withAction(() => deleteUser(user.id), "User removed")}>Delete</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -338,7 +329,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => void withAction(() => deleteWeapon(pin, weapon.weapon_id), "Weapon removed")}>Delete</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => void withAction(() => deleteWeapon(weapon.weapon_id), "Weapon removed")}>Delete</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -376,7 +367,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => void withAction(() => resetAssignments(pin), "Assignments reset")}>Reset</AlertDialogAction>
+                        <AlertDialogAction onClick={() => void withAction(() => resetAssignments(), "Assignments reset")}>Reset</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -395,7 +386,7 @@ export function AdminDashboard({ pin, onLock }: AdminDashboardProps) {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => void withAction(() => purgeAllUsers(pin), "All users removed")}>Purge</AlertDialogAction>
+                        <AlertDialogAction onClick={() => void withAction(() => purgeAllUsers(), "All users removed")}>Purge</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
