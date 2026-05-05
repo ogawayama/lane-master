@@ -183,6 +183,14 @@ export async function purgeAllUsers() {
   await callAdminApi("purge_all_users");
 }
 
+const DEMO_RFIDS = ["3649677676", "1576136972", "3910084941", "3915443597", "2731977834"];
+
+export async function resetDemoMode() {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { error } = await supabase.from("users").update({ rfid: null }).in("rfid", DEMO_RFIDS);
+  if (error) throw new Error(error.message);
+}
+
 export async function exportUsers(format: "csv" | "xlsx", rows: UserRecord[]) {
   const payload = toWorksheetRows(rows.map(({ user_id, rfid, first_name, last_name }) => ({ user_id, rfid, first_name, last_name })));
   const sheet = XLSX.utils.json_to_sheet(payload);
