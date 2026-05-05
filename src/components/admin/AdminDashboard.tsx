@@ -186,7 +186,7 @@ export function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Input placeholder="Search by name, user ID, or RFID" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
+            <Input placeholder="Search by name or user ID" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
             <div className="overflow-hidden rounded-lg border border-border">
               <Table>
                 <TableHeader>
