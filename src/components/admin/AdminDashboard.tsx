@@ -172,6 +172,8 @@ export function AdminDashboard() {
                 <Settings className="h-5 w-5" />
               </Button>
             </div>
+          </CardHeader>
+          <CardContent>
             <div className="flex flex-1 flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => void exportUsers("xlsx", users)}><Download className="h-4 w-4" />Export</Button>
@@ -179,6 +181,12 @@ export function AdminDashboard() {
               </div>
               <Button onClick={() => { setEditingUser(null); setUserDialogOpen(true); }}>Add user</Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card/80">
+          <CardHeader>
+            <CardTitle>Users</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input placeholder="Search by name or user ID" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
