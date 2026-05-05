@@ -283,6 +283,11 @@ export function AdminDashboard() {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
+                  <div className="rounded-lg border border-border bg-secondary/30 p-5">
+                    <div className="text-lg font-semibold">User import template</div>
+                    <p className="mt-2 text-sm text-muted-foreground">Download the Excel template used for bulk importing users.</p>
+                    <Button className="mt-4" variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Download template</Button>
+                  </div>
                 </div>
               </TabsContent>
               <TabsContent value="weapons" className="mt-4">
