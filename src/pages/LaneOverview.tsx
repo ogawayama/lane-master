@@ -9,8 +9,17 @@ import {
 "@/services/assignmentService";
 import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
 
-export default function LaneOverview() {
+interface LaneOverviewProps {
+  heading?: string;
+  themeHsl?: string;
+}
+
+export default function LaneOverview({ heading = "FIND YOUR LANE", themeHsl }: LaneOverviewProps = {}) {
   const [lanes, setLanes] = useState<LaneAssignment[]>([]);
+
+  const themeStyle = themeHsl
+    ? ({ ["--primary" as string]: themeHsl, ["--ring" as string]: themeHsl } as React.CSSProperties)
+    : undefined;
 
   useEffect(() => {
     // Initial fetch
@@ -25,13 +34,13 @@ export default function LaneOverview() {
   const allOccupied = occupiedCount === 5;
 
   return (
-    <div className="flex min-h-screen flex-col p-8">
+    <div className="flex min-h-screen flex-col p-8" style={themeStyle}>
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <Shield className="h-8 w-8 text-primary" />
           <span className="font-bold tracking-wide text-primary text-4xl font-sans">
-            FIND YOUR LANE
+            {heading}
           </span>
         </div>
         <div className="flex items-center gap-4">

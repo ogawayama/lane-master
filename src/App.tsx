@@ -8,7 +8,10 @@ import LoginScreen from "./pages/LoginScreen";
 import OdtScreen from "./pages/OdtScreen";
 import LiveFireScreen from "./pages/LiveFireScreen";
 import Qm360Screen from "./pages/Qm360Screen";
-import LaneOverview from "./pages/LaneOverview";
+import IdtLanes from "./pages/IdtLanes";
+import OdtLanes from "./pages/OdtLanes";
+import LiveFireLanes from "./pages/LiveFireLanes";
+import Qm360Lanes from "./pages/Qm360Lanes";
 import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
@@ -26,7 +29,10 @@ const App = () => (
           <Route path="/odt" element={<OdtScreen />} />
           <Route path="/live-fire" element={<LiveFireScreen />} />
           <Route path="/qm360" element={<Qm360Screen />} />
-          <Route path="/lanes" element={<LaneOverview />} />
+          <Route path="/idt/lanes" element={<IdtLanes />} />
+          <Route path="/odt/lanes" element={<OdtLanes />} />
+          <Route path="/live-fire/lanes" element={<LiveFireLanes />} />
+          <Route path="/qm360/lanes" element={<Qm360Lanes />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
