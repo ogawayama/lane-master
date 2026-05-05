@@ -98,7 +98,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string | null
-          rfid: string
+          rfid: string | null
           updated_at: string
           user_id: string
         }
@@ -107,7 +107,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name?: string | null
-          rfid: string
+          rfid?: string | null
           updated_at?: string
           user_id: string
         }
@@ -116,7 +116,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string | null
-          rfid?: string
+          rfid?: string | null
           updated_at?: string
           user_id?: string
         }
