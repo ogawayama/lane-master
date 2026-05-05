@@ -44,7 +44,7 @@ import {
   type WeaponRecord,
 } from "@/services/adminService";
 
-type Panel = "users" | "weapons" | "system" | null;
+type Panel = "weapons" | "system" | null;
 
 export function AdminDashboard() {
   const [users, setUsers] = useState<UserRecord[]>([]);
