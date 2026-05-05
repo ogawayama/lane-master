@@ -173,7 +173,6 @@ export function AdminDashboard() {
               </Button>
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-between gap-2">
-              <Button variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Download template</Button>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => void exportUsers("xlsx", users)}><Download className="h-4 w-4" />Export</Button>
                 <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
@@ -283,6 +282,11 @@ export function AdminDashboard() {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                  </div>
+                  <div className="rounded-lg border border-border bg-secondary/30 p-5">
+                    <div className="text-lg font-semibold">User import template</div>
+                    <p className="mt-2 text-sm text-muted-foreground">Download the Excel template used for bulk importing users.</p>
+                    <Button className="mt-4" variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Download template</Button>
                   </div>
                 </div>
               </TabsContent>
