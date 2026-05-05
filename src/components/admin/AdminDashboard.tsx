@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, Shield, Trash2, Upload, Users2, Wrench } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Settings, Trash2, Upload, Users2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,12 +44,15 @@ import {
   type WeaponRecord,
 } from "@/services/adminService";
 
+type Panel = "users" | "weapons" | "system" | null;
+
 export function AdminDashboard() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [weapons, setWeapons] = useState<WeaponRecord[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [weaponSearch, setWeaponSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
+  const [activePanel, setActivePanel] = useState<Panel>(null);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [weaponDialogOpen, setWeaponDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -58,15 +61,6 @@ export function AdminDashboard() {
   const [editingWeapon, setEditingWeapon] = useState<WeaponRecord | null>(null);
   const [importRows, setImportRows] = useState<UserImportPreviewRow[]>([]);
   const [importMode, setImportMode] = useState<ImportMode>("skip");
-
-  const stats = useMemo(
-    () => ({
-      users: users.length,
-      weapons: weapons.length,
-      assigned: weapons.filter((weapon) => weapon.is_assigned).length,
-    }),
-    [users, weapons],
-  );
 
   const load = async () => {
     setLoading(true);
@@ -169,20 +163,26 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background px-6 py-6 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
-        <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid h-auto w-full grid-cols-3 bg-secondary/70">
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="weapons">Weapons</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
-          </TabsList>
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="outline" size="icon" aria-label="Manage users" onClick={() => setActivePanel("users")}>
+            <Users2 className="h-5 w-5" />
+          </Button>
+          <Button variant="outline" size="icon" aria-label="Manage weapons" onClick={() => setActivePanel("weapons")}>
+            <Wrench className="h-5 w-5" />
+          </Button>
+          <Button variant="outline" size="icon" aria-label="System actions" onClick={() => setActivePanel("system")}>
+            <Settings className="h-5 w-5" />
+          </Button>
+        </div>
 
-          <TabsContent value="users" className="space-y-4">
+        <Dialog open={activePanel === "users"} onOpenChange={(open) => !open && setActivePanel(null)}>
+          <DialogContent className="max-w-5xl border-border bg-card">
+            <DialogHeader>
+              <DialogTitle>User management</DialogTitle>
+              <DialogDescription>Search, edit, bulk import, and export user records for USB-based admin workflows.</DialogDescription>
+            </DialogHeader>
             <Card className="border-border bg-card/80">
               <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <CardTitle>User management</CardTitle>
-                  <CardDescription>Search, edit, bulk import, and export user records for USB-based admin workflows.</CardDescription>
-                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => void downloadUserTemplate("csv")}><Download className="h-4 w-4" />CSV template</Button>
                   <Button variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Excel template</Button>
@@ -194,7 +194,7 @@ export function AdminDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Input placeholder="Search by name, user ID, or RFID" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
-                <div className="overflow-hidden rounded-lg border border-border">
+                <div className="max-h-[50vh] overflow-auto rounded-lg border border-border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -241,15 +241,17 @@ export function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </DialogContent>
+        </Dialog>
 
-          <TabsContent value="weapons" className="space-y-4">
+        <Dialog open={activePanel === "weapons"} onOpenChange={(open) => !open && setActivePanel(null)}>
+          <DialogContent className="max-w-5xl border-border bg-card">
+            <DialogHeader>
+              <DialogTitle>Weapon inventory</DialogTitle>
+              <DialogDescription>Track names, types, and assignment state for every range weapon.</DialogDescription>
+            </DialogHeader>
             <Card className="border-border bg-card/80">
               <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <CardTitle>Weapon inventory</CardTitle>
-                  <CardDescription>Track names, types, and assignment state for every range weapon.</CardDescription>
-                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => void exportWeapons("csv", weapons)}><Download className="h-4 w-4" />Export CSV</Button>
                   <Button variant="outline" onClick={() => void exportWeapons("xlsx", weapons)}><Download className="h-4 w-4" />Export Excel</Button>
@@ -258,7 +260,7 @@ export function AdminDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Input placeholder="Search by weapon name or type" value={weaponSearch} onChange={(event) => setWeaponSearch(event.target.value)} />
-                <div className="overflow-hidden rounded-lg border border-border">
+                <div className="max-h-[50vh] overflow-auto rounded-lg border border-border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -305,57 +307,57 @@ export function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </DialogContent>
+        </Dialog>
 
-          <TabsContent value="system" className="space-y-4">
-            <Card className="border-border bg-card/80">
-              <CardHeader>
-                <CardTitle>System actions</CardTitle>
-                <CardDescription>Use these destructive tools carefully. They affect the live kiosk experience immediately.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-lg border border-border bg-secondary/30 p-5">
-                  <div className="text-lg font-semibold">Reset lane and weapon assignments</div>
-                  <p className="mt-2 text-sm text-muted-foreground">Clears all active lanes and makes every weapon available again.</p>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button className="mt-4" variant="outline">Reset assignments</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="border-border bg-card">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Reset all assignments?</AlertDialogTitle>
-                        <AlertDialogDescription>This keeps users and weapons, but clears the live operational state.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => void withAction(() => resetAssignments(), "Assignments reset")}>Reset</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5">
-                  <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><Trash2 className="h-4 w-4 text-destructive" />Purge all users</div>
-                  <p className="mt-2 text-sm text-muted-foreground">Removes every user from the database and clears assignments before deletion.</p>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button className="mt-4" variant="destructive">Purge users</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="border-border bg-card">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Purge all users?</AlertDialogTitle>
-                        <AlertDialogDescription>This permanently deletes every user record. Export a backup before continuing.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => void withAction(() => purgeAllUsers(), "All users removed")}>Purge</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <Dialog open={activePanel === "system"} onOpenChange={(open) => !open && setActivePanel(null)}>
+          <DialogContent className="max-w-3xl border-border bg-card">
+            <DialogHeader>
+              <DialogTitle>System actions</DialogTitle>
+              <DialogDescription>Use these destructive tools carefully. They affect the live kiosk experience immediately.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border border-border bg-secondary/30 p-5">
+                <div className="text-lg font-semibold">Reset lane and weapon assignments</div>
+                <p className="mt-2 text-sm text-muted-foreground">Clears all active lanes and makes every weapon available again.</p>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button className="mt-4" variant="outline">Reset assignments</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="border-border bg-card">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Reset all assignments?</AlertDialogTitle>
+                      <AlertDialogDescription>This keeps users and weapons, but clears the live operational state.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => void withAction(() => resetAssignments(), "Assignments reset")}>Reset</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5">
+                <div className="flex items-center gap-2 text-lg font-semibold text-foreground"><Trash2 className="h-4 w-4 text-destructive" />Purge all users</div>
+                <p className="mt-2 text-sm text-muted-foreground">Removes every user from the database and clears assignments before deletion.</p>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button className="mt-4" variant="destructive">Purge users</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="border-border bg-card">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Purge all users?</AlertDialogTitle>
+                      <AlertDialogDescription>This permanently deletes every user record. Export a backup before continuing.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => void withAction(() => purgeAllUsers(), "All users removed")}>Purge</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <UserFormDialog open={userDialogOpen} user={editingUser} saving={saving} onOpenChange={(open) => { setUserDialogOpen(open); if (!open) setEditingUser(null); }} onSave={handleUserSave} />
