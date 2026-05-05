@@ -166,11 +166,6 @@ export default function LoginScreen() {
       </div>
       <div className="absolute top-6 right-8 flex items-center gap-4">
         <ConnectionStatus />
-        <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-primary">
-          <a href="/admin">
-            <Settings className="mr-1 h-4 w-4" /> Admin
-          </a>
-        </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
