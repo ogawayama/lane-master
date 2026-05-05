@@ -35,6 +35,7 @@ import {
   parseUserImportFile,
   purgeAllUsers,
   resetAssignments,
+  resetDemoMode,
   updateUser,
   updateWeapon,
   type EditableUser,
