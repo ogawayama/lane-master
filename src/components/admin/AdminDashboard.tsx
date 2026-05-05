@@ -169,45 +169,6 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background px-6 py-6 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 rounded-lg border border-border bg-card/80 p-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              <Shield className="h-4 w-4 text-primary" />
-              Admin console
-            </div>
-            <h1 className="mt-4 text-4xl font-bold">Range operations hub</h1>
-            <p className="mt-2 text-muted-foreground">Admin console unlocked. Export files for USB transfer, manage the live roster, and keep the inventory aligned.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" onClick={() => void load()} disabled={loading}>
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
-            <Button variant="outline" asChild>
-              <a href="/" target="_blank" rel="noreferrer">Open kiosk</a>
-            </Button>
-          </div>
-        </header>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          {[
-            ["Users", String(stats.users), "Registered in the system", <Users2 className="h-4 w-4 text-primary" key="users" />],
-            ["Weapons", String(stats.weapons), "Tracked in the inventory", <Wrench className="h-4 w-4 text-primary" key="weapons" />],
-            ["Assigned", String(stats.assigned), "Currently active on the range", <Shield className="h-4 w-4 text-primary" key="assigned" />],
-          ].map(([title, value, description, icon]) => (
-            <Card key={String(title)} className="border-border bg-card/80">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">{title}</CardTitle>
-                {icon}
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-foreground">{value}</div>
-                <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
         <Tabs defaultValue="users" className="space-y-4">
           <TabsList className="grid h-auto w-full grid-cols-3 bg-secondary/70">
             <TabsTrigger value="users">Users</TabsTrigger>
