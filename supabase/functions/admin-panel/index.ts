@@ -103,15 +103,8 @@ serve(async (request) => {
 
   try {
     const body = await request.json();
-    const pin = request.headers.get("x-admin-pin") ?? body?.pin;
-    requirePin(pin);
-
     const action = String(body?.action ?? "");
     const search = String(body?.search ?? "").trim();
-
-    if (action === "verify_pin") {
-      return json(200, { ok: true });
-    }
 
     if (action === "fetch_users") {
       let query = supabase.from("users").select("*").order("created_at", { ascending: false });
