@@ -15,7 +15,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 type UserPayload = {
   user_id: string;
-  rfid: string;
+  rfid: string | null;
   first_name: string;
   last_name?: string | null;
 };
