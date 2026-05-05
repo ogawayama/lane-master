@@ -176,10 +176,12 @@ export function AdminDashboard() {
               <CardTitle>User management</CardTitle>
               <CardDescription>Search, edit, bulk import, and export user records for USB-based admin workflows.</CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-1 flex-wrap items-center justify-between gap-2">
               <Button variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Download template</Button>
-              <Button variant="outline" onClick={() => void exportUsers("xlsx", users)}><Download className="h-4 w-4" />Export</Button>
-              <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => void exportUsers("xlsx", users)}><Download className="h-4 w-4" />Export</Button>
+                <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
+              </div>
               <Button onClick={() => { setEditingUser(null); setUserDialogOpen(true); }}>Add user</Button>
             </div>
           </CardHeader>
