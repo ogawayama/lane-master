@@ -51,7 +51,7 @@ function parseUserPayload(values: unknown): UserPayload {
   const payload = values as Record<string, unknown>;
   return {
     user_id: normalizeText(payload?.user_id, "User ID", 80),
-    rfid: normalizeText(payload?.rfid, "RFID", 120),
+    rfid: normalizeOptionalText(payload?.rfid, 120) ?? "",
     first_name: normalizeText(payload?.first_name, "First name", 80),
     last_name: normalizeOptionalText(payload?.last_name, 80),
   };
