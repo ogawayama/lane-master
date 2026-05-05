@@ -166,27 +166,6 @@ export default function LoginScreen() {
       </div>
       <div className="absolute top-6 right-8 flex items-center gap-4">
         <ConnectionStatus />
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-              <RotateCcw className="h-4 w-4 mr-1" /> Reset
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent className="bg-card border-border">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reset All Assignments</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will clear all lane assignments and mark all weapons as available. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleReset} className="bg-destructive text-destructive-foreground">
-                Reset All
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
 
       {/* Hidden RFID input */}
