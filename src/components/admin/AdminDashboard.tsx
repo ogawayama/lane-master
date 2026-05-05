@@ -164,17 +164,13 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background px-6 py-6 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="icon" aria-label="System and weapons" onClick={() => setActivePanel("system")}>
-            <Settings className="h-5 w-5" />
-          </Button>
-        </div>
-
         <Card className="border-border bg-card/80">
-          <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+          <CardHeader className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
               <CardTitle>User management</CardTitle>
-              
+              <Button variant="outline" size="icon" aria-label="System and weapons" onClick={() => setActivePanel("system")}>
+                <Settings className="h-5 w-5" />
+              </Button>
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-between gap-2">
               <Button variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Download template</Button>
