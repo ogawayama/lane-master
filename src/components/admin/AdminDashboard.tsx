@@ -174,7 +174,7 @@ export function AdminDashboard() {
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle>User management</CardTitle>
-              <CardDescription>Search, edit, bulk import, and export user records for USB-based admin workflows.</CardDescription>
+              
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-between gap-2">
               <Button variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Download template</Button>
