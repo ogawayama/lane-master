@@ -297,6 +297,25 @@ export function AdminDashboard() {
                     <p className="mt-2 text-sm text-muted-foreground">Download the Excel template used for bulk importing users.</p>
                     <Button className="mt-4" variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Download template</Button>
                   </div>
+                  <div className="rounded-lg border border-border bg-secondary/30 p-5">
+                    <div className="text-lg font-semibold">Reset demo mode</div>
+                    <p className="mt-2 text-sm text-muted-foreground">Clears the RFID values for the predefined demo user tags.</p>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button className="mt-4" variant="outline">Reset demo mode</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="border-border bg-card">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Reset demo mode?</AlertDialogTitle>
+                          <AlertDialogDescription>This clears the RFID values for the 5 predefined demo tags so they can be reassigned.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => void withAction(() => resetDemoMode(), "Demo mode reset")}>Reset</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </TabsContent>
               <TabsContent value="weapons" className="mt-4">
