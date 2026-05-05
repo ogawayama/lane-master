@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Settings, Trash2, Upload, Users2, Wrench } from "lucide-react";
+import { Download, Settings, Trash2, Upload, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,7 @@ import {
   type WeaponRecord,
 } from "@/services/adminService";
 
-type Panel = "users" | "weapons" | "system" | null;
+type Panel = "weapons" | "system" | null;
 
 export function AdminDashboard() {
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -164,9 +164,6 @@ export function AdminDashboard() {
     <div className="min-h-screen bg-background px-6 py-6 text-foreground">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="icon" aria-label="Manage users" onClick={() => setActivePanel("users")}>
-            <Users2 className="h-5 w-5" />
-          </Button>
           <Button variant="outline" size="icon" aria-label="Manage weapons" onClick={() => setActivePanel("weapons")}>
             <Wrench className="h-5 w-5" />
           </Button>
@@ -175,74 +172,70 @@ export function AdminDashboard() {
           </Button>
         </div>
 
-        <Dialog open={activePanel === "users"} onOpenChange={(open) => !open && setActivePanel(null)}>
-          <DialogContent className="max-w-5xl border-border bg-card">
-            <DialogHeader>
-              <DialogTitle>User management</DialogTitle>
-              <DialogDescription>Search, edit, bulk import, and export user records for USB-based admin workflows.</DialogDescription>
-            </DialogHeader>
-            <Card className="border-border bg-card/80">
-              <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void downloadUserTemplate("csv")}><Download className="h-4 w-4" />CSV template</Button>
-                  <Button variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Excel template</Button>
-                  <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
-                  <Button variant="outline" onClick={() => void exportUsers("csv", users)}><Download className="h-4 w-4" />Export CSV</Button>
-                  <Button variant="outline" onClick={() => void exportUsers("xlsx", users)}><Download className="h-4 w-4" />Export Excel</Button>
-                  <Button onClick={() => { setEditingUser(null); setUserDialogOpen(true); }}>Add user</Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input placeholder="Search by name, user ID, or RFID" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
-                <div className="max-h-[50vh] overflow-auto rounded-lg border border-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>RFID</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead className="w-[180px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.length ? users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.user_id}</TableCell>
-                          <TableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ")}</TableCell>
-                          <TableCell>{user.rfid}</TableCell>
-                          <TableCell>{new Date(user.created_at).toLocaleString()}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => { setEditingUser(user); setUserDialogOpen(true); }}>Edit</Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="sm" variant="outline">Delete</Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="border-border bg-card">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete this user?</AlertDialogTitle>
-                                    <AlertDialogDescription>This also clears any active lane or weapon assignment linked to the user.</AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => void withAction(() => deleteUser(user.id), "User removed")}>Delete</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )) : (
-                        <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No users found.</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </DialogContent>
-        </Dialog>
+        <Card className="border-border bg-card/80">
+          <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle>User management</CardTitle>
+              <CardDescription>Search, edit, bulk import, and export user records for USB-based admin workflows.</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => void downloadUserTemplate("csv")}><Download className="h-4 w-4" />CSV template</Button>
+              <Button variant="outline" onClick={() => void downloadUserTemplate("xlsx")}><Download className="h-4 w-4" />Excel template</Button>
+              <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
+              <Button variant="outline" onClick={() => void exportUsers("csv", users)}><Download className="h-4 w-4" />Export CSV</Button>
+              <Button variant="outline" onClick={() => void exportUsers("xlsx", users)}><Download className="h-4 w-4" />Export Excel</Button>
+              <Button onClick={() => { setEditingUser(null); setUserDialogOpen(true); }}>Add user</Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input placeholder="Search by name, user ID, or RFID" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
+            <div className="overflow-hidden rounded-lg border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>RFID</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="w-[180px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length ? users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.user_id}</TableCell>
+                      <TableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ")}</TableCell>
+                      <TableCell>{user.rfid}</TableCell>
+                      <TableCell>{new Date(user.created_at).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => { setEditingUser(user); setUserDialogOpen(true); }}>Edit</Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="outline">Delete</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="border-border bg-card">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this user?</AlertDialogTitle>
+                                <AlertDialogDescription>This also clears any active lane or weapon assignment linked to the user.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => void withAction(() => deleteUser(user.id), "User removed")}>Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No users found.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
         <Dialog open={activePanel === "weapons"} onOpenChange={(open) => !open && setActivePanel(null)}>
           <DialogContent className="max-w-5xl border-border bg-card">
