@@ -138,14 +138,22 @@ export async function fetchUsers(search = "") {
   return result.data ?? [];
 }
 
+function parseUser(values: EditableUser) {
+  const result = userSchema.safeParse(values);
+  if (!result.success) {
+    throw new Error(result.error.issues.map((issue) => issue.message).join(". "));
+  }
+  return normalizeUserPayload(result.data);
+}
+
 export async function createUser(values: EditableUser) {
-  const payload = normalizeUserPayload(userSchema.parse(values));
+  const payload = parseUser(values);
   const result = await callAdminApi<{ data: UserRecord }>("create_user", { values: payload });
   return result.data;
 }
 
 export async function updateUser(id: string, values: EditableUser) {
-  const payload = normalizeUserPayload(userSchema.parse(values));
+  const payload = parseUser(values);
   const result = await callAdminApi<{ data: UserRecord }>("update_user", { id, values: payload });
   return result.data;
 }
