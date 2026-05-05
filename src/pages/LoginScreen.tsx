@@ -29,7 +29,12 @@ import {
 
 type ScreenState = "idle" | "loading" | "success" | "error" | "register";
 
-export default function LoginScreen() {
+interface LoginScreenProps {
+  heading?: string;
+  themeHsl?: string; // e.g. "203 100% 50%"
+}
+
+export default function LoginScreen({ heading = "GC IDT", themeHsl }: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
   const [pendingRfid, setPendingRfid] = useState("");
@@ -155,13 +160,20 @@ export default function LoginScreen() {
     }
   };
 
+  const themeStyle = themeHsl
+    ? ({ ["--primary" as string]: themeHsl, ["--ring" as string]: themeHsl } as React.CSSProperties)
+    : undefined;
+
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center p-8" onClick={() => state !== "register" && focusInput()}>
+    <div
+      className="relative flex min-h-screen flex-col items-center justify-center p-8"
+      style={themeStyle}
+      onClick={() => state !== "register" && focusInput()}>
       {/* Header */}
       <div className="absolute top-6 left-8 flex items-center gap-3">
         <Shield className="h-8 w-8 text-primary" />
         <span className="font-bold tracking-wide text-primary text-4xl font-sans">
-          RANGE CONTROL
+          {heading}
         </span>
       </div>
       <div className="absolute top-6 right-8 flex items-center gap-4">
