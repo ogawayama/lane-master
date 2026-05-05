@@ -194,6 +194,11 @@ serve(async (request) => {
 
     return json(400, { error: "Unsupported admin action." });
   } catch (error) {
-    return json(400, { error: error instanceof Error ? error.message : "Unexpected admin error." });
+    const message =
+      error instanceof Error
+        ? error.message
+        : (error as { message?: string })?.message || "Unexpected admin error.";
+    console.error("admin-panel error:", error);
+    return json(400, { error: message });
   }
 });
