@@ -39,10 +39,10 @@ export function UserFormDialog({ open, user, saving, onOpenChange, onSave }: Use
           <DialogDescription>Use the same fields as the USB import template.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <Input placeholder="User ID (5 digits, auto-generated if empty)" inputMode="numeric" maxLength={5} value={form.user_id ?? ""} onChange={(event) => setForm((current) => ({ ...current, user_id: event.target.value.replace(/\D/g, "").slice(0, 5) }))} />
-          <Input placeholder="RFID (optional)" value={form.rfid ?? ""} onChange={(event) => setForm((current) => ({ ...current, rfid: event.target.value }))} />
           <Input placeholder="First name (required)" value={form.first_name} onChange={(event) => setForm((current) => ({ ...current, first_name: event.target.value }))} />
           <Input placeholder="Last name (optional)" value={form.last_name ?? ""} onChange={(event) => setForm((current) => ({ ...current, last_name: event.target.value }))} />
+          <Input placeholder="User ID (5 digits, auto-generated if empty)" inputMode="numeric" maxLength={5} value={form.user_id ?? ""} onChange={(event) => setForm((current) => ({ ...current, user_id: event.target.value.replace(/\D/g, "").slice(0, 5) }))} />
+          <Input placeholder="RFID (optional)" value={form.rfid ?? ""} onChange={(event) => setForm((current) => ({ ...current, rfid: event.target.value }))} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
