@@ -290,7 +290,7 @@ export function AdminDashboard() {
                 <Card className="border-border bg-card/80">
                   <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={() => void exportWeapons("csv", weapons)}><Download className="h-4 w-4" />Export CSV</Button>
+                      
                       <Button variant="outline" onClick={() => void exportWeapons("xlsx", weapons)}><Download className="h-4 w-4" />Export Excel</Button>
                       <Button onClick={() => { setEditingWeapon(null); setWeaponDialogOpen(true); }}>Add weapon</Button>
                     </div>
