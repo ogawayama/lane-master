@@ -38,7 +38,7 @@ export interface GearAssignResult {
 
 async function pickAvailableGear(type: GearType): Promise<GearItem | null> {
   const { data } = await supabase
-    .from("qm360_gear" as never)
+    .from("qm360_gear")
     .select("*")
     .eq("gear_type", type)
     .eq("is_assigned", false)
@@ -50,7 +50,7 @@ async function pickAvailableGear(type: GearType): Promise<GearItem | null> {
 
 export async function getOrCreateGearAssignment(user: User): Promise<GearAssignResult> {
   const { data: existing } = await supabase
-    .from("qm360_assignments" as never)
+    .from("qm360_assignments")
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
@@ -58,7 +58,7 @@ export async function getOrCreateGearAssignment(user: User): Promise<GearAssignR
   if (existing) {
     const a = existing as GearAssignment;
     const { data: gears } = await supabase
-      .from("qm360_gear" as never)
+      .from("qm360_gear")
       .select("*")
       .in("id", [a.pdd_gear_id, a.sat_gear_id]);
     const list = (gears ?? []) as GearItem[];
@@ -78,7 +78,7 @@ export async function getOrCreateGearAssignment(user: User): Promise<GearAssignR
     return { success: false, message: "No gear available." };
   }
 
-  const { error: insertErr } = await supabase.from("qm360_assignments" as never).insert({
+  const { error: insertErr } = await supabase.from("qm360_assignments").insert({
     user_id: user.id,
     pdd_gear_id: pdd.id,
     sat_gear_id: sat.id,
@@ -88,7 +88,7 @@ export async function getOrCreateGearAssignment(user: User): Promise<GearAssignR
   }
 
   await supabase
-    .from("qm360_gear" as never)
+    .from("qm360_gear")
     .update({ is_assigned: true, assigned_to_user_id: user.id })
     .in("id", [pdd.id, sat.id]);
 
@@ -102,7 +102,7 @@ export async function getOrCreateGearAssignment(user: User): Promise<GearAssignR
 
 export async function fetchActiveGearAssignments(): Promise<ActiveGearAssignment[]> {
   const { data: assignments } = await supabase
-    .from("qm360_assignments" as never)
+    .from("qm360_assignments")
     .select("*")
     .order("assigned_at", { ascending: true });
   const list = (assignments ?? []) as GearAssignment[];
@@ -113,7 +113,7 @@ export async function fetchActiveGearAssignments(): Promise<ActiveGearAssignment
 
   const [{ data: users }, { data: gears }] = await Promise.all([
     supabase.from("users").select("id, first_name, last_name").in("id", userIds),
-    supabase.from("qm360_gear" as never).select("*").in("id", gearIds),
+    supabase.from("qm360_gear").select("*").in("id", gearIds),
   ]);
 
   const userMap = new Map((users ?? []).map((u) => [u.id, u]));
@@ -134,15 +134,15 @@ export async function fetchActiveGearAssignments(): Promise<ActiveGearAssignment
 }
 
 export async function resetQm360Assignments(): Promise<void> {
-  await supabase.from("qm360_assignments" as never).delete().not("id", "is", null);
+  await supabase.from("qm360_assignments").delete().not("id", "is", null);
   await supabase
-    .from("qm360_gear" as never)
+    .from("qm360_gear")
     .update({ is_assigned: false, assigned_to_user_id: null })
     .not("id", "is", null);
 }
 
 export async function fetchGear(search = ""): Promise<GearItem[]> {
-  let q = supabase.from("qm360_gear" as never).select("*").order("gear_type").order("gear_number");
+  let q = supabase.from("qm360_gear").select("*").order("gear_type").order("gear_number");
   const { data } = await q;
   let list = ((data ?? []) as GearItem[]);
   if (search.trim()) {
@@ -155,16 +155,16 @@ export async function fetchGear(search = ""): Promise<GearItem[]> {
 }
 
 export async function createGear(values: { gear_type: GearType; gear_number: number }) {
-  const { error } = await supabase.from("qm360_gear" as never).insert(values);
+  const { error } = await supabase.from("qm360_gear").insert(values);
   if (error) throw error;
 }
 
 export async function updateGear(id: string, values: { gear_type: GearType; gear_number: number }) {
-  const { error } = await supabase.from("qm360_gear" as never).update(values).eq("id", id);
+  const { error } = await supabase.from("qm360_gear").update(values).eq("id", id);
   if (error) throw error;
 }
 
 export async function deleteGear(id: string) {
-  const { error } = await supabase.from("qm360_gear" as never).delete().eq("id", id);
+  const { error } = await supabase.from("qm360_gear").delete().eq("id", id);
   if (error) throw error;
 }
