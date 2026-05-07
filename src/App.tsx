@@ -14,6 +14,7 @@ import LiveFireLanes from "./pages/LiveFireLanes";
 import Qm360Lanes from "./pages/Qm360Lanes";
 import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ThemeToggle />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/idt" element={<LoginScreen />} />
