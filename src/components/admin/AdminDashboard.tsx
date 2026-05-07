@@ -170,13 +170,17 @@ export function AdminDashboard({ section, heading = "Admin panel", themeHsl }: A
     }, "Users import applied");
   };
 
+  const themeStyle = themeHsl
+    ? ({ ["--primary" as string]: themeHsl, ["--ring" as string]: themeHsl } as React.CSSProperties)
+    : undefined;
+
   return (
-    <div className="min-h-screen bg-background px-6 py-6 text-foreground">
+    <div className="min-h-screen bg-background px-6 py-6 text-foreground" style={themeStyle}>
       <div className="mx-auto max-w-7xl space-y-6">
         <Card className="border-border bg-card/80">
           <CardHeader className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
-              <CardTitle>Admin panel</CardTitle>
+              <CardTitle className="text-primary">{heading}</CardTitle>
               <Button variant="outline" size="icon" aria-label="System and weapons" onClick={() => setActivePanel("system")}>
                 <Settings className="h-5 w-5" />
               </Button>
