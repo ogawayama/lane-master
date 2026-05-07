@@ -24,6 +24,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ThemeToggle />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/idt" element={<LoginScreen />} />
