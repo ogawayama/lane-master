@@ -10,6 +10,13 @@ const LANE_PRIORITY: Record<Section, number[]> = {
 
 export type Section = "idt" | "odt" | "live_fire" | "qm360";
 
+const LANE_PRIORITY: Record<Section, number[]> = {
+  idt: [3, 1, 5, 2, 4],
+  odt: [3, 1, 5, 2, 4],
+  live_fire: [3, 1, 5, 2, 4, 6, 7, 8, 9, 10],
+  qm360: [3, 1, 5, 2, 4],
+};
+
 export type User = Tables<"users">;
 export type Weapon = Tables<"weapons">;
 export type LaneAssignment = Tables<"lane_assignments">;
