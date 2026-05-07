@@ -1,13 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
-const LANE_PRIORITY: Record<Section, number[]> = {
-  idt: [3, 1, 5, 2, 4],
-  odt: [3, 1, 5, 2, 4],
-  live_fire: [3, 1, 5, 2, 4, 6, 7, 8, 9, 10],
-  qm360: [3, 1, 5, 2, 4],
-};
-
 export type Section = "idt" | "odt" | "live_fire" | "qm360";
 
 const LANE_PRIORITY: Record<Section, number[]> = {
