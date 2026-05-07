@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 export function ThemeToggle() {
+  const { pathname } = useLocation();
   const [isLight, setIsLight] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("theme") === "light";
