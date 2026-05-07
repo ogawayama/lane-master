@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Pencil, Settings, Trash2, Upload } from "lucide-react";
+import { Download, Pencil, RefreshCw, Settings, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -202,7 +202,37 @@ export function AdminDashboard({ section, heading = "Admin panel", themeHsl }: A
             <CardTitle>Users</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Input placeholder="Search by name or user ID" value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Input
+                  placeholder="Search by name or user ID"
+                  value={userSearch}
+                  onChange={(event) => setUserSearch(event.target.value)}
+                  className="pr-9"
+                />
+                {userSearch && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Clear search"
+                    onClick={() => setUserSearch("")}
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Refresh users"
+                onClick={() => void load()}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="overflow-hidden rounded-lg border border-border">
               <Table>
                 <TableHeader>
