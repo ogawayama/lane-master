@@ -39,6 +39,7 @@ interface LoginScreenProps {
 export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, section = "idt" }: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
+  const [result, setResult] = useState<AssignmentResult | null>(null);
   const [pendingRfid, setPendingRfid] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,12 +67,14 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
 
       if (user) {
         const result: AssignmentResult = await assignLaneAndWeapon(user, section);
+        setResult(result);
         setState(result.success ? "success" : "error");
         setMessage(result.message);
         // Auto-clear after 6s
         setTimeout(() => {
           setState("idle");
           setMessage("");
+          setResult(null);
           focusInput();
         }, 6000);
       } else {
@@ -99,9 +102,10 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
         return;
       }
       const result = await assignLaneAndWeapon(user, section);
+      setResult(result);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
+      setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
     } catch (err) {
       setState("error");
       setMessage("Registration error. Please try again.");
@@ -121,9 +125,10 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
         return;
       }
       const result = await assignLaneAndWeapon(updated, section);
+      setResult(result);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
+      setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
     } catch (err) {
       setState("error");
       setMessage("Linking error. Please try again.");
@@ -238,7 +243,25 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
             className="flex flex-col items-center gap-4 rounded-2xl border border-accent/40 bg-accent/5 p-8 w-full text-center">
             
               <CheckCircle2 className="h-16 w-16 text-accent" />
-              <p className="text-2xl font-bold text-foreground">{message}</p>
+              {result?.success && result.lane && result.weapon ? (
+                <div className="flex flex-col items-center gap-4 w-full">
+                  <p className="text-2xl font-bold text-foreground">
+                    Welcome {result.user?.first_name}. Pick up your weapon and proceed to your lane.
+                  </p>
+                  <div className="flex flex-col gap-2 text-xl font-semibold text-foreground">
+                    <p>
+                      <span className="text-muted-foreground">Weapon:</span>{" "}
+                      <span className="text-primary">{result.weapon.weapon_name}</span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Lane:</span>{" "}
+                      <span className="text-primary">{result.lane}</span>
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-2xl font-bold text-foreground">{message}</p>
+              )}
             </motion.div>
           }
 
