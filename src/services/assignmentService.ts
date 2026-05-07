@@ -3,6 +3,8 @@ import type { Tables } from "@/integrations/supabase/types";
 
 const LANE_PRIORITY = [3, 1, 5, 2, 4];
 
+export type Section = "idt" | "odt" | "live_fire" | "qm360";
+
 export type User = Tables<"users">;
 export type Weapon = Tables<"weapons">;
 export type LaneAssignment = Tables<"lane_assignments">;
@@ -24,20 +26,25 @@ export async function lookupUserByRfid(rfid: string): Promise<User | null> {
   return data;
 }
 
-export async function getExistingAssignment(userId: string): Promise<LaneAssignment | null> {
+export async function getExistingAssignment(
+  userId: string,
+  section: Section
+): Promise<LaneAssignment | null> {
   const { data } = await supabase
     .from("lane_assignments")
     .select("*")
     .eq("user_id", userId)
     .eq("status", "occupied")
+    .eq("section", section)
     .maybeSingle();
   return data;
 }
 
-export async function getNextAvailableLane(): Promise<number | null> {
+export async function getNextAvailableLane(section: Section): Promise<number | null> {
   const { data: lanes } = await supabase
     .from("lane_assignments")
-    .select("lane_number, status");
+    .select("lane_number, status")
+    .eq("section", section);
 
   if (!lanes) return null;
 
@@ -51,20 +58,24 @@ export async function getNextAvailableLane(): Promise<number | null> {
   return null;
 }
 
-export async function getNextAvailableWeapon(): Promise<Weapon | null> {
+export async function getNextAvailableWeapon(section: Section): Promise<Weapon | null> {
   const { data } = await supabase
     .from("weapons")
     .select("*")
     .eq("is_assigned", false)
+    .eq("section", section)
     .order("weapon_id", { ascending: true })
     .limit(1)
     .maybeSingle();
   return data;
 }
 
-export async function assignLaneAndWeapon(user: User): Promise<AssignmentResult> {
-  // Check existing assignment first
-  const existing = await getExistingAssignment(user.id);
+export async function assignLaneAndWeapon(
+  user: User,
+  section: Section
+): Promise<AssignmentResult> {
+  // Check existing assignment in this section
+  const existing = await getExistingAssignment(user.id, section);
   if (existing) {
     const { data: weapon } = await supabase
       .from("weapons")
@@ -80,23 +91,21 @@ export async function assignLaneAndWeapon(user: User): Promise<AssignmentResult>
     };
   }
 
-  const lane = await getNextAvailableLane();
+  const lane = await getNextAvailableLane(section);
   if (lane === null) {
     return { success: false, message: "All lanes are assigned." };
   }
 
-  const weapon = await getNextAvailableWeapon();
+  const weapon = await getNextAvailableWeapon(section);
   if (!weapon) {
     return { success: false, message: "No weapons available." };
   }
 
-  // Assign weapon
   await supabase
     .from("weapons")
     .update({ is_assigned: true, assigned_to_user_id: user.id })
     .eq("weapon_id", weapon.weapon_id);
 
-  // Assign lane
   await supabase
     .from("lane_assignments")
     .update({
@@ -109,6 +118,7 @@ export async function assignLaneAndWeapon(user: User): Promise<AssignmentResult>
       status: "occupied",
       assigned_at: new Date().toISOString(),
     })
+    .eq("section", section)
     .eq("lane_number", lane);
 
   return {
@@ -144,8 +154,7 @@ export async function registerUser(data: {
   return user;
 }
 
-export async function resetAllAssignments(): Promise<void> {
-  // Clear all lane assignments
+export async function resetAllAssignments(section: Section): Promise<void> {
   await supabase
     .from("lane_assignments")
     .update({
@@ -158,19 +167,19 @@ export async function resetAllAssignments(): Promise<void> {
       status: "empty",
       assigned_at: null,
     })
-    .in("lane_number", [1, 2, 3, 4, 5]);
+    .eq("section", section);
 
-  // Mark all weapons as unassigned
   await supabase
     .from("weapons")
     .update({ is_assigned: false, assigned_to_user_id: null })
-    .gte("weapon_id", 0);
+    .eq("section", section);
 }
 
-export async function fetchAllLanes(): Promise<LaneAssignment[]> {
+export async function fetchAllLanes(section: Section): Promise<LaneAssignment[]> {
   const { data } = await supabase
     .from("lane_assignments")
     .select("*")
+    .eq("section", section)
     .order("lane_number", { ascending: true });
   return data || [];
 }
