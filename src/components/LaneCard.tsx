@@ -1,13 +1,16 @@
 import { motion } from "framer-motion";
-import type { LaneAssignment } from "@/services/assignmentService";
-import { Crosshair, Shield } from "lucide-react";
+import type { LaneAssignment, Section } from "@/services/assignmentService";
+import { Crosshair, Shield, Tablet } from "lucide-react";
 
 interface LaneCardProps {
   lane: LaneAssignment;
+  section?: Section;
 }
 
-export function LaneCard({ lane }: LaneCardProps) {
+export function LaneCard({ lane, section }: LaneCardProps) {
   const isOccupied = lane.status === "occupied";
+  const isLiveFire = section === "live_fire";
+  const ItemIcon = isLiveFire ? Tablet : Crosshair;
 
   return (
     <motion.div
