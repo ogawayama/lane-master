@@ -1,20 +1,26 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { LaneAssignment } from "./assignmentService";
+import type { LaneAssignment, Section } from "./assignmentService";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export function subscribeLaneAssignments(
+  section: Section,
   onUpdate: (lanes: LaneAssignment[]) => void
 ): RealtimeChannel {
   const channel = supabase
-    .channel("lane-assignments-realtime")
+    .channel(`lane-assignments-${section}`)
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "lane_assignments" },
+      {
+        event: "*",
+        schema: "public",
+        table: "lane_assignments",
+        filter: `section=eq.${section}`,
+      },
       async () => {
-        // Re-fetch all lanes on any change
         const { data } = await supabase
           .from("lane_assignments")
           .select("*")
+          .eq("section", section)
           .order("lane_number", { ascending: true });
         if (data) onUpdate(data);
       }

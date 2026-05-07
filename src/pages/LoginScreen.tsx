@@ -13,6 +13,7 @@ import {
   relinkRfid,
   resetAllAssignments,
   type AssignmentResult,
+  type Section,
   type User } from
 "@/services/assignmentService";
 import {
@@ -32,9 +33,10 @@ type ScreenState = "idle" | "loading" | "success" | "error" | "register";
 interface LoginScreenProps {
   heading?: string;
   themeHsl?: string; // e.g. "203 100% 50%"
+  section?: Section;
 }
 
-export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl }: LoginScreenProps = {}) {
+export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, section = "idt" }: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
   const [pendingRfid, setPendingRfid] = useState("");
@@ -63,7 +65,7 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl }: Lo
       const user = await lookupUserByRfid(rfid.trim());
 
       if (user) {
-        const result: AssignmentResult = await assignLaneAndWeapon(user);
+        const result: AssignmentResult = await assignLaneAndWeapon(user, section);
         setState(result.success ? "success" : "error");
         setMessage(result.message);
         // Auto-clear after 6s
@@ -96,7 +98,7 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl }: Lo
         setMessage("Registration failed. User ID or RFID may already exist.");
         return;
       }
-      const result = await assignLaneAndWeapon(user);
+      const result = await assignLaneAndWeapon(user, section);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
       setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
@@ -118,7 +120,7 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl }: Lo
         setMessage("Failed to link RFID. Please try again.");
         return;
       }
-      const result = await assignLaneAndWeapon(updated);
+      const result = await assignLaneAndWeapon(updated, section);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
       setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
@@ -141,7 +143,7 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl }: Lo
   const handleReset = async () => {
     setIsLoading(true);
     try {
-      await resetAllAssignments();
+      await resetAllAssignments(section);
       setState("idle");
       setMessage("");
     } catch (err) {

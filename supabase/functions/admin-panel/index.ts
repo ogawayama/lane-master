@@ -13,6 +13,10 @@ const adminPin = Deno.env.get("ADMIN_PANEL_PIN") ?? "";
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+const VALID_SECTIONS = new Set(["idt", "odt", "live_fire", "qm360"]);
+
+type Section = "idt" | "odt" | "live_fire" | "qm360";
+
 type UserPayload = {
   user_id: string;
   rfid: string | null;
@@ -24,6 +28,7 @@ type WeaponPayload = {
   weapon_name: string;
   weapon_type: string;
   is_assigned?: boolean;
+  section: Section;
 };
 
 function json(status: number, body: unknown) {
@@ -47,6 +52,12 @@ function normalizeOptionalText(value: unknown, maxLength: number) {
   return normalized;
 }
 
+function parseSection(value: unknown): Section {
+  const s = String(value ?? "").trim();
+  if (!VALID_SECTIONS.has(s)) throw new Error("Invalid section.");
+  return s as Section;
+}
+
 function parseUserPayload(values: unknown): UserPayload {
   const payload = values as Record<string, unknown>;
   return {
@@ -63,15 +74,11 @@ function parseWeaponPayload(values: unknown): WeaponPayload {
     weapon_name: normalizeText(payload?.weapon_name, "Weapon name", 120),
     weapon_type: normalizeText(payload?.weapon_type, "Weapon type", 80),
     is_assigned: Boolean(payload?.is_assigned),
+    section: parseSection(payload?.section),
   };
 }
 
-function requirePin(pin: string | null | undefined) {
-  if (!adminPin) throw new Error("Admin PIN secret is not configured.");
-  if (!pin || pin !== adminPin) throw new Error("Invalid PIN.");
-}
-
-async function resetAssignments() {
+async function resetAssignmentsForSection(section: Section) {
   const { error: laneError } = await supabase
     .from("lane_assignments")
     .update({
@@ -84,16 +91,22 @@ async function resetAssignments() {
       status: "empty",
       assigned_at: null,
     })
-    .not("lane_number", "is", null);
+    .eq("section", section);
 
   if (laneError) throw laneError;
 
   const { error: weaponError } = await supabase
     .from("weapons")
     .update({ is_assigned: false, assigned_to_user_id: null })
-    .not("weapon_id", "is", null);
+    .eq("section", section);
 
   if (weaponError) throw weaponError;
+}
+
+async function resetAllAssignments() {
+  for (const sec of ["idt", "odt", "live_fire", "qm360"] as Section[]) {
+    await resetAssignmentsForSection(sec);
+  }
 }
 
 serve(async (request) => {
@@ -134,14 +147,19 @@ serve(async (request) => {
 
     if (action === "delete_user") {
       const id = normalizeText(body?.id, "User ID", 120);
-      await resetAssignments();
+      await resetAllAssignments();
       const { error } = await supabase.from("users").delete().eq("id", id);
       if (error) throw error;
       return json(200, { ok: true });
     }
 
     if (action === "fetch_weapons") {
-      let query = supabase.from("weapons").select("*").order("weapon_id", { ascending: true });
+      const section = parseSection(body?.section);
+      let query = supabase
+        .from("weapons")
+        .select("*")
+        .eq("section", section)
+        .order("weapon_id", { ascending: true });
       if (search) {
         const q = `%${search}%`;
         query = query.or(`weapon_name.ilike.${q},weapon_type.ilike.${q}`);
@@ -181,12 +199,13 @@ serve(async (request) => {
     }
 
     if (action === "reset_assignments") {
-      await resetAssignments();
+      const section = parseSection(body?.section);
+      await resetAssignmentsForSection(section);
       return json(200, { ok: true });
     }
 
     if (action === "purge_all_users") {
-      await resetAssignments();
+      await resetAllAssignments();
       const { error } = await supabase.from("users").delete().not("id", "is", null);
       if (error) throw error;
       return json(200, { ok: true });

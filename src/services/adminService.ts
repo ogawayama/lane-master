@@ -22,6 +22,8 @@ function generateUserId(): string {
   return Math.floor(10000 + Math.random() * 90000).toString();
 }
 
+export type Section = "idt" | "odt" | "live_fire" | "qm360";
+
 export const weaponSchema = z.object({
   weapon_name: z.string().trim().min(1, "Weapon name is required").max(120, "Weapon name is too long"),
   weapon_type: z.string().trim().min(1, "Weapon type is required").max(80, "Weapon type is too long"),
@@ -162,19 +164,19 @@ export async function deleteUser(id: string) {
   await callAdminApi("delete_user", { id });
 }
 
-export async function fetchWeapons(search = "") {
-  const result = await callAdminApi<{ data: WeaponRecord[] }>("fetch_weapons", { search });
+export async function fetchWeapons(section: Section, search = "") {
+  const result = await callAdminApi<{ data: WeaponRecord[] }>("fetch_weapons", { search, section });
   return result.data ?? [];
 }
 
-export async function createWeapon(values: EditableWeapon) {
-  const payload = normalizeWeaponPayload(weaponSchema.parse(values));
+export async function createWeapon(section: Section, values: EditableWeapon) {
+  const payload = { ...normalizeWeaponPayload(weaponSchema.parse(values)), section };
   const result = await callAdminApi<{ data: WeaponRecord }>("create_weapon", { values: payload });
   return result.data;
 }
 
-export async function updateWeapon(weaponId: number, values: EditableWeapon) {
-  const payload = normalizeWeaponPayload(weaponSchema.parse(values));
+export async function updateWeapon(section: Section, weaponId: number, values: EditableWeapon) {
+  const payload = { ...normalizeWeaponPayload(weaponSchema.parse(values)), section };
   const result = await callAdminApi<{ data: WeaponRecord }>("update_weapon", { weaponId, values: payload });
   return result.data;
 }
@@ -183,8 +185,8 @@ export async function deleteWeapon(weaponId: number) {
   await callAdminApi("delete_weapon", { weaponId });
 }
 
-export async function resetAssignments() {
-  await callAdminApi("reset_assignments");
+export async function resetAssignments(section: Section) {
+  await callAdminApi("reset_assignments", { section });
 }
 
 export async function purgeAllUsers() {

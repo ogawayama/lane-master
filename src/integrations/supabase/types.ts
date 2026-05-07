@@ -21,6 +21,7 @@ export type Database = {
           id: string
           lane_number: number
           last_name: string | null
+          section: string
           status: string
           updated_at: string
           user_id: string | null
@@ -34,6 +35,7 @@ export type Database = {
           id?: string
           lane_number: number
           last_name?: string | null
+          section: string
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -47,6 +49,7 @@ export type Database = {
           id?: string
           lane_number?: number
           last_name?: string | null
+          section?: string
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -126,6 +129,7 @@ export type Database = {
         Row: {
           assigned_to_user_id: string | null
           is_assigned: boolean
+          section: string
           updated_at: string
           weapon_id: number
           weapon_name: string
@@ -134,6 +138,7 @@ export type Database = {
         Insert: {
           assigned_to_user_id?: string | null
           is_assigned?: boolean
+          section: string
           updated_at?: string
           weapon_id?: number
           weapon_name: string
@@ -142,6 +147,7 @@ export type Database = {
         Update: {
           assigned_to_user_id?: string | null
           is_assigned?: boolean
+          section?: string
           updated_at?: string
           weapon_id?: number
           weapon_name?: string
