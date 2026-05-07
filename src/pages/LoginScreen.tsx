@@ -67,12 +67,14 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
 
       if (user) {
         const result: AssignmentResult = await assignLaneAndWeapon(user, section);
+        setResult(result);
         setState(result.success ? "success" : "error");
         setMessage(result.message);
         // Auto-clear after 6s
         setTimeout(() => {
           setState("idle");
           setMessage("");
+          setResult(null);
           focusInput();
         }, 6000);
       } else {
