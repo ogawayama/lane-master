@@ -1,13 +1,16 @@
 import { motion } from "framer-motion";
-import type { LaneAssignment } from "@/services/assignmentService";
-import { Crosshair, Shield } from "lucide-react";
+import type { LaneAssignment, Section } from "@/services/assignmentService";
+import { Crosshair, Shield, Tablet } from "lucide-react";
 
 interface LaneCardProps {
   lane: LaneAssignment;
+  section?: Section;
 }
 
-export function LaneCard({ lane }: LaneCardProps) {
+export function LaneCard({ lane, section }: LaneCardProps) {
   const isOccupied = lane.status === "occupied";
+  const isLiveFire = section === "live_fire";
+  const ItemIcon = isLiveFire ? Tablet : Crosshair;
 
   return (
     <motion.div
@@ -64,10 +67,12 @@ export function LaneCard({ lane }: LaneCardProps) {
           {/* Weapon info */}
           <div className="mt-2 flex flex-col items-center gap-1 rounded-xl border border-border bg-secondary/50 px-4 py-3 w-full">
             <div className="flex items-center gap-2 text-primary">
-              <Crosshair className="h-4 w-4" />
+              <ItemIcon className="h-4 w-4" />
               <span className="font-semibold text-sm">{lane.weapon_name}</span>
             </div>
-            <span className="mt-1 inline-flex items-center rounded-full border border-purple-500/30 bg-purple-600/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple-400">{lane.weapon_type}</span>
+            {lane.weapon_type && !isLiveFire && (
+              <span className="mt-1 inline-flex items-center rounded-full border border-purple-500/30 bg-purple-600/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple-400">{lane.weapon_type}</span>
+            )}
           </div>
 
           {/* Status */}

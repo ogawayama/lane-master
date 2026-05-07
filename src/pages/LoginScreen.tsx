@@ -246,11 +246,11 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
               {result?.success && result.lane && result.weapon ? (
                 <div className="flex flex-col items-center gap-4 w-full">
                   <p className="text-2xl font-bold text-foreground">
-                    Welcome {result.user?.first_name}. Pick up your weapon and proceed to your lane.
+                    Welcome {result.user?.first_name}. Pick up your {section === "live_fire" ? "tablet" : "weapon"} and proceed to your lane.
                   </p>
                   <div className="flex flex-col gap-3 w-full">
                     <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">
-                      <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Weapon</span>
+                      <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">{section === "live_fire" ? "Tablet" : "Weapon"}</span>
                       <span className="text-3xl font-bold font-mono text-primary">{result.weapon.weapon_name}</span>
                     </div>
                     <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">

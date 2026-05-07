@@ -1,9 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
-const LANE_PRIORITY = [3, 1, 5, 2, 4];
-
 export type Section = "idt" | "odt" | "live_fire" | "qm360";
+
+const LANE_PRIORITY: Record<Section, number[]> = {
+  idt: [3, 1, 5, 2, 4],
+  odt: [3, 1, 5, 2, 4],
+  live_fire: [3, 1, 5, 2, 4, 6, 7, 8, 9, 10],
+  qm360: [3, 1, 5, 2, 4],
+};
 
 export type User = Tables<"users">;
 export type Weapon = Tables<"weapons">;
@@ -52,7 +57,7 @@ export async function getNextAvailableLane(section: Section): Promise<number | n
     lanes.filter((l) => l.status === "occupied").map((l) => l.lane_number)
   );
 
-  for (const lane of LANE_PRIORITY) {
+  for (const lane of LANE_PRIORITY[section]) {
     if (!occupiedLanes.has(lane)) return lane;
   }
   return null;
