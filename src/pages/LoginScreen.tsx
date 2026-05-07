@@ -243,7 +243,25 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
             className="flex flex-col items-center gap-4 rounded-2xl border border-accent/40 bg-accent/5 p-8 w-full text-center">
             
               <CheckCircle2 className="h-16 w-16 text-accent" />
-              <p className="text-2xl font-bold text-foreground">{message}</p>
+              {result?.success && result.lane && result.weapon ? (
+                <div className="flex flex-col items-center gap-4 w-full">
+                  <p className="text-2xl font-bold text-foreground">
+                    Welcome {result.user?.first_name}. Pick up your weapon and proceed to your lane.
+                  </p>
+                  <div className="flex flex-col gap-2 text-xl font-semibold text-foreground">
+                    <p>
+                      <span className="text-muted-foreground">Weapon:</span>{" "}
+                      <span className="text-primary">{result.weapon.weapon_name}</span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Lane:</span>{" "}
+                      <span className="text-primary">{result.lane}</span>
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-2xl font-bold text-foreground">{message}</p>
+              )}
             </motion.div>
           }
 
