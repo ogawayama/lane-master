@@ -34,7 +34,7 @@ interface LoginScreenProps {
   themeHsl?: string; // e.g. "203 100% 50%"
 }
 
-export default function LoginScreen({ heading = "GC IDT", themeHsl }: LoginScreenProps = {}) {
+export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl }: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
   const [pendingRfid, setPendingRfid] = useState("");
