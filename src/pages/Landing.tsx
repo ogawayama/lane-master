@@ -37,7 +37,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
       <h1 className="text-5xl font-bold text-foreground mb-12 tracking-tight">
-        THE EHCOSYSTEM
+        THE ECOSYSTEM
       </h1>
       <nav className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl">
         {sections.map((section) => (
