@@ -13,6 +13,7 @@ import {
   relinkRfid,
   resetAllAssignments,
   type AssignmentResult,
+  type Section,
   type User } from
 "@/services/assignmentService";
 import {
@@ -32,9 +33,10 @@ type ScreenState = "idle" | "loading" | "success" | "error" | "register";
 interface LoginScreenProps {
   heading?: string;
   themeHsl?: string; // e.g. "203 100% 50%"
+  section?: Section;
 }
 
-export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl }: LoginScreenProps = {}) {
+export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, section = "idt" }: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
   const [pendingRfid, setPendingRfid] = useState("");
