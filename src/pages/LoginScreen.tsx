@@ -102,9 +102,10 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
         return;
       }
       const result = await assignLaneAndWeapon(user, section);
+      setResult(result);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
+      setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
     } catch (err) {
       setState("error");
       setMessage("Registration error. Please try again.");
