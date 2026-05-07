@@ -74,6 +74,78 @@ export type Database = {
           },
         ]
       }
+      qm360_assignments: {
+        Row: {
+          assigned_at: string
+          id: string
+          pdd_gear_id: string
+          sat_gear_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          pdd_gear_id: string
+          sat_gear_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          pdd_gear_id?: string
+          sat_gear_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qm360_assignments_pdd_gear_id_fkey"
+            columns: ["pdd_gear_id"]
+            isOneToOne: false
+            referencedRelation: "qm360_gear"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qm360_assignments_sat_gear_id_fkey"
+            columns: ["sat_gear_id"]
+            isOneToOne: false
+            referencedRelation: "qm360_gear"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qm360_gear: {
+        Row: {
+          assigned_to_user_id: string | null
+          created_at: string
+          gear_number: number
+          gear_type: string
+          id: string
+          is_assigned: boolean
+          updated_at: string
+        }
+        Insert: {
+          assigned_to_user_id?: string | null
+          created_at?: string
+          gear_number: number
+          gear_type: string
+          id?: string
+          is_assigned?: boolean
+          updated_at?: string
+        }
+        Update: {
+          assigned_to_user_id?: string | null
+          created_at?: string
+          gear_number?: number
+          gear_type?: string
+          id?: string
+          is_assigned?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
