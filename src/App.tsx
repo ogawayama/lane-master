@@ -12,7 +12,10 @@ import IdtLanes from "./pages/IdtLanes";
 import OdtLanes from "./pages/OdtLanes";
 import LiveFireLanes from "./pages/LiveFireLanes";
 import Qm360Lanes from "./pages/Qm360Lanes";
-import AdminPanel from "./pages/AdminPanel";
+import IdtAdmin from "./pages/IdtAdmin";
+import OdtAdmin from "./pages/OdtAdmin";
+import LiveFireAdmin from "./pages/LiveFireAdmin";
+import Qm360Admin from "./pages/Qm360Admin";
 import NotFound from "./pages/NotFound";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -35,7 +38,10 @@ const App = () => (
           <Route path="/odt/lanes" element={<OdtLanes />} />
           <Route path="/live-fire/lanes" element={<LiveFireLanes />} />
           <Route path="/qm360/lanes" element={<Qm360Lanes />} />
-          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/idt/admin" element={<IdtAdmin />} />
+          <Route path="/odt/admin" element={<OdtAdmin />} />
+          <Route path="/live-fire/admin" element={<LiveFireAdmin />} />
+          <Route path="/qm360/admin" element={<Qm360Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
