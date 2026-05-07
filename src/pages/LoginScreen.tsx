@@ -39,6 +39,7 @@ interface LoginScreenProps {
 export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, section = "idt" }: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
+  const [result, setResult] = useState<AssignmentResult | null>(null);
   const [pendingRfid, setPendingRfid] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
