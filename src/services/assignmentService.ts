@@ -57,7 +57,7 @@ export async function getNextAvailableLane(section: Section): Promise<number | n
     lanes.filter((l) => l.status === "occupied").map((l) => l.lane_number)
   );
 
-  for (const lane of LANE_PRIORITY) {
+  for (const lane of LANE_PRIORITY[section]) {
     if (!occupiedLanes.has(lane)) return lane;
   }
   return null;
