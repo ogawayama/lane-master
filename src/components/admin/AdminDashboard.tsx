@@ -41,6 +41,7 @@ import {
   type EditableUser,
   type EditableWeapon,
   type ImportMode,
+  type Section,
   type UserImportPreviewRow,
   type UserRecord,
   type WeaponRecord,
@@ -48,7 +49,13 @@ import {
 
 type Panel = "system" | null;
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  section: Section;
+  heading?: string;
+  themeHsl?: string;
+}
+
+export function AdminDashboard({ section, heading = "Admin panel", themeHsl }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [weapons, setWeapons] = useState<WeaponRecord[]>([]);
   const [userSearch, setUserSearch] = useState("");
@@ -67,7 +74,7 @@ export function AdminDashboard() {
   const load = async () => {
     setLoading(true);
     try {
-      const [nextUsers, nextWeapons] = await Promise.all([fetchUsers(userSearch), fetchWeapons(weaponSearch)]);
+      const [nextUsers, nextWeapons] = await Promise.all([fetchUsers(userSearch), fetchWeapons(section, weaponSearch)]);
       setUsers(nextUsers);
       setWeapons(nextWeapons);
     } catch (error) {
@@ -79,7 +86,8 @@ export function AdminDashboard() {
 
   useEffect(() => {
     void load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -98,7 +106,7 @@ export function AdminDashboard() {
     const handle = window.setTimeout(() => {
       void (async () => {
         try {
-          setWeapons(await fetchWeapons(weaponSearch));
+          setWeapons(await fetchWeapons(section, weaponSearch));
         } catch {
           return;
         }
@@ -131,8 +139,8 @@ export function AdminDashboard() {
 
   const handleWeaponSave = async (values: EditableWeapon) => {
     await withAction(async () => {
-      if (editingWeapon) await updateWeapon(editingWeapon.weapon_id, values);
-      else await createWeapon(values);
+      if (editingWeapon) await updateWeapon(section, editingWeapon.weapon_id, values);
+      else await createWeapon(section, values);
       setWeaponDialogOpen(false);
       setEditingWeapon(null);
     }, editingWeapon ? "Weapon updated" : "Weapon created");
@@ -268,7 +276,7 @@ export function AdminDashboard() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => void withAction(() => resetAssignments(), "Assignments reset")}>Reset</AlertDialogAction>
+                          <AlertDialogAction onClick={() => void withAction(() => resetAssignments(section), "Assignments reset")}>Reset</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
