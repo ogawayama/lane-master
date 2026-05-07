@@ -125,9 +125,10 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
         return;
       }
       const result = await assignLaneAndWeapon(updated, section);
+      setResult(result);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {setState("idle");setMessage("");focusInput();}, 6000);
+      setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
     } catch (err) {
       setState("error");
       setMessage("Linking error. Please try again.");
