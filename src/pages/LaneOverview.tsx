@@ -33,6 +33,8 @@ export default function LaneOverview({
   }, [section]);
 
   const occupiedCount = lanes.filter((l) => l.status === "occupied").length;
+  const totalCount = lanes.length;
+  const isWide = totalCount > 5;
 
   return (
     <div className="flex min-h-screen flex-col p-8" style={themeStyle}>
@@ -46,15 +48,15 @@ export default function LaneOverview({
         <div className="flex items-center gap-4">
           <ConnectionStatus />
           <span className="text-sm text-muted-foreground font-['Share_Tech_Mono']">
-            {occupiedCount}/5 ACTIVE
+            {occupiedCount}/{totalCount} ACTIVE
           </span>
         </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center">
-        <div className="grid grid-cols-5 gap-5 w-full max-w-7xl">
+        <div className={`grid gap-5 w-full ${isWide ? "grid-cols-5 max-w-[110rem]" : "grid-cols-5 max-w-7xl"}`}>
           {lanes.map((lane) => (
-            <LaneCard key={lane.lane_number} lane={lane} />
+            <LaneCard key={lane.lane_number} lane={lane} section={section} />
           ))}
         </div>
       </div>
