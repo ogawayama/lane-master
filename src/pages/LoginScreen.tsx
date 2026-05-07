@@ -248,15 +248,15 @@ export default function LoginScreen({ heading = "THE EHCOSYSTEM", themeHsl, sect
                   <p className="text-2xl font-bold text-foreground">
                     Welcome {result.user?.first_name}. Pick up your weapon and proceed to your lane.
                   </p>
-                  <div className="flex flex-col gap-2 text-xl font-semibold text-foreground">
-                    <p>
-                      <span className="text-muted-foreground">Weapon:</span>{" "}
-                      <span className="text-primary">{result.weapon.weapon_name}</span>
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Lane:</span>{" "}
-                      <span className="text-primary">{result.lane}</span>
-                    </p>
+                  <div className="flex flex-col gap-3 w-full">
+                    <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">
+                      <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Weapon</span>
+                      <span className="text-3xl font-bold font-mono text-primary">{result.weapon.weapon_name}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">
+                      <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Lane</span>
+                      <span className="text-3xl font-bold font-mono text-primary">{String(result.lane).padStart(3, "0")}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
