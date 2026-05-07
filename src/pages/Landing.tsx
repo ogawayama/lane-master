@@ -50,13 +50,15 @@ export default function Landing() {
             </h2>
             <div className="flex flex-col gap-2">
               {subLinks.map((sub) => (
-                <Link
+                <a
                   key={sub.suffix}
-                  to={`${section.base}${sub.suffix}`}
+                  href={`${section.base}${sub.suffix}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="block text-center py-2 px-4 rounded border border-border bg-background/40 text-foreground hover:bg-background/80 transition-colors text-sm font-medium"
                 >
                   {sub.label}
-                </Link>
+                </a>
               ))}
             </div>
           </div>
