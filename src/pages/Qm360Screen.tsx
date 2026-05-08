@@ -15,7 +15,7 @@ import { getOrCreateGearAssignment } from "@/services/qm360Service";
 
 type ScreenState = "idle" | "loading" | "success" | "error" | "register";
 
-const HEADING = "QM 360";
+const HEADING = "GC IDT";
 const THEME_HSL = "28 95% 58%";
 
 export default function Qm360Screen() {
