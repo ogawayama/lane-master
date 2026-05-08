@@ -32,7 +32,7 @@ export async function lookupUserByRfid(rfid: string): Promise<User | null> {
 }
 
 export async function getExistingAssignment(
-  userId: string,
+  userId: number,
   section: Section
 ): Promise<LaneAssignment | null> {
   const { data } = await supabase
@@ -79,7 +79,6 @@ export async function assignLaneAndWeapon(
   user: User,
   section: Section
 ): Promise<AssignmentResult> {
-  // Check existing assignment in this section
   const existing = await getExistingAssignment(user.id, section);
   if (existing) {
     const { data: weapon } = await supabase
@@ -89,7 +88,7 @@ export async function assignLaneAndWeapon(
       .maybeSingle();
     return {
       success: true,
-      message: `Welcome back ${user.first_name}. You are already assigned to lane ${existing.lane_number} with weapon ${existing.weapon_name}.`,
+      message: `Welcome back ${user.name}. You are already assigned to lane ${existing.lane_number} with weapon ${existing.weapon_name}.`,
       user,
       lane: existing.lane_number,
       weapon: weapon ?? undefined,
@@ -115,8 +114,7 @@ export async function assignLaneAndWeapon(
     .from("lane_assignments")
     .update({
       user_id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
+      name: user.name,
       weapon_id: weapon.weapon_id,
       weapon_name: weapon.weapon_name,
       weapon_type: weapon.weapon_type,
@@ -128,7 +126,7 @@ export async function assignLaneAndWeapon(
 
   return {
     success: true,
-    message: `Welcome ${user.first_name}. Pick up weapon ${weapon.weapon_name} and proceed to lane ${lane}.`,
+    message: `Welcome ${user.name}. Pick up weapon ${weapon.weapon_name} and proceed to lane ${lane}.`,
     user,
     lane,
     weapon,
@@ -136,18 +134,16 @@ export async function assignLaneAndWeapon(
 }
 
 export async function registerUser(data: {
-  user_id: string;
+  id: number;
   rfid: string;
-  first_name: string;
-  last_name?: string;
+  name: string;
 }): Promise<User | null> {
   const { data: user, error } = await supabase
     .from("users")
     .insert({
-      user_id: data.user_id,
+      id: data.id,
       rfid: data.rfid,
-      first_name: data.first_name,
-      last_name: data.last_name || null,
+      name: data.name,
     })
     .select()
     .single();
@@ -164,8 +160,7 @@ export async function resetAllAssignments(section: Section): Promise<void> {
     .from("lane_assignments")
     .update({
       user_id: null,
-      first_name: null,
-      last_name: null,
+      name: null,
       weapon_id: null,
       weapon_name: null,
       weapon_type: null,
@@ -194,13 +189,13 @@ export async function searchUsersByName(query: string): Promise<User[]> {
   const { data } = await supabase
     .from("users")
     .select("*")
-    .or(`first_name.ilike.${q},last_name.ilike.${q}`)
-    .order("first_name", { ascending: true })
+    .ilike("name", q)
+    .order("name", { ascending: true })
     .limit(10);
   return data || [];
 }
 
-export async function relinkRfid(userId: string, newRfid: string): Promise<User | null> {
+export async function relinkRfid(userId: number, newRfid: string): Promise<User | null> {
   const { data } = await supabase
     .from("users")
     .update({ rfid: newRfid })

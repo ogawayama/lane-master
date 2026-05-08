@@ -57,9 +57,7 @@ export default function Qm360Lanes() {
                 className="relative flex flex-col rounded-2xl border border-accent/60 bg-card p-6 shadow-[0_0_30px_-5px_hsl(var(--accent)/0.2)]"
               >
                 <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground mb-1">Welcome</div>
-                <div className="text-2xl font-bold text-foreground">
-                  {item.first_name} {item.last_name ?? ""}
-                </div>
+                <div className="text-2xl font-bold text-foreground">{item.name}</div>
 
                 <div className="mt-5 text-sm uppercase tracking-widest text-muted-foreground">
                   Pick up your gear:

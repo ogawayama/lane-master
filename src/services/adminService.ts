@@ -4,23 +4,10 @@ import { z } from "zod";
 const adminApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-panel`;
 
 export const userSchema = z.object({
-  user_id: z
-    .string()
-    .trim()
-    .max(80, "User ID is too long")
-    .refine((value) => value === "" || /^\d{5}$/.test(value), {
-      message: "User ID must be exactly 5 digits",
-    })
-    .optional()
-    .or(z.literal("")),
-  rfid: z.string().trim().max(120, "RFID is too long").optional().or(z.literal("")),
-  first_name: z.string().trim().min(1, "First name is required").max(80, "First name is too long"),
-  last_name: z.string().trim().max(80, "Last name is too long").optional().or(z.literal("")),
+  id: z.coerce.number().int().positive("ID must be a positive integer"),
+  rfid: z.string().trim().min(1, "RFID is required").max(120, "RFID is too long"),
+  name: z.string().trim().min(1, "Name is required").max(160, "Name is too long"),
 });
-
-function generateUserId(): string {
-  return Math.floor(10000 + Math.random() * 90000).toString();
-}
 
 export type Section = "idt" | "odt" | "live_fire" | "qm360";
 
@@ -33,20 +20,17 @@ export const weaponSchema = z.object({
 export type EditableUser = z.infer<typeof userSchema>;
 export type EditableWeapon = z.infer<typeof weaponSchema>;
 export type UserRecord = {
-  id: string;
-  user_id: string;
+  id: number;
   rfid: string;
-  first_name: string;
-  last_name: string | null;
+  name: string;
   created_at: string;
-  updated_at?: string;
 };
 export type WeaponRecord = {
   weapon_id: number;
   weapon_name: string;
   weapon_type: string;
   is_assigned: boolean;
-  assigned_to_user_id: string | null;
+  assigned_to_user_id: number | null;
   updated_at: string;
 };
 export type ImportMode = "skip" | "update";
@@ -56,7 +40,7 @@ export type UserImportPreviewRow = {
   values: EditableUser;
   status: ImportStatus;
   errors: string[];
-  existingId?: string;
+  existingId?: number;
 };
 
 type AdminAction =
@@ -72,12 +56,10 @@ type AdminAction =
   | "purge_all_users";
 
 function normalizeUserPayload(values: EditableUser) {
-  const userIdInput = (values.user_id ?? "").trim();
   return {
-    user_id: userIdInput || generateUserId(),
-    rfid: (values.rfid ?? "").trim(),
-    first_name: values.first_name.trim(),
-    last_name: values.last_name?.trim() || null,
+    id: Number(values.id),
+    rfid: values.rfid.trim(),
+    name: values.name.trim(),
   };
 }
 
@@ -154,13 +136,13 @@ export async function createUser(values: EditableUser) {
   return result.data;
 }
 
-export async function updateUser(id: string, values: EditableUser) {
+export async function updateUser(id: number, values: EditableUser) {
   const payload = parseUser(values);
   const result = await callAdminApi<{ data: UserRecord }>("update_user", { id, values: payload });
   return result.data;
 }
 
-export async function deleteUser(id: string) {
+export async function deleteUser(id: number) {
   await callAdminApi("delete_user", { id });
 }
 
@@ -196,13 +178,15 @@ export async function purgeAllUsers() {
 const DEMO_RFIDS = ["3649677676", "1576136972", "3910084941", "3915443597", "2731977834"];
 
 export async function resetDemoMode() {
+  // RFID is now NOT NULL; demo reset can no longer null-out RFIDs without violating the schema.
+  // Delete the demo users instead so they can be re-registered.
   const { supabase } = await import("@/integrations/supabase/client");
-  const { error } = await supabase.from("users").update({ rfid: null }).in("rfid", DEMO_RFIDS);
+  const { error } = await supabase.from("users").delete().in("rfid", DEMO_RFIDS);
   if (error) throw new Error(error.message);
 }
 
 export async function exportUsers(format: "csv" | "xlsx", rows: UserRecord[]) {
-  const payload = toWorksheetRows(rows.map(({ user_id, rfid, first_name, last_name }) => ({ user_id, rfid, first_name, last_name })));
+  const payload = toWorksheetRows(rows.map(({ id, rfid, name }) => ({ id, rfid, name })));
   const sheet = XLSX.utils.json_to_sheet(payload);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "Users");
@@ -240,7 +224,7 @@ export async function exportWeapons(format: "csv" | "xlsx", rows: WeaponRecord[]
 }
 
 export async function downloadUserTemplate(format: "csv" | "xlsx") {
-  const sample = [{ user_id: "USR-1001", rfid: "RFID-1001", first_name: "Alex", last_name: "Johnson" }];
+  const sample = [{ id: 1001, rfid: "RFID-1001", name: "Alex Johnson" }];
   const sheet = XLSX.utils.json_to_sheet(sample);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "UsersTemplate");
@@ -272,38 +256,39 @@ export async function parseUserImportFile(file: File, mode: ImportMode) {
   if (!rawRows.length) throw new Error("No data rows were found in the selected file.");
 
   const existingUsers = await fetchUsers();
-  const byUserId = new Map(existingUsers.map((user) => [user.user_id.toLowerCase(), user]));
+  const byId = new Map(existingUsers.map((user) => [user.id, user]));
   const byRfid = new Map(existingUsers.map((user) => [user.rfid.toLowerCase(), user]));
-  const seenUserIds = new Set<string>();
+  const seenIds = new Set<number>();
   const seenRfids = new Set<string>();
 
   return rawRows.map<UserImportPreviewRow>((row, index) => {
     const headers = formatHeaders(Object.keys(row));
     const candidate = {
-      user_id: extractCell(row, headers, ["user_id", "user id", "userid"]),
+      id: extractCell(row, headers, ["id", "user_id", "user id"]),
       rfid: extractCell(row, headers, ["rfid", "rfid tag", "tag", "badge"]),
-      first_name: extractCell(row, headers, ["first_name", "first name", "firstname"]),
-      last_name: extractCell(row, headers, ["last_name", "last name", "lastname"]),
+      name: extractCell(row, headers, ["name", "full name", "fullname"]),
     };
 
     const parsed = userSchema.safeParse(candidate);
     const errors = parsed.success ? [] : parsed.error.issues.map((issue) => issue.message);
-    const normalized = parsed.success ? normalizeUserPayload(parsed.data) : normalizeUserPayload(candidate);
-    const userIdKey = normalized.user_id.toLowerCase();
+    const normalized: EditableUser = parsed.success
+      ? normalizeUserPayload(parsed.data)
+      : { id: Number(candidate.id) || 0, rfid: candidate.rfid, name: candidate.name };
+    const idKey = normalized.id;
     const rfidKey = normalized.rfid.toLowerCase();
 
-    if (seenUserIds.has(userIdKey)) errors.push("Duplicate user ID in file.");
+    if (seenIds.has(idKey)) errors.push("Duplicate ID in file.");
     if (seenRfids.has(rfidKey)) errors.push("Duplicate RFID in file.");
-    seenUserIds.add(userIdKey);
+    seenIds.add(idKey);
     seenRfids.add(rfidKey);
 
-    const existingByUserId = byUserId.get(userIdKey);
+    const existingById = byId.get(idKey);
     const existingByRfid = byRfid.get(rfidKey);
-    if (existingByUserId && existingByRfid && existingByUserId.id !== existingByRfid.id) {
-      errors.push("User ID and RFID match different existing users.");
+    if (existingById && existingByRfid && existingById.id !== existingByRfid.id) {
+      errors.push("ID and RFID match different existing users.");
     }
 
-    const existing = existingByUserId ?? existingByRfid;
+    const existing = existingById ?? existingByRfid;
     let status: ImportStatus = existing ? (mode === "update" ? "update" : "skip") : "create";
     if (errors.length) status = "error";
 
@@ -332,7 +317,7 @@ export async function importUsersFromPreview(rows: UserImportPreviewRow[], mode:
     }
 
     try {
-      if (row.existingId) {
+      if (row.existingId !== undefined) {
         if (mode === "skip") {
           results.skipped += 1;
           continue;

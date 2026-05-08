@@ -8,12 +8,12 @@ export interface GearItem {
   gear_type: GearType;
   gear_number: number;
   is_assigned: boolean;
-  assigned_to_user_id: string | null;
+  assigned_to_user_id: number | null;
 }
 
 export interface GearAssignment {
   id: string;
-  user_id: string;
+  user_id: number;
   pdd_gear_id: string;
   sat_gear_id: string;
   assigned_at: string;
@@ -21,9 +21,8 @@ export interface GearAssignment {
 
 export interface ActiveGearAssignment {
   id: string;
-  user_id: string;
-  first_name: string | null;
-  last_name: string | null;
+  user_id: number;
+  name: string | null;
   pdd_number: number;
   sat_number: number;
   assigned_at: string;
@@ -45,7 +44,7 @@ async function pickAvailableGear(type: GearType): Promise<GearItem | null> {
     .order("gear_number", { ascending: true })
     .limit(1)
     .maybeSingle();
-  return (data as GearItem | null) ?? null;
+  return (data as unknown as GearItem | null) ?? null;
 }
 
 export async function getOrCreateGearAssignment(user: User): Promise<GearAssignResult> {
@@ -56,17 +55,17 @@ export async function getOrCreateGearAssignment(user: User): Promise<GearAssignR
     .maybeSingle();
 
   if (existing) {
-    const a = existing as GearAssignment;
+    const a = existing as unknown as GearAssignment;
     const { data: gears } = await supabase
       .from("qm360_gear")
       .select("*")
       .in("id", [a.pdd_gear_id, a.sat_gear_id]);
-    const list = (gears ?? []) as GearItem[];
+    const list = (gears ?? []) as unknown as GearItem[];
     const pdd = list.find((g) => g.gear_type === "PDD")?.gear_number;
     const sat = list.find((g) => g.gear_type === "SAT")?.gear_number;
     return {
       success: true,
-      message: `Welcome back ${user.first_name}. Pick up your gear: PDD ${String(pdd).padStart(3, "0")} and SAT ${String(sat).padStart(3, "0")}.`,
+      message: `Welcome back ${user.name}. Pick up your gear: PDD ${String(pdd).padStart(3, "0")} and SAT ${String(sat).padStart(3, "0")}.`,
       pdd,
       sat,
     };
@@ -94,7 +93,7 @@ export async function getOrCreateGearAssignment(user: User): Promise<GearAssignR
 
   return {
     success: true,
-    message: `Welcome ${user.first_name}. Pick up your gear: PDD ${String(pdd.gear_number).padStart(3, "0")} and SAT ${String(sat.gear_number).padStart(3, "0")}.`,
+    message: `Welcome ${user.name}. Pick up your gear: PDD ${String(pdd.gear_number).padStart(3, "0")} and SAT ${String(sat.gear_number).padStart(3, "0")}.`,
     pdd: pdd.gear_number,
     sat: sat.gear_number,
   };
@@ -105,27 +104,26 @@ export async function fetchActiveGearAssignments(): Promise<ActiveGearAssignment
     .from("qm360_assignments")
     .select("*")
     .order("assigned_at", { ascending: true });
-  const list = (assignments ?? []) as GearAssignment[];
+  const list = (assignments ?? []) as unknown as GearAssignment[];
   if (list.length === 0) return [];
 
   const userIds = list.map((a) => a.user_id);
   const gearIds = list.flatMap((a) => [a.pdd_gear_id, a.sat_gear_id]);
 
   const [{ data: users }, { data: gears }] = await Promise.all([
-    supabase.from("users").select("id, first_name, last_name").in("id", userIds),
+    supabase.from("users").select("id, name").in("id", userIds),
     supabase.from("qm360_gear").select("*").in("id", gearIds),
   ]);
 
   const userMap = new Map((users ?? []).map((u) => [u.id, u]));
-  const gearMap = new Map(((gears ?? []) as GearItem[]).map((g) => [g.id, g]));
+  const gearMap = new Map(((gears ?? []) as unknown as GearItem[]).map((g) => [g.id, g]));
 
   return list.map((a) => {
     const u = userMap.get(a.user_id);
     return {
       id: a.id,
       user_id: a.user_id,
-      first_name: u?.first_name ?? null,
-      last_name: u?.last_name ?? null,
+      name: u?.name ?? null,
       pdd_number: gearMap.get(a.pdd_gear_id)?.gear_number ?? 0,
       sat_number: gearMap.get(a.sat_gear_id)?.gear_number ?? 0,
       assigned_at: a.assigned_at,
@@ -142,9 +140,8 @@ export async function resetQm360Assignments(): Promise<void> {
 }
 
 export async function fetchGear(search = ""): Promise<GearItem[]> {
-  let q = supabase.from("qm360_gear").select("*").order("gear_type").order("gear_number");
-  const { data } = await q;
-  let list = ((data ?? []) as GearItem[]);
+  const { data } = await supabase.from("qm360_gear").select("*").order("gear_type").order("gear_number");
+  let list = ((data ?? []) as unknown as GearItem[]);
   if (search.trim()) {
     const s = search.trim().toLowerCase();
     list = list.filter(
