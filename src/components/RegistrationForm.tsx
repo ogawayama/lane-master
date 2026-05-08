@@ -41,7 +41,7 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
   const handleRegister = () => {
     const trimmed = name.trim();
     const id = parseInt(idInput, 10);
-    if (!trimmed || !Number.isFinite(id) || id <= 0) return;
+    if (!trimmed || !Number.isFinite(id) || id < 10000 || id > 99999) return;
     onRegister({ id, name: trimmed });
   };
 
@@ -64,9 +64,10 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
 
       <Input
         value={idInput}
-        onChange={(e) => setIdInput(e.target.value.replace(/\D/g, ""))}
-        placeholder="User ID (number) — required for new registration"
+        onChange={(e) => setIdInput(e.target.value.replace(/\D/g, "").slice(0, 5))}
+        placeholder="5-digit User ID — required for new registration"
         inputMode="numeric"
+        maxLength={5}
         className="bg-secondary border-border text-foreground placeholder:text-muted-foreground/50 h-12 text-lg font-['Share_Tech_Mono']"
       />
 
