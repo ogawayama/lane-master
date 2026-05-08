@@ -237,7 +237,7 @@ export function AdminDashboard({ section, heading = "Admin panel", themeHsl }: A
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User ID</TableHead>
+                    <TableHead>ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>RFID</TableHead>
                     <TableHead className="w-[120px]">Actions</TableHead>
@@ -246,8 +246,8 @@ export function AdminDashboard({ section, heading = "Admin panel", themeHsl }: A
                 <TableBody>
                   {users.length ? users.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.user_id}</TableCell>
-                      <TableCell>{[user.first_name, user.last_name].filter(Boolean).join(" ")}</TableCell>
+                      <TableCell className="font-medium">{user.id}</TableCell>
+                      <TableCell>{user.name}</TableCell>
                       <TableCell>{user.rfid}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">

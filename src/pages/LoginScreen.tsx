@@ -92,7 +92,7 @@ export default function LoginScreen({ heading = "GC IDT", themeHsl, section = "i
     }
   };
 
-  const handleRegister = async (data: {user_id: string;first_name: string;last_name: string;}) => {
+  const handleRegister = async (data: { id: number; name: string }) => {
     setIsLoading(true);
     try {
       const user = await registerUser({ ...data, rfid: pendingRfid });
@@ -246,7 +246,7 @@ export default function LoginScreen({ heading = "GC IDT", themeHsl, section = "i
               {result?.success && result.lane && result.weapon ? (
                 <div className="flex flex-col items-center gap-4 w-full">
                   <p className="text-2xl font-bold text-foreground">
-                    Welcome {result.user?.first_name}. Pick up your {section === "live_fire" ? "tablet" : "weapon"} and proceed to your lane.
+                    Welcome {result.user?.name}. Pick up your {section === "live_fire" ? "tablet" : "weapon"} and proceed to your lane.
                   </p>
                   <div className="flex flex-col gap-3 w-full">
                     <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">

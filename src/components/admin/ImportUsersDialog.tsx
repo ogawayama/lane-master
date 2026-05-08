@@ -94,7 +94,7 @@ export function ImportUsersDialog({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Row</TableHead>
-                    <TableHead>User ID</TableHead>
+                    <TableHead>ID</TableHead>
                     <TableHead>RFID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Status</TableHead>
@@ -104,11 +104,11 @@ export function ImportUsersDialog({
                 <TableBody>
                   {rows.length ? (
                     rows.map((row) => (
-                      <TableRow key={`${row.rowNumber}-${row.values.user_id}-${row.values.rfid}`}>
+                      <TableRow key={`${row.rowNumber}-${row.values.id}-${row.values.rfid}`}>
                         <TableCell>{row.rowNumber}</TableCell>
-                        <TableCell>{row.values.user_id}</TableCell>
+                        <TableCell>{row.values.id}</TableCell>
                         <TableCell>{row.values.rfid}</TableCell>
-                        <TableCell>{[row.values.first_name, row.values.last_name].filter(Boolean).join(" ")}</TableCell>
+                        <TableCell>{row.values.name}</TableCell>
                         <TableCell className="uppercase tracking-[0.2em] text-xs">{row.status}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{row.errors.join(" ") || "Ready"}</TableCell>
                       </TableRow>
