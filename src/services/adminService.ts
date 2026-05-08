@@ -24,7 +24,7 @@ export type EditableUser = z.infer<typeof userSchema>;
 export type EditableWeapon = z.infer<typeof weaponSchema>;
 export type UserRecord = {
   id: number;
-  rfid: string;
+  rfid: string | null;
   name: string;
   created_at: string;
 };
