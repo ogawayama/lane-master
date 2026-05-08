@@ -18,8 +18,14 @@ import LiveFireAdmin from "./pages/LiveFireAdmin";
 import Qm360Admin from "./pages/Qm360Admin";
 import NotFound from "./pages/NotFound";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useUserHubSync } from "@/hooks/useUserHubSync";
 
 const queryClient = new QueryClient();
+
+const AppShell = () => {
+  useUserHubSync();
+  return null;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -27,6 +33,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AppShell />
         <ThemeToggle />
         <Routes>
           <Route path="/" element={<Landing />} />
