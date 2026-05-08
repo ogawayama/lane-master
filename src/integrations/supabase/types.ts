@@ -17,54 +17,44 @@ export type Database = {
       lane_assignments: {
         Row: {
           assigned_at: string | null
-          first_name: string | null
           id: string
           lane_number: number
-          last_name: string | null
+          name: string | null
           section: string
           status: string
           updated_at: string
-          user_id: string | null
+          user_id: number | null
           weapon_id: number | null
           weapon_name: string | null
           weapon_type: string | null
         }
         Insert: {
           assigned_at?: string | null
-          first_name?: string | null
           id?: string
           lane_number: number
-          last_name?: string | null
+          name?: string | null
           section: string
           status?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: number | null
           weapon_id?: number | null
           weapon_name?: string | null
           weapon_type?: string | null
         }
         Update: {
           assigned_at?: string | null
-          first_name?: string | null
           id?: string
           lane_number?: number
-          last_name?: string | null
+          name?: string | null
           section?: string
           status?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: number | null
           weapon_id?: number | null
           weapon_name?: string | null
           weapon_type?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "lane_assignments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "lane_assignments_weapon_id_fkey"
             columns: ["weapon_id"]
@@ -81,7 +71,7 @@ export type Database = {
           pdd_gear_id: string
           sat_gear_id: string
           updated_at: string
-          user_id: string
+          user_id: number
         }
         Insert: {
           assigned_at?: string
@@ -89,7 +79,7 @@ export type Database = {
           pdd_gear_id: string
           sat_gear_id: string
           updated_at?: string
-          user_id: string
+          user_id: number
         }
         Update: {
           assigned_at?: string
@@ -97,7 +87,7 @@ export type Database = {
           pdd_gear_id?: string
           sat_gear_id?: string
           updated_at?: string
-          user_id?: string
+          user_id?: number
         }
         Relationships: [
           {
@@ -118,7 +108,7 @@ export type Database = {
       }
       qm360_gear: {
         Row: {
-          assigned_to_user_id: string | null
+          assigned_to_user_id: number | null
           created_at: string
           gear_number: number
           gear_type: string
@@ -127,7 +117,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assigned_to_user_id?: string | null
+          assigned_to_user_id?: number | null
           created_at?: string
           gear_number: number
           gear_type: string
@@ -136,7 +126,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assigned_to_user_id?: string | null
+          assigned_to_user_id?: number | null
           created_at?: string
           gear_number?: number
           gear_type?: string
@@ -170,36 +160,27 @@ export type Database = {
       users: {
         Row: {
           created_at: string
-          first_name: string
-          id: string
-          last_name: string | null
-          rfid: string | null
-          updated_at: string
-          user_id: string
+          id: number
+          name: string
+          rfid: string
         }
         Insert: {
           created_at?: string
-          first_name: string
-          id?: string
-          last_name?: string | null
-          rfid?: string | null
-          updated_at?: string
-          user_id: string
+          id: number
+          name: string
+          rfid: string
         }
         Update: {
           created_at?: string
-          first_name?: string
-          id?: string
-          last_name?: string | null
-          rfid?: string | null
-          updated_at?: string
-          user_id?: string
+          id?: number
+          name?: string
+          rfid?: string
         }
         Relationships: []
       }
       weapons: {
         Row: {
-          assigned_to_user_id: string | null
+          assigned_to_user_id: number | null
           is_assigned: boolean
           section: string
           updated_at: string
@@ -208,7 +189,7 @@ export type Database = {
           weapon_type: string
         }
         Insert: {
-          assigned_to_user_id?: string | null
+          assigned_to_user_id?: number | null
           is_assigned?: boolean
           section: string
           updated_at?: string
@@ -217,7 +198,7 @@ export type Database = {
           weapon_type: string
         }
         Update: {
-          assigned_to_user_id?: string | null
+          assigned_to_user_id?: number | null
           is_assigned?: boolean
           section?: string
           updated_at?: string
@@ -225,15 +206,7 @@ export type Database = {
           weapon_name?: string
           weapon_type?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "weapons_assigned_to_user_id_fkey"
-            columns: ["assigned_to_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
