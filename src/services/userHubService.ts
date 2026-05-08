@@ -101,14 +101,30 @@ export async function listAll(search = ""): Promise<UserHubUser[]> {
 
 // ---------- User Hub writes ----------
 
+async function generateUniqueUserId(): Promise<number> {
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const candidate = Math.floor(10000 + Math.random() * 90000);
+    const { data, error } = await userHub
+      .from("users")
+      .select("id")
+      .eq("id", candidate)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return candidate;
+  }
+  throw new Error("Could not generate a unique 5-digit ID. Try again.");
+}
+
 export async function createUser(values: {
-  id: number;
+  id?: number | null;
   name: string;
-  rfid: string;
+  rfid?: string | null;
 }): Promise<UserHubUser> {
+  const id = values.id ?? (await generateUniqueUserId());
+  const rfid = values.rfid && values.rfid.trim() ? values.rfid.trim() : null;
   const { data, error } = await userHub
     .from("users")
-    .insert({ id: values.id, name: values.name, rfid: values.rfid })
+    .insert({ id, name: values.name, rfid })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
@@ -119,11 +135,14 @@ export async function createUser(values: {
 
 export async function updateUser(
   id: number,
-  values: { name?: string; rfid?: string },
+  values: { name?: string; rfid?: string | null },
 ): Promise<UserHubUser> {
+  const payload: Record<string, unknown> = {};
+  if (values.name !== undefined) payload.name = values.name;
+  if (values.rfid !== undefined) payload.rfid = values.rfid && values.rfid.trim() ? values.rfid.trim() : null;
   const { data, error } = await userHub
     .from("users")
-    .update(values)
+    .update(payload)
     .eq("id", id)
     .select("*")
     .single();

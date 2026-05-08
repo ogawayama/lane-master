@@ -10,7 +10,7 @@ const USERHUB_ANON_KEY =
 export type UserHubUser = {
   id: number;
   name: string;
-  rfid: string;
+  rfid: string | null;
   created_at: string;
 };
 

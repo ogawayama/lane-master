@@ -5,8 +5,10 @@ import * as userHubService from "@/services/userHubService";
 const adminApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-panel`;
 
 export const userSchema = z.object({
-  id: z.coerce.number().int().min(10000, "ID must be a 5-digit number").max(99999, "ID must be a 5-digit number"),
-  rfid: z.string().trim().min(1, "RFID is required").max(120, "RFID is too long"),
+  id: z
+    .union([z.literal(""), z.coerce.number().int().min(10000, "ID must be a 5-digit number").max(99999, "ID must be a 5-digit number")])
+    .optional(),
+  rfid: z.string().trim().max(120, "RFID is too long").optional(),
   name: z.string().trim().min(1, "Name is required").max(160, "Name is too long"),
 });
 
@@ -22,7 +24,7 @@ export type EditableUser = z.infer<typeof userSchema>;
 export type EditableWeapon = z.infer<typeof weaponSchema>;
 export type UserRecord = {
   id: number;
-  rfid: string;
+  rfid: string | null;
   name: string;
   created_at: string;
 };
@@ -57,9 +59,10 @@ type AdminAction =
   | "purge_all_users";
 
 function normalizeUserPayload(values: EditableUser) {
+  const rfidTrimmed = (values.rfid ?? "").trim();
   return {
-    id: Number(values.id),
-    rfid: values.rfid.trim(),
+    id: values.id === "" || values.id === undefined ? undefined : Number(values.id),
+    rfid: rfidTrimmed ? rfidTrimmed : null,
     name: values.name.trim(),
   };
 }
@@ -262,7 +265,11 @@ export async function parseUserImportFile(file: File, mode: ImportMode) {
 
   const existingUsers = await fetchUsers();
   const byId = new Map(existingUsers.map((user) => [user.id, user]));
-  const byRfid = new Map(existingUsers.map((user) => [user.rfid.toLowerCase(), user]));
+  const byRfid = new Map(
+    existingUsers
+      .filter((user): user is UserRecord & { rfid: string } => !!user.rfid)
+      .map((user) => [user.rfid.toLowerCase(), user]),
+  );
   const seenIds = new Set<number>();
   const seenRfids = new Set<string>();
 
@@ -277,18 +284,18 @@ export async function parseUserImportFile(file: File, mode: ImportMode) {
     const parsed = userSchema.safeParse(candidate);
     const errors = parsed.success ? [] : parsed.error.issues.map((issue) => issue.message);
     const normalized: EditableUser = parsed.success
-      ? normalizeUserPayload(parsed.data)
-      : { id: Number(candidate.id) || 0, rfid: candidate.rfid, name: candidate.name };
-    const idKey = normalized.id;
-    const rfidKey = normalized.rfid.toLowerCase();
+      ? { id: parsed.data.id === "" ? undefined : parsed.data.id, rfid: (parsed.data.rfid ?? "").trim(), name: parsed.data.name.trim() }
+      : { id: candidate.id ? Number(candidate.id) : undefined, rfid: candidate.rfid, name: candidate.name };
+    const idKey = typeof normalized.id === "number" ? normalized.id : undefined;
+    const rfidKey = (normalized.rfid ?? "").toLowerCase();
 
-    if (seenIds.has(idKey)) errors.push("Duplicate ID in file.");
-    if (seenRfids.has(rfidKey)) errors.push("Duplicate RFID in file.");
-    seenIds.add(idKey);
-    seenRfids.add(rfidKey);
+    if (idKey !== undefined && seenIds.has(idKey)) errors.push("Duplicate ID in file.");
+    if (rfidKey && seenRfids.has(rfidKey)) errors.push("Duplicate RFID in file.");
+    if (idKey !== undefined) seenIds.add(idKey);
+    if (rfidKey) seenRfids.add(rfidKey);
 
-    const existingById = byId.get(idKey);
-    const existingByRfid = byRfid.get(rfidKey);
+    const existingById = idKey !== undefined ? byId.get(idKey) : undefined;
+    const existingByRfid = rfidKey ? byRfid.get(rfidKey) : undefined;
     if (existingById && existingByRfid && existingById.id !== existingByRfid.id) {
       errors.push("ID and RFID match different existing users.");
     }
