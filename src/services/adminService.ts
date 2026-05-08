@@ -1,10 +1,11 @@
 import * as XLSX from "xlsx";
 import { z } from "zod";
+import * as userHubService from "@/services/userHubService";
 
 const adminApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-panel`;
 
 export const userSchema = z.object({
-  id: z.coerce.number().int().positive("ID must be a positive integer"),
+  id: z.coerce.number().int().min(10000, "ID must be a 5-digit number").max(99999, "ID must be a 5-digit number"),
   rfid: z.string().trim().min(1, "RFID is required").max(120, "RFID is too long"),
   name: z.string().trim().min(1, "Name is required").max(160, "Name is too long"),
 });
@@ -118,8 +119,13 @@ async function callAdminApi<T>(action: AdminAction, payload: Record<string, unkn
 }
 
 export async function fetchUsers(search = "") {
-  const result = await callAdminApi<{ data: UserRecord[] }>("fetch_users", { search });
-  return result.data ?? [];
+  const data = await userHubService.listAll(search);
+  return data.map((u) => ({
+    id: u.id,
+    rfid: u.rfid,
+    name: u.name,
+    created_at: u.created_at,
+  })) as UserRecord[];
 }
 
 function parseUser(values: EditableUser) {
@@ -132,18 +138,18 @@ function parseUser(values: EditableUser) {
 
 export async function createUser(values: EditableUser) {
   const payload = parseUser(values);
-  const result = await callAdminApi<{ data: UserRecord }>("create_user", { values: payload });
-  return result.data;
+  const created = await userHubService.createUser(payload);
+  return created as UserRecord;
 }
 
 export async function updateUser(id: number, values: EditableUser) {
   const payload = parseUser(values);
-  const result = await callAdminApi<{ data: UserRecord }>("update_user", { id, values: payload });
-  return result.data;
+  const updated = await userHubService.updateUser(id, { name: payload.name, rfid: payload.rfid });
+  return updated as UserRecord;
 }
 
 export async function deleteUser(id: number) {
-  await callAdminApi("delete_user", { id });
+  await userHubService.deleteUser(id);
 }
 
 export async function fetchWeapons(section: Section, search = "") {
@@ -172,16 +178,15 @@ export async function resetAssignments(section: Section) {
 }
 
 export async function purgeAllUsers() {
-  await callAdminApi("purge_all_users");
+  await userHubService.deleteAllUsers();
 }
 
 const DEMO_RFIDS = ["3649677676", "1576136972", "3910084941", "3915443597", "2731977834"];
 
 export async function resetDemoMode() {
-  // RFID is now NOT NULL; demo reset can no longer null-out RFIDs without violating the schema.
-  // Delete the demo users instead so they can be re-registered.
-  const { supabase } = await import("@/integrations/supabase/client");
-  const { error } = await supabase.from("users").delete().in("rfid", DEMO_RFIDS);
+  // Delete the demo users from User Hub; the realtime sync will clean the local mirror.
+  const { userHub } = await import("@/integrations/userhub/client");
+  const { error } = await userHub.from("users").delete().in("rfid", DEMO_RFIDS);
   if (error) throw new Error(error.message);
 }
 
@@ -224,7 +229,7 @@ export async function exportWeapons(format: "csv" | "xlsx", rows: WeaponRecord[]
 }
 
 export async function downloadUserTemplate(format: "csv" | "xlsx") {
-  const sample = [{ id: 1001, rfid: "RFID-1001", name: "Alex Johnson" }];
+  const sample = [{ id: 10001, rfid: "RFID-10001", name: "Alex Johnson" }];
   const sheet = XLSX.utils.json_to_sheet(sample);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "UsersTemplate");
