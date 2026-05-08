@@ -101,14 +101,30 @@ export async function listAll(search = ""): Promise<UserHubUser[]> {
 
 // ---------- User Hub writes ----------
 
+async function generateUniqueUserId(): Promise<number> {
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const candidate = Math.floor(10000 + Math.random() * 90000);
+    const { data, error } = await userHub
+      .from("users")
+      .select("id")
+      .eq("id", candidate)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return candidate;
+  }
+  throw new Error("Could not generate a unique 5-digit ID. Try again.");
+}
+
 export async function createUser(values: {
-  id: number;
+  id?: number | null;
   name: string;
-  rfid: string;
+  rfid?: string | null;
 }): Promise<UserHubUser> {
+  const id = values.id ?? (await generateUniqueUserId());
+  const rfid = values.rfid && values.rfid.trim() ? values.rfid.trim() : null;
   const { data, error } = await userHub
     .from("users")
-    .insert({ id: values.id, name: values.name, rfid: values.rfid })
+    .insert({ id, name: values.name, rfid })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
