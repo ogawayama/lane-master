@@ -1,73 +1,66 @@
-# QM 360 — Gear Pickup Flow
 
-QM 360 stops using lanes and weapons. Instead, every user who scans in is assigned one **PDD** item and one **SAT** item from a gear inventory. IDT, ODT, and Live Fire keep their existing lane/weapon logic untouched.
+# Align `users` table with User Hub
 
-## What the user sees
+Make this project's `users` table byte-identical to User Hub's so the two can later share data via a second Supabase client. All existing user records (and any active assignments tied to them) will be wiped — fresh start.
 
-**QM 360 Self Service (`/qm360`)**
-- Same RFID scan screen as today.
-- On a successful scan, message becomes:
-  - `Welcome {First Name}. Pick up your gear: PDD {nnn} and SAT {nnn}.`
-- Re-scan of an already-checked-in user shows the same gear they already hold (idempotent).
-- "Reset" clears all QM 360 gear assignments only.
+## Target schema (identical to User Hub)
 
-**QM 360 Lanes view (`/qm360/lanes`)** — repurposed as the live gear board:
-- Header: `QM 360 — GEAR PICKUP`
-- Grid of cards, one per currently checked-in user, each showing:
-  ```text
-  Welcome {First Name} {Last Name}
-  Pick up your gear:
-    PDD {nnn}
-    SAT {nnn}
-  ```
-- Empty state when nobody is checked in.
-- Realtime updates via Supabase Realtime on the new gear-assignment table.
+```text
+users
+  id          integer       PRIMARY KEY
+  name        text          NOT NULL
+  rfid        text          NOT NULL
+  created_at  timestamptz   NOT NULL DEFAULT now()
+```
 
-**QM 360 Admin (`/qm360/admin`)**
-- Users tab unchanged.
-- Settings dialog "Weapon inventory" tab is replaced with a **Gear inventory** tab managing two lists:
-  - PDD items (number, status: available / assigned)
-  - SAT items (number, status: available / assigned)
-- Add / edit / delete gear items, plus Excel export.
-- "Reset assignments" clears all QM 360 gear (no lanes touched).
+No `user_id` (USR code), no `first_name`/`last_name`, no `updated_at`.
 
-## Data model
+## Impact on other tables
 
-New tables (QM 360 only — IDT/ODT/Live Fire stay on `lane_assignments` + `weapons`):
+These tables currently reference `users.id` as UUID and cache `first_name`/`last_name`. They must change too:
 
-`qm360_gear`
-- `id uuid pk`
-- `gear_type text` — `'PDD'` or `'SAT'` (validated by trigger)
-- `gear_number int` — e.g. 10, 117 — unique per `gear_type`
-- `is_assigned bool default false`
-- `assigned_to_user_id uuid null`
-- `created_at`, `updated_at`
+- `lane_assignments`: `user_id uuid` → `user_id integer`; drop `first_name`, `last_name`; add `name text`.
+- `weapons`: `assigned_to_user_id uuid` → `integer`.
+- `qm360_gear`: `assigned_to_user_id uuid` → `integer`.
+- `qm360_assignments`: `user_id uuid` → `integer`.
 
-`qm360_assignments`
-- `id uuid pk`
-- `user_id uuid` — references `users.id` logically (no FK, per project rules)
-- `pdd_gear_id uuid` → `qm360_gear.id`
-- `sat_gear_id uuid` → `qm360_gear.id`
-- `assigned_at timestamptz default now()`
-- unique on `user_id` (one active assignment per user)
+All active assignments are reset as part of the wipe (lanes empty, weapons/gear unassigned).
 
-RLS mirrors existing kiosk-style policies (public read/update, admin insert/delete) and realtime is enabled on `qm360_assignments` and `qm360_gear`.
+## Migration steps
 
-Seed migration inserts a starter set of PDD and SAT numbers (e.g. PDD 001–010, SAT 101–110) so the flow works immediately; admin can edit afterwards.
+1. **Wipe dependent data** (so FK type changes are safe):
+   - Reset all `lane_assignments` rows to empty (null user/weapon, status `empty`).
+   - Set all `weapons.is_assigned = false`, `assigned_to_user_id = null`.
+   - Delete all `qm360_assignments`.
+   - Set all `qm360_gear.is_assigned = false`, `assigned_to_user_id = null`.
+   - Delete all `users`.
+2. **Alter schema**:
+   - Drop `users.user_id`, `users.first_name`, `users.last_name`, `users.updated_at`.
+   - Add `users.name text NOT NULL`.
+   - Make `users.rfid` NOT NULL.
+   - Drop UUID PK, add `id integer PRIMARY KEY` (plain integer, no sequence — IDs will come from User Hub).
+   - Alter all referencing columns from `uuid` to `integer`.
+   - Drop `lane_assignments.first_name`, `last_name`; add `name text`.
+3. **Re-apply RLS policies** (kiosk read/write stays the same, just on the new column shape).
 
 ## Code changes
 
-- `src/services/qm360Service.ts` (new): `lookupUserByRfid` (reuse), `getOrCreateGearAssignment(user)`, `fetchActiveGearAssignments()`, `resetQm360Assignments()`, gear CRUD.
-- `src/services/realtimeService.ts`: add `subscribeQm360Assignments(onUpdate)`.
-- `src/pages/Qm360Screen.tsx`: stop using shared `LoginScreen`; new component reusing the same scan UI but calling `getOrCreateGearAssignment` and rendering the new success message.
-- `src/pages/Qm360Lanes.tsx`: stop using `LaneOverview`; render the gear board described above with realtime subscription.
-- `src/pages/Qm360Admin.tsx` + a new `Qm360AdminDashboard` (or a `variant="gear"` branch in `AdminDashboard`): swap the Weapons tab for a Gear tab, wire reset to `resetQm360Assignments`.
-- `src/components/admin/GearFormDialog.tsx` (new): add/edit a PDD or SAT item.
-- `src/services/adminService.ts`: add gear export + reset helpers for QM 360.
+- **Types**: `src/integrations/supabase/types.ts` regenerates automatically after the migration.
+- **Services** (`adminService.ts`, `assignmentService.ts`, `qm360Service.ts`, `realtimeService.ts`): swap `first_name`/`last_name` for `name`, drop `user_id` (USR code) field, treat `id` as number.
+- **Edge function** `supabase/functions/admin-panel/index.ts`: same field rename in payload validation and queries; remove USR-code generation/handling.
+- **UI**:
+  - `RegistrationForm.tsx`: single "Name" input (replaces first/last).
+  - `UserFormDialog.tsx`: single name field, drop USR-code field.
+  - `AdminDashboard.tsx` + `ImportUsersDialog.tsx`: CSV columns become `id, name, rfid`; remove USR-code column.
+  - `LaneCard.tsx`, `LoginScreen.tsx`, `LaneOverview.tsx`, lane/admin pages: render `name` instead of `${first_name} ${last_name}`.
+- **Memory note**: update `mem://features/user-registration` (no more USR- auto-generation, no name splitting).
 
-IDT, ODT, Live Fire pages, services, and admin remain untouched.
+## What still needs to happen after this migration
 
-## Out of scope
+This step only aligns the schema. The follow-up (Option A from the previous discussion) is to add a second Supabase client pointing at User Hub and route user CRUD there with dual-write back to this project. That's a separate change once you confirm this schema lands cleanly.
 
-- No changes to weapon/lane data for the other three sections.
-- No migration of existing QM 360 weapon rows — they're simply unused (we can delete them in the same migration if you want; default plan: leave them in place, harmless).
+## Risks / things to confirm
+
+- Integer `id` with no sequence means new users *must* be created in User Hub first (or we need to add a sequence here too). The Option A plan assumes User Hub is the source of truth, so no sequence is correct — but local-only registration on this kiosk will not work until the second client is wired up.
+- All historical assignment records and user records are deleted. Not recoverable without a project revert.
+- Tests referencing the old schema (`src/test/`) may need updating.
