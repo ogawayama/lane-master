@@ -5,8 +5,10 @@ import * as userHubService from "@/services/userHubService";
 const adminApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-panel`;
 
 export const userSchema = z.object({
-  id: z.coerce.number().int().min(10000, "ID must be a 5-digit number").max(99999, "ID must be a 5-digit number"),
-  rfid: z.string().trim().min(1, "RFID is required").max(120, "RFID is too long"),
+  id: z
+    .union([z.literal(""), z.coerce.number().int().min(10000, "ID must be a 5-digit number").max(99999, "ID must be a 5-digit number")])
+    .optional(),
+  rfid: z.string().trim().max(120, "RFID is too long").optional(),
   name: z.string().trim().min(1, "Name is required").max(160, "Name is too long"),
 });
 
