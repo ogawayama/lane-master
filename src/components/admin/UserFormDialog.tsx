@@ -44,11 +44,12 @@ export function UserFormDialog({ open, user, saving, onOpenChange, onSave }: Use
         </DialogHeader>
         <div className="grid gap-3">
           <Input
-            placeholder="ID (integer)"
+            placeholder="ID (5-digit number)"
             inputMode="numeric"
+            maxLength={5}
             value={form.id}
             disabled={!!user}
-            onChange={(event) => setForm((current) => ({ ...current, id: event.target.value.replace(/\D/g, "") }))}
+            onChange={(event) => setForm((current) => ({ ...current, id: event.target.value.replace(/\D/g, "").slice(0, 5) }))}
           />
           <Input placeholder="Name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
           <Input placeholder="RFID" value={form.rfid} onChange={(event) => setForm((current) => ({ ...current, rfid: event.target.value }))} />

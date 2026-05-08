@@ -229,7 +229,7 @@ export async function exportWeapons(format: "csv" | "xlsx", rows: WeaponRecord[]
 }
 
 export async function downloadUserTemplate(format: "csv" | "xlsx") {
-  const sample = [{ id: 1001, rfid: "RFID-1001", name: "Alex Johnson" }];
+  const sample = [{ id: 10001, rfid: "RFID-10001", name: "Alex Johnson" }];
   const sheet = XLSX.utils.json_to_sheet(sample);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "UsersTemplate");
