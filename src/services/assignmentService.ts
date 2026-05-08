@@ -135,18 +135,18 @@ export async function assignLaneAndWeapon(
 }
 
 export async function registerUser(data: {
-  id: number;
+  id?: number;
   rfid: string;
   name: string;
 }): Promise<User | null> {
   try {
-    await userHubService.createUser({ id: data.id, rfid: data.rfid, name: data.name });
+    const created = await userHubService.createUser({ id: data.id ?? null, rfid: data.rfid, name: data.name });
+    const { data: user } = await supabase.from("users").select("*").eq("id", created.id).maybeSingle();
+    return user;
   } catch (error) {
     console.error("Registration error:", error);
     return null;
   }
-  const { data: user } = await supabase.from("users").select("*").eq("id", data.id).maybeSingle();
-  return user;
 }
 
 export async function resetAllAssignments(section: Section): Promise<void> {
