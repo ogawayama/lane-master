@@ -24,7 +24,6 @@ export function LaneCard({ lane, section }: LaneCardProps) {
           : "border-border bg-card/50"
       }`}
     >
-      {/* Active indicator line */}
       {isOccupied && (
         <motion.div
           initial={{ scaleX: 0 }}
@@ -34,7 +33,6 @@ export function LaneCard({ lane, section }: LaneCardProps) {
         />
       )}
 
-      {/* Lane number */}
       <div
         className={`text-5xl font-bold font-['Share_Tech_Mono'] ${
           isOccupied ? "text-primary" : "text-muted-foreground/40"
@@ -54,17 +52,10 @@ export function LaneCard({ lane, section }: LaneCardProps) {
           transition={{ delay: 0.2, duration: 0.4 }}
           className="mt-6 flex flex-col items-center gap-3 text-center"
         >
-          {/* User info */}
           <div>
-            <div className="text-2xl font-bold text-foreground">
-              {lane.first_name}
-            </div>
-            {lane.last_name && (
-              <div className="text-sm text-muted-foreground">{lane.last_name}</div>
-            )}
+            <div className="text-2xl font-bold text-foreground">{lane.name}</div>
           </div>
 
-          {/* Weapon info */}
           <div className="mt-2 flex flex-col items-center gap-1 rounded-xl border border-border bg-secondary/50 px-4 py-3 w-full">
             <div className="flex items-center gap-2 text-primary">
               <ItemIcon className="h-4 w-4" />
@@ -75,7 +66,6 @@ export function LaneCard({ lane, section }: LaneCardProps) {
             )}
           </div>
 
-          {/* Status */}
           <div className="flex items-center gap-1.5 mt-1">
             <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
             <span className="text-xs uppercase tracking-widest text-accent">Active</span>

@@ -6,21 +6,15 @@ import { UserPlus, Link2 } from "lucide-react";
 
 interface RegistrationFormProps {
   rfid: string;
-  onRegister: (data: { user_id: string; first_name: string; last_name: string }) => void;
+  onRegister: (data: { id: number; name: string }) => void;
   onLink: (user: User) => void;
   onCancel: () => void;
   isLoading: boolean;
 }
 
-function splitName(fullName: string): { first_name: string; last_name: string } {
-  const trimmed = fullName.trim();
-  const spaceIdx = trimmed.indexOf(" ");
-  if (spaceIdx === -1) return { first_name: trimmed, last_name: "" };
-  return { first_name: trimmed.slice(0, spaceIdx), last_name: trimmed.slice(spaceIdx + 1).trim() };
-}
-
 export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading }: RegistrationFormProps) {
   const [name, setName] = useState("");
+  const [idInput, setIdInput] = useState("");
   const [results, setResults] = useState<User[]>([]);
   const [searched, setSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -45,10 +39,10 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
   }, [name]);
 
   const handleRegister = () => {
-    const { first_name, last_name } = splitName(name);
-    if (!first_name) return;
-    const generatedId = `USR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    onRegister({ user_id: generatedId, first_name, last_name });
+    const trimmed = name.trim();
+    const id = parseInt(idInput, 10);
+    if (!trimmed || !Number.isFinite(id) || id <= 0) return;
+    onRegister({ id, name: trimmed });
   };
 
   return (
@@ -68,7 +62,14 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
         autoFocus
       />
 
-      {/* Autocomplete results */}
+      <Input
+        value={idInput}
+        onChange={(e) => setIdInput(e.target.value.replace(/\D/g, ""))}
+        placeholder="User ID (number) — required for new registration"
+        inputMode="numeric"
+        className="bg-secondary border-border text-foreground placeholder:text-muted-foreground/50 h-12 text-lg font-['Share_Tech_Mono']"
+      />
+
       {results.length > 0 && (
         <ul className="space-y-2 max-h-60 overflow-y-auto">
           {results.map((user) => (
@@ -77,12 +78,8 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
               className="flex items-center justify-between rounded-lg border border-border bg-secondary p-3"
             >
               <div>
-                <p className="font-semibold text-foreground">
-                  {user.first_name} {user.last_name}
-                </p>
-                <p className="text-xs text-muted-foreground font-['Share_Tech_Mono']">
-                  ID: {user.user_id}
-                </p>
+                <p className="font-semibold text-foreground">{user.name}</p>
+                <p className="text-xs text-muted-foreground font-['Share_Tech_Mono']">ID: {user.id}</p>
               </div>
               <Button size="sm" onClick={() => onLink(user)} disabled={isLoading}>
                 <Link2 className="h-4 w-4 mr-1" />
@@ -93,12 +90,10 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
         </ul>
       )}
 
-      {/* No results message */}
       {searched && results.length === 0 && name.trim() && (
         <p className="text-center text-sm text-muted-foreground py-2">No existing users found</p>
       )}
 
-      {/* Action buttons */}
       <div className="flex gap-3 pt-1">
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1 h-12 text-lg" disabled={isLoading}>
           Cancel
@@ -107,7 +102,7 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
           type="button"
           onClick={handleRegister}
           className="flex-1 h-12 text-lg font-bold"
-          disabled={isLoading || !name.trim()}
+          disabled={isLoading || !name.trim() || !idInput.trim()}
         >
           <UserPlus className="h-4 w-4 mr-1" />
           {isLoading ? "Registering..." : "Register New"}
