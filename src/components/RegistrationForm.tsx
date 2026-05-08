@@ -93,7 +93,7 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
           type="button"
           onClick={handleRegister}
           className="flex-1 h-12 text-lg font-bold"
-          disabled={isLoading || !name.trim() || !idInput.trim()}
+          disabled={isLoading || !name.trim()}
         >
           <UserPlus className="h-4 w-4 mr-1" />
           {isLoading ? "Registering..." : "Register New"}
