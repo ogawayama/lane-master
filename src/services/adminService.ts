@@ -178,16 +178,15 @@ export async function resetAssignments(section: Section) {
 }
 
 export async function purgeAllUsers() {
-  await callAdminApi("purge_all_users");
+  await userHubService.deleteAllUsers();
 }
 
 const DEMO_RFIDS = ["3649677676", "1576136972", "3910084941", "3915443597", "2731977834"];
 
 export async function resetDemoMode() {
-  // RFID is now NOT NULL; demo reset can no longer null-out RFIDs without violating the schema.
-  // Delete the demo users instead so they can be re-registered.
-  const { supabase } = await import("@/integrations/supabase/client");
-  const { error } = await supabase.from("users").delete().in("rfid", DEMO_RFIDS);
+  // Delete the demo users from User Hub; the realtime sync will clean the local mirror.
+  const { userHub } = await import("@/integrations/userhub/client");
+  const { error } = await userHub.from("users").delete().in("rfid", DEMO_RFIDS);
   if (error) throw new Error(error.message);
 }
 
