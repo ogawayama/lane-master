@@ -9,7 +9,6 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const adminPin = Deno.env.get("ADMIN_PANEL_PIN") ?? "";
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -18,10 +17,9 @@ const VALID_SECTIONS = new Set(["idt", "odt", "live_fire", "qm360"]);
 type Section = "idt" | "odt" | "live_fire" | "qm360";
 
 type UserPayload = {
-  user_id: string;
-  rfid: string | null;
-  first_name: string;
-  last_name?: string | null;
+  id: number;
+  rfid: string;
+  name: string;
 };
 
 type WeaponPayload = {
@@ -45,13 +43,6 @@ function normalizeText(value: unknown, field: string, maxLength: number) {
   return normalized;
 }
 
-function normalizeOptionalText(value: unknown, maxLength: number) {
-  const normalized = String(value ?? "").trim();
-  if (!normalized) return null;
-  if (normalized.length > maxLength) throw new Error("Value is too long.");
-  return normalized;
-}
-
 function parseSection(value: unknown): Section {
   const s = String(value ?? "").trim();
   if (!VALID_SECTIONS.has(s)) throw new Error("Invalid section.");
@@ -60,11 +51,12 @@ function parseSection(value: unknown): Section {
 
 function parseUserPayload(values: unknown): UserPayload {
   const payload = values as Record<string, unknown>;
+  const idNum = Number(payload?.id);
+  if (!Number.isInteger(idNum) || idNum <= 0) throw new Error("ID must be a positive integer.");
   return {
-    user_id: normalizeText(payload?.user_id, "User ID", 80),
-    rfid: normalizeOptionalText(payload?.rfid, 120),
-    first_name: normalizeText(payload?.first_name, "First name", 80),
-    last_name: normalizeOptionalText(payload?.last_name, 80),
+    id: idNum,
+    rfid: normalizeText(payload?.rfid, "RFID", 120),
+    name: normalizeText(payload?.name, "Name", 160),
   };
 }
 
@@ -83,8 +75,7 @@ async function resetAssignmentsForSection(section: Section) {
     .from("lane_assignments")
     .update({
       user_id: null,
-      first_name: null,
-      last_name: null,
+      name: null,
       weapon_id: null,
       weapon_name: null,
       weapon_type: null,
@@ -123,7 +114,8 @@ serve(async (request) => {
       let query = supabase.from("users").select("*").order("created_at", { ascending: false });
       if (search) {
         const q = `%${search}%`;
-        query = query.or(`user_id.ilike.${q},rfid.ilike.${q},first_name.ilike.${q},last_name.ilike.${q}`);
+        // id is numeric — only filter text columns by ilike
+        query = query.or(`rfid.ilike.${q},name.ilike.${q}`);
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -138,15 +130,19 @@ serve(async (request) => {
     }
 
     if (action === "update_user") {
-      const id = normalizeText(body?.id, "User ID", 120);
+      const id = Number(body?.id);
+      if (!Number.isInteger(id)) throw new Error("ID is invalid.");
       const values = parseUserPayload(body?.values);
-      const { data, error } = await supabase.from("users").update(values).eq("id", id).select("*").single();
+      // Don't allow changing the PK on update
+      const { id: _ignore, ...updates } = values;
+      const { data, error } = await supabase.from("users").update(updates).eq("id", id).select("*").single();
       if (error) throw error;
       return json(200, { data });
     }
 
     if (action === "delete_user") {
-      const id = normalizeText(body?.id, "User ID", 120);
+      const id = Number(body?.id);
+      if (!Number.isInteger(id)) throw new Error("ID is invalid.");
       await resetAllAssignments();
       const { error } = await supabase.from("users").delete().eq("id", id);
       if (error) throw error;
