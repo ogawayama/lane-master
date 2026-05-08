@@ -59,9 +59,10 @@ type AdminAction =
   | "purge_all_users";
 
 function normalizeUserPayload(values: EditableUser) {
+  const rfidTrimmed = (values.rfid ?? "").trim();
   return {
-    id: Number(values.id),
-    rfid: values.rfid.trim(),
+    id: values.id === "" || values.id === undefined ? undefined : Number(values.id),
+    rfid: rfidTrimmed ? rfidTrimmed : null,
     name: values.name.trim(),
   };
 }
