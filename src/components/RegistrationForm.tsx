@@ -39,9 +39,8 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
 
   const handleRegister = () => {
     const trimmed = name.trim();
-    const id = parseInt(idInput, 10);
-    if (!trimmed || !Number.isFinite(id) || id < 10000 || id > 99999) return;
-    onRegister({ id, name: trimmed });
+    if (!trimmed) return;
+    onRegister({ name: trimmed });
   };
 
   return (
