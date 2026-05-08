@@ -6,7 +6,7 @@ import { UserPlus, Link2 } from "lucide-react";
 
 interface RegistrationFormProps {
   rfid: string;
-  onRegister: (data: { id: number; name: string }) => void;
+  onRegister: (data: { name: string }) => void;
   onLink: (user: User) => void;
   onCancel: () => void;
   isLoading: boolean;
@@ -14,7 +14,6 @@ interface RegistrationFormProps {
 
 export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading }: RegistrationFormProps) {
   const [name, setName] = useState("");
-  const [idInput, setIdInput] = useState("");
   const [results, setResults] = useState<User[]>([]);
   const [searched, setSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -40,9 +39,8 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
 
   const handleRegister = () => {
     const trimmed = name.trim();
-    const id = parseInt(idInput, 10);
-    if (!trimmed || !Number.isFinite(id) || id < 10000 || id > 99999) return;
-    onRegister({ id, name: trimmed });
+    if (!trimmed) return;
+    onRegister({ name: trimmed });
   };
 
   return (
@@ -62,14 +60,6 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
         autoFocus
       />
 
-      <Input
-        value={idInput}
-        onChange={(e) => setIdInput(e.target.value.replace(/\D/g, "").slice(0, 5))}
-        placeholder="5-digit User ID — required for new registration"
-        inputMode="numeric"
-        maxLength={5}
-        className="bg-secondary border-border text-foreground placeholder:text-muted-foreground/50 h-12 text-lg font-['Share_Tech_Mono']"
-      />
 
       {results.length > 0 && (
         <ul className="space-y-2 max-h-60 overflow-y-auto">
@@ -103,7 +93,7 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
           type="button"
           onClick={handleRegister}
           className="flex-1 h-12 text-lg font-bold"
-          disabled={isLoading || !name.trim() || !idInput.trim()}
+          disabled={isLoading || !name.trim()}
         >
           <UserPlus className="h-4 w-4 mr-1" />
           {isLoading ? "Registering..." : "Register New"}

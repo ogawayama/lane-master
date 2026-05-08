@@ -69,7 +69,7 @@ export default function Qm360Screen() {
     }
   };
 
-  const handleRegister = async (data: { id: number; name: string }) => {
+  const handleRegister = async (data: { name: string }) => {
     setIsLoading(true);
     try {
       const user = await registerUser({ ...data, rfid: pendingRfid });
