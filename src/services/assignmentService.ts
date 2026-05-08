@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import * as userHubService from "@/services/userHubService";
 
 export type Section = "idt" | "odt" | "live_fire" | "qm360";
 
@@ -23,11 +24,11 @@ export interface AssignmentResult {
 }
 
 export async function lookupUserByRfid(rfid: string): Promise<User | null> {
-  const { data } = await supabase
-    .from("users")
-    .select("*")
-    .eq("rfid", rfid)
-    .maybeSingle();
+  // User Hub is the source of truth. Mirror is updated as a side effect.
+  const hubUser = await userHubService.lookupByRfid(rfid);
+  if (!hubUser) return null;
+  // Re-read from local mirror so the rest of the app uses local types.
+  const { data } = await supabase.from("users").select("*").eq("id", hubUser.id).maybeSingle();
   return data;
 }
 
@@ -138,20 +139,13 @@ export async function registerUser(data: {
   rfid: string;
   name: string;
 }): Promise<User | null> {
-  const { data: user, error } = await supabase
-    .from("users")
-    .insert({
-      id: data.id,
-      rfid: data.rfid,
-      name: data.name,
-    })
-    .select()
-    .single();
-
-  if (error) {
+  try {
+    await userHubService.createUser({ id: data.id, rfid: data.rfid, name: data.name });
+  } catch (error) {
     console.error("Registration error:", error);
     return null;
   }
+  const { data: user } = await supabase.from("users").select("*").eq("id", data.id).maybeSingle();
   return user;
 }
 
@@ -185,22 +179,17 @@ export async function fetchAllLanes(section: Section): Promise<LaneAssignment[]>
 }
 
 export async function searchUsersByName(query: string): Promise<User[]> {
-  const q = `%${query}%`;
-  const { data } = await supabase
-    .from("users")
-    .select("*")
-    .ilike("name", q)
-    .order("name", { ascending: true })
-    .limit(10);
+  const hubUsers = await userHubService.searchByName(query);
+  if (hubUsers.length === 0) return [];
+  // Mirror them all so the rest of the app sees them locally.
+  await Promise.all(hubUsers.map((u) => userHubService.mirrorUser(u)));
+  const ids = hubUsers.map((u) => u.id);
+  const { data } = await supabase.from("users").select("*").in("id", ids).order("name", { ascending: true });
   return data || [];
 }
 
 export async function relinkRfid(userId: number, newRfid: string): Promise<User | null> {
-  const { data } = await supabase
-    .from("users")
-    .update({ rfid: newRfid })
-    .eq("id", userId)
-    .select()
-    .single();
+  await userHubService.updateUser(userId, { rfid: newRfid });
+  const { data } = await supabase.from("users").select("*").eq("id", userId).maybeSingle();
   return data;
 }
