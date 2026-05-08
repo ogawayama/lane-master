@@ -22,14 +22,14 @@ export function UserFormDialog({ open, user, saving, onOpenChange, onSave }: Use
     if (!open) return;
     setForm(
       user
-        ? { id: String(user.id), rfid: user.rfid, name: user.name }
+        ? { id: String(user.id), rfid: user.rfid ?? "", name: user.name }
         : emptyForm,
     );
   }, [open, user]);
 
   const handleSave = () => {
     void onSave({
-      id: Number(form.id),
+      id: form.id ? Number(form.id) : undefined,
       rfid: form.rfid,
       name: form.name,
     });
