@@ -6,7 +6,7 @@ import { UserPlus, Link2 } from "lucide-react";
 
 interface RegistrationFormProps {
   rfid: string;
-  onRegister: (data: { id: number; name: string }) => void;
+  onRegister: (data: { name: string }) => void;
   onLink: (user: User) => void;
   onCancel: () => void;
   isLoading: boolean;
@@ -14,7 +14,6 @@ interface RegistrationFormProps {
 
 export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading }: RegistrationFormProps) {
   const [name, setName] = useState("");
-  const [idInput, setIdInput] = useState("");
   const [results, setResults] = useState<User[]>([]);
   const [searched, setSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
