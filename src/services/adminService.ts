@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { z } from "zod";
+import * as userHubService from "@/services/userHubService";
 
 const adminApiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-panel`;
 
@@ -118,8 +119,13 @@ async function callAdminApi<T>(action: AdminAction, payload: Record<string, unkn
 }
 
 export async function fetchUsers(search = "") {
-  const result = await callAdminApi<{ data: UserRecord[] }>("fetch_users", { search });
-  return result.data ?? [];
+  const data = await userHubService.listAll(search);
+  return data.map((u) => ({
+    id: u.id,
+    rfid: u.rfid,
+    name: u.name,
+    created_at: u.created_at,
+  })) as UserRecord[];
 }
 
 function parseUser(values: EditableUser) {
@@ -132,18 +138,18 @@ function parseUser(values: EditableUser) {
 
 export async function createUser(values: EditableUser) {
   const payload = parseUser(values);
-  const result = await callAdminApi<{ data: UserRecord }>("create_user", { values: payload });
-  return result.data;
+  const created = await userHubService.createUser(payload);
+  return created as UserRecord;
 }
 
 export async function updateUser(id: number, values: EditableUser) {
   const payload = parseUser(values);
-  const result = await callAdminApi<{ data: UserRecord }>("update_user", { id, values: payload });
-  return result.data;
+  const updated = await userHubService.updateUser(id, { name: payload.name, rfid: payload.rfid });
+  return updated as UserRecord;
 }
 
 export async function deleteUser(id: number) {
-  await callAdminApi("delete_user", { id });
+  await userHubService.deleteUser(id);
 }
 
 export async function fetchWeapons(section: Section, search = "") {
