@@ -60,14 +60,6 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
         autoFocus
       />
 
-      <Input
-        value={idInput}
-        onChange={(e) => setIdInput(e.target.value.replace(/\D/g, "").slice(0, 5))}
-        placeholder="5-digit User ID — required for new registration"
-        inputMode="numeric"
-        maxLength={5}
-        className="bg-secondary border-border text-foreground placeholder:text-muted-foreground/50 h-12 text-lg font-['Share_Tech_Mono']"
-      />
 
       {results.length > 0 && (
         <ul className="space-y-2 max-h-60 overflow-y-auto">
