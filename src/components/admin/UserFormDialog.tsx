@@ -40,11 +40,11 @@ export function UserFormDialog({ open, user, saving, onOpenChange, onSave }: Use
       <DialogContent className="border-border bg-card sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{user ? "Edit user" : "Add user"}</DialogTitle>
-          <DialogDescription>ID, name, and RFID are all required.</DialogDescription>
+          <DialogDescription>Name is required. ID and RFID are optional — a unique 5-digit ID is generated when left blank.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
           <Input
-            placeholder="ID (5-digit number)"
+            placeholder="ID (optional, 5-digit number)"
             inputMode="numeric"
             maxLength={5}
             value={form.id}
@@ -52,7 +52,7 @@ export function UserFormDialog({ open, user, saving, onOpenChange, onSave }: Use
             onChange={(event) => setForm((current) => ({ ...current, id: event.target.value.replace(/\D/g, "").slice(0, 5) }))}
           />
           <Input placeholder="Name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
-          <Input placeholder="RFID" value={form.rfid} onChange={(event) => setForm((current) => ({ ...current, rfid: event.target.value }))} />
+          <Input placeholder="RFID (optional)" value={form.rfid} onChange={(event) => setForm((current) => ({ ...current, rfid: event.target.value }))} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
