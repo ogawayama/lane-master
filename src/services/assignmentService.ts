@@ -192,7 +192,7 @@ export async function searchUsersByName(query: string): Promise<User[]> {
 }
 
 export async function relinkRfid(userId: number, newRfid: string): Promise<User | null> {
-  await userHubService.updateUser(userId, { rfid: newRfid });
+  const updated = await userHubService.updateUser(userId, { rfid: newRfid });
   const { data } = await supabase.from("users").select("*").eq("id", userId).maybeSingle();
-  return data;
+  return data ?? { id: updated.id, name: updated.name, rfid: updated.rfid, created_at: updated.created_at };
 }
