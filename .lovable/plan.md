@@ -1,31 +1,47 @@
 ## Problem
 
-`resetDemoMode` updates the User Hub `users` table with `rfid: null`, but the User Hub schema has `rfid` as **NOT NULL** (this project's local mirror allows null, but the Hub does not). Result: `null value in column "rfid" of relation "users" violates not-null constraint`.
+The Hub's `users.rfid` column is **NOT NULL AND UNIQUE** (`users_rfid_key`). Setting all five demo users to `""` in one update collides on the second row.
 
-We can't migrate the Hub schema from this project, so we have to write a value the Hub accepts. The earlier `Pelle` row already exists in the Hub with `rfid = ""`, which confirms empty string is allowed there and there's no UNIQUE constraint on `rfid` in the Hub.
+We can't change the Hub schema from this project, so each cleared row needs a value that is non-null and unique.
 
 ## Fix
 
 **`src/services/adminService.ts` — `resetDemoMode`**
 
-Change the update payload from `{ rfid: null }` to `{ rfid: "" }` so the Hub accepts it:
+Update the demo users one at a time, writing a unique placeholder per user instead of a shared blank:
 
 ```ts
-const { error } = await userHub.from("users").update({ rfid: "" }).in("id", ids);
+for (const id of ids) {
+  const placeholder = `__cleared_${id}_${Date.now()}`;
+  const { error } = await userHub
+    .from("users")
+    .update({ rfid: placeholder })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
 ```
 
-The local mirror is unaffected: realtime sync flows through `mirrorUser`, which already coerces `""` → `null` before upserting into the local `users` table (which has UNIQUE(rfid) and treats blank as unset). So locally the demo users end up with `rfid = NULL`, exactly as requested, and the Hub stores blank strings.
+The local mirror needs the placeholder to read as "blank" so the user truly looks unassigned and the tag becomes scannable as a new RFID. Two options, picking the second because it keeps the source of truth honest about "this was cleared":
 
-No other call site needs to change — `updateUser` in `userHubService.ts` already coerces blank to null on its way to the Hub for normal admin edits, but that path hits the same NOT NULL issue if used to clear an RFID. We're not touching it in this fix because the user only reported demo reset; if they hit the same error clearing RFID via the user form later, we'll apply the same coercion change there.
+**`src/services/userHubService.ts` — `mirrorUser`**
+
+Treat any rfid starting with the `__cleared_` prefix as null when mirroring:
+
+```ts
+const raw = user.rfid?.trim() ?? "";
+const rfid = !raw || raw.startsWith("__cleared_") ? null : raw;
+```
+
+Apply the same coercion in `backfillMirror` and in `lookupByRfid` (a literal scan of `__cleared_…` should never match a user — `.eq("rfid", scanned)` won't match real scans anyway, so no extra guard needed there).
 
 ## Verification
 
-- Open an admin panel → Reset demo mode → success toast, no error.
-- Demo users still appear in the user list.
-- Their RFID column is empty (blank in admin / null locally).
-- Re-scanning one of the demo RFIDs is treated as a new tag (registration flow), as expected.
+- Reset demo mode → success, no UNIQUE / NOT NULL errors.
+- Demo users still listed; their RFID column shows the placeholder in raw Hub data but appears blank in the local admin (mirror = null).
+- Re-scanning a former demo tag goes through the registration flow.
+- Re-running reset is idempotent (each call generates a fresh `Date.now()` suffix, so no collision on repeat).
 
 ## Out of scope
 
-- Hub-side schema change to make `rfid` nullable.
-- Adjusting the regular admin "clear RFID" flow.
+- Hiding the placeholder string from the Hub-side admin UI (different project).
+- Making the Hub's rfid column nullable.
