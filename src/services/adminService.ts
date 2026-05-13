@@ -187,9 +187,17 @@ export async function purgeAllUsers() {
 const DEMO_RFIDS = ["3649677676", "1576136972", "3910084941", "3915443597", "2731977834"];
 
 export async function resetDemoMode() {
-  // Delete the demo users from User Hub; the realtime sync will clean the local mirror.
+  // Keep the demo users but clear their RFID so the tags become unassigned.
+  // Realtime sync will mirror the change locally.
   const { userHub } = await import("@/integrations/userhub/client");
-  const { error } = await userHub.from("users").delete().in("rfid", DEMO_RFIDS);
+  const { data, error: fetchError } = await userHub
+    .from("users")
+    .select("id")
+    .in("rfid", DEMO_RFIDS);
+  if (fetchError) throw new Error(fetchError.message);
+  const ids = ((data as { id: number }[] | null) ?? []).map((r) => r.id);
+  if (!ids.length) return;
+  const { error } = await userHub.from("users").update({ rfid: null }).in("id", ids);
   if (error) throw new Error(error.message);
 }
 
