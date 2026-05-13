@@ -1,48 +1,46 @@
 ## Problem
 
-When scanning a new RFID tag, registration sometimes fails with "Registration failed. User ID or RFID may already exist", even though the tag is genuinely new.
+After the last fix, `mirrorUser` swallows errors instead of throwing. That's correct, but `lookupUserByRfid` then does:
 
-The error message is misleading. The User Hub insert actually succeeds — what fails is mirroring the new row into this project's local `users` table.
+```ts
+const hubUser = await userHubService.lookupByRfid(rfid);  // found in User Hub
+if (!hubUser) return null;
+const { data } = await supabase.from("users").select("*").eq("id", hubUser.id).maybeSingle();
+return data;  // null if mirror upsert silently failed
+```
 
-## Root causes (verified against the live DB and network logs)
+If the mirror upsert fails (e.g. UNIQUE rfid collision with the legacy `Pelle` empty-string row, or any other transient mirror error), `data` is `null`, the kiosk thinks the RFID is unknown, and pushes the user into the registration flow. Registration then tries to create a User Hub row with an RFID that already exists there → "RFID already exists" error.
 
-1. **Stale trigger on local `users` table.** A trigger `update_users_updated_at` calls `update_updated_at_column()`, which sets `NEW.updated_at`. But `public.users` has no `updated_at` column. Any UPDATE path (including the UPDATE half of an `upsert` on conflict) errors out with `record "new" has no field "updated_at"` (Postgres `42703`). This is visible in the captured network logs as the 400 on the mirror upsert.
-
-2. **Unique constraint on `rfid` collides with empty strings / stale rows.** The local mirror has `UNIQUE (rfid)` and at least one legacy row (`Pelle`) with `rfid = ""`. When the realtime sync or a backfill tries to mirror another row whose rfid normalises to `""`, the upsert returns `23505` (visible as the 409 in network logs) and `mirrorUser` throws.
-
-3. **Error swallowing makes the message wrong.** `assignmentService.registerUser` wraps everything in `try/catch` and returns `null` on any error, so any mirror failure is reported to the user as "User ID or RFID may already exist", regardless of the real cause.
+So the symptom (known tag → register prompt → "already exists") is the same root cause class as before: the local mirror is treated as authoritative when it should not be.
 
 ## Fix
 
-### Database migration
+**`src/services/assignmentService.ts` — `lookupUserByRfid`**
 
-- Drop the stale trigger so updates to local `users` no longer crash:
-  `DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;`
-- Normalise legacy empty rfid values to NULL so the UNIQUE constraint stops colliding:
-  `UPDATE public.users SET rfid = NULL WHERE rfid = '';`
+Treat User Hub as the source of truth. If the hub returns a user, return that user, falling back to a synthesized local-shape object when the mirror row is missing:
 
-(We don't need `updated_at` on the mirror — User Hub is the source of truth and the column wasn't being read anywhere.)
+```ts
+const hubUser = await userHubService.lookupByRfid(rfid);
+if (!hubUser) return null;
+const { data } = await supabase.from("users").select("*").eq("id", hubUser.id).maybeSingle();
+return data ?? { id: hubUser.id, name: hubUser.name, rfid: hubUser.rfid, created_at: hubUser.created_at };
+```
 
-### Code changes
+Apply the same pattern in `relinkRfid` (already uses hub then re-reads mirror) so it never returns null when the hub update succeeded.
 
-- **`src/services/userHubService.ts`**
-  - In `mirrorUser`, coerce `rfid: ""` to `null` before upserting, mirroring what `createUser`/`updateUser` already do. This protects against any other source of empty-string rfids.
-  - Make `mirrorUser` non-fatal: log and swallow upsert errors rather than throwing. The hub is the source of truth; a mirror hiccup must not break a successful registration. Realtime will retry.
+**Database migration — clean up the legacy collision source**
 
-- **`src/services/assignmentService.ts`**
-  - In `registerUser`, propagate the underlying error message instead of returning a bare `null`. Return either the user or an `{ error: string }` shape (or rethrow) so the kiosk can show something accurate.
+The Hub row `Pelle` (id 60228) has `rfid = ""`. The mirror has `UNIQUE(rfid)` and an existing `""` row, so any backfill/realtime mirror of another empty-rfid hub row 409s. Normalise on the Hub side is out of scope (different project), but on this project's mirror we already converted `""` → `NULL` last migration. Re-run that normalisation defensively and additionally update the local Pelle row's rfid to NULL if it still shows `""` (the GET log shows it does on the *Hub* side; the mirror upsert is what's failing). No new schema needed.
 
-- **`src/pages/Qm360Screen.tsx`** and **`src/pages/LoginScreen.tsx`**
-  - Update `handleRegister` to surface the real error string when registration fails, instead of the hard-coded "User ID or RFID may already exist" line.
+Also: the backfill upsert sends `rfid: ""` straight from the hub payload without coercion — fix `backfillMirror` in `userHubService.ts` to coerce empty strings to `null` before upserting, same as `mirrorUser` does. This kills the recurring 409 in network logs.
 
-### Verification
+## Verification
 
-- Scan a brand-new RFID tag → registration succeeds, no 400/409 in network panel.
-- Re-scan the same tag → goes straight to the existing-user assignment flow.
-- Scan a tag while the legacy `Pelle` row still exists → no UNIQUE-constraint collision after the migration normalises empty rfids.
-- Backfill on app load no longer logs the `updated_at` 400.
+- Scan an existing tag (e.g. `2731977834` → User 1) → goes straight to assignment flow, no registration prompt.
+- Scan an unknown tag → registration flow, succeeds.
+- Network panel: no more 409 from the backfill upsert on app load.
 
 ## Out of scope
 
-- No changes to the Login Screen or Lane Overview business logic.
-- No changes to User Hub schema; all DB changes are in this project's mirror.
+- Hub-side data cleanup (Pelle's empty rfid in the Hub project).
+- Any UI changes.
