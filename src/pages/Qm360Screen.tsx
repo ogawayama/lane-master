@@ -72,8 +72,8 @@ export default function Qm360Screen() {
   const handleRegister = async (data: { name: string }) => {
     setIsLoading(true);
     try {
-      const user = await registerUser({ ...data, rfid: pendingRfid });
-      if (!user) return finalize(false, "Registration failed. User ID or RFID may already exist.");
+      const { user, error } = await registerUser({ ...data, rfid: pendingRfid });
+      if (!user) return finalize(false, error ? `Registration failed: ${error}` : "Registration failed.");
       const result = await getOrCreateGearAssignment(user);
       finalize(result.success, result.message);
     } finally {
