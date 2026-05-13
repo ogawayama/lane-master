@@ -197,7 +197,7 @@ export async function resetDemoMode() {
   if (fetchError) throw new Error(fetchError.message);
   const ids = ((data as { id: number }[] | null) ?? []).map((r) => r.id);
   if (!ids.length) return;
-  const { error } = await userHub.from("users").update({ rfid: null }).in("id", ids);
+  const { error } = await userHub.from("users").update({ rfid: "" }).in("id", ids);
   if (error) throw new Error(error.message);
 }
 
