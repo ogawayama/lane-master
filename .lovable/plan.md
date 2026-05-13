@@ -1,46 +1,31 @@
 ## Problem
 
-After the last fix, `mirrorUser` swallows errors instead of throwing. That's correct, but `lookupUserByRfid` then does:
+`resetDemoMode` updates the User Hub `users` table with `rfid: null`, but the User Hub schema has `rfid` as **NOT NULL** (this project's local mirror allows null, but the Hub does not). Result: `null value in column "rfid" of relation "users" violates not-null constraint`.
 
-```ts
-const hubUser = await userHubService.lookupByRfid(rfid);  // found in User Hub
-if (!hubUser) return null;
-const { data } = await supabase.from("users").select("*").eq("id", hubUser.id).maybeSingle();
-return data;  // null if mirror upsert silently failed
-```
-
-If the mirror upsert fails (e.g. UNIQUE rfid collision with the legacy `Pelle` empty-string row, or any other transient mirror error), `data` is `null`, the kiosk thinks the RFID is unknown, and pushes the user into the registration flow. Registration then tries to create a User Hub row with an RFID that already exists there → "RFID already exists" error.
-
-So the symptom (known tag → register prompt → "already exists") is the same root cause class as before: the local mirror is treated as authoritative when it should not be.
+We can't migrate the Hub schema from this project, so we have to write a value the Hub accepts. The earlier `Pelle` row already exists in the Hub with `rfid = ""`, which confirms empty string is allowed there and there's no UNIQUE constraint on `rfid` in the Hub.
 
 ## Fix
 
-**`src/services/assignmentService.ts` — `lookupUserByRfid`**
+**`src/services/adminService.ts` — `resetDemoMode`**
 
-Treat User Hub as the source of truth. If the hub returns a user, return that user, falling back to a synthesized local-shape object when the mirror row is missing:
+Change the update payload from `{ rfid: null }` to `{ rfid: "" }` so the Hub accepts it:
 
 ```ts
-const hubUser = await userHubService.lookupByRfid(rfid);
-if (!hubUser) return null;
-const { data } = await supabase.from("users").select("*").eq("id", hubUser.id).maybeSingle();
-return data ?? { id: hubUser.id, name: hubUser.name, rfid: hubUser.rfid, created_at: hubUser.created_at };
+const { error } = await userHub.from("users").update({ rfid: "" }).in("id", ids);
 ```
 
-Apply the same pattern in `relinkRfid` (already uses hub then re-reads mirror) so it never returns null when the hub update succeeded.
+The local mirror is unaffected: realtime sync flows through `mirrorUser`, which already coerces `""` → `null` before upserting into the local `users` table (which has UNIQUE(rfid) and treats blank as unset). So locally the demo users end up with `rfid = NULL`, exactly as requested, and the Hub stores blank strings.
 
-**Database migration — clean up the legacy collision source**
-
-The Hub row `Pelle` (id 60228) has `rfid = ""`. The mirror has `UNIQUE(rfid)` and an existing `""` row, so any backfill/realtime mirror of another empty-rfid hub row 409s. Normalise on the Hub side is out of scope (different project), but on this project's mirror we already converted `""` → `NULL` last migration. Re-run that normalisation defensively and additionally update the local Pelle row's rfid to NULL if it still shows `""` (the GET log shows it does on the *Hub* side; the mirror upsert is what's failing). No new schema needed.
-
-Also: the backfill upsert sends `rfid: ""` straight from the hub payload without coercion — fix `backfillMirror` in `userHubService.ts` to coerce empty strings to `null` before upserting, same as `mirrorUser` does. This kills the recurring 409 in network logs.
+No other call site needs to change — `updateUser` in `userHubService.ts` already coerces blank to null on its way to the Hub for normal admin edits, but that path hits the same NOT NULL issue if used to clear an RFID. We're not touching it in this fix because the user only reported demo reset; if they hit the same error clearing RFID via the user form later, we'll apply the same coercion change there.
 
 ## Verification
 
-- Scan an existing tag (e.g. `2731977834` → User 1) → goes straight to assignment flow, no registration prompt.
-- Scan an unknown tag → registration flow, succeeds.
-- Network panel: no more 409 from the backfill upsert on app load.
+- Open an admin panel → Reset demo mode → success toast, no error.
+- Demo users still appear in the user list.
+- Their RFID column is empty (blank in admin / null locally).
+- Re-scanning one of the demo RFIDs is treated as a new tag (registration flow), as expected.
 
 ## Out of scope
 
-- Hub-side data cleanup (Pelle's empty rfid in the Hub project).
-- Any UI changes.
+- Hub-side schema change to make `rfid` nullable.
+- Adjusting the regular admin "clear RFID" flow.
