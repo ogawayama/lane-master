@@ -138,14 +138,16 @@ export async function registerUser(data: {
   id?: number;
   rfid: string;
   name: string;
-}): Promise<User | null> {
+}): Promise<{ user: User | null; error?: string }> {
   try {
     const created = await userHubService.createUser({ id: data.id ?? null, rfid: data.rfid, name: data.name });
     const { data: user } = await supabase.from("users").select("*").eq("id", created.id).maybeSingle();
-    return user;
+    // Fall back to a minimal local shape if the mirror hasn't caught up yet.
+    return { user: user ?? { id: created.id, name: created.name, rfid: created.rfid, created_at: created.created_at } };
   } catch (error) {
-    console.error("Registration error:", error);
-    return null;
+    const message = error instanceof Error ? error.message : "Unknown registration error";
+    console.error("Registration error:", message);
+    return { user: null, error: message };
   }
 }
 

@@ -10,12 +10,17 @@ export type { UserHubUser };
  * existing FK references (lane_assignments, weapons, qm360_*) keep working.
  */
 export async function mirrorUser(user: UserHubUser): Promise<void> {
-  await supabase
+  // Coerce empty rfid to null so we don't collide with the UNIQUE(rfid) constraint.
+  const rfid = user.rfid && user.rfid.trim() ? user.rfid : null;
+  const { error } = await supabase
     .from("users")
     .upsert(
-      { id: user.id, name: user.name, rfid: user.rfid },
+      { id: user.id, name: user.name, rfid },
       { onConflict: "id" },
     );
+  // Mirror is best-effort; the User Hub is the source of truth.
+  // Don't throw — a failed mirror must not break registration / lookups.
+  if (error) console.warn("mirrorUser failed (non-fatal):", error.message);
 }
 
 /**

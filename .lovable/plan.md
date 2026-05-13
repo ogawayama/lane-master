@@ -1,94 +1,48 @@
-# Use User Hub as the source of truth for users
+## Problem
 
-This project keeps all of its own data (lanes, weapons, qm360 gear, assignments) in its current Lovable Cloud backend. Only the **users** table is sourced from the **User Hub** project ([open](/projects/bdcd8a58-4368-4f46-91b3-a889bd8b3920)).
+When scanning a new RFID tag, registration sometimes fails with "Registration failed. User ID or RFID may already exist", even though the tag is genuinely new.
 
-## Approach
+The error message is misleading. The User Hub insert actually succeeds — what fails is mirroring the new row into this project's local `users` table.
 
-Add a **second Supabase client** pointing at User Hub. Use it for every user read and write. Keep the existing local `users` table as a **mirror** so that all the existing foreign keys (`lane_assignments.user_id`, `weapons.assigned_to_user_id`, `qm360_gear.assigned_to_user_id`, `qm360_assignments.user_id`) keep working without any further schema change.
+## Root causes (verified against the live DB and network logs)
 
-```text
-            ┌────────────────────┐
-RFID scan ─►│ User Hub (source)  │  ← all user CRUD
-            └─────────┬──────────┘
-                      │ on success
-                      ▼
-            ┌────────────────────┐
-            │ This project       │  ← lanes / weapons / gear
-            │  users (mirror)    │     reference users.id
-            └────────────────────┘
-```
+1. **Stale trigger on local `users` table.** A trigger `update_users_updated_at` calls `update_updated_at_column()`, which sets `NEW.updated_at`. But `public.users` has no `updated_at` column. Any UPDATE path (including the UPDATE half of an `upsert` on conflict) errors out with `record "new" has no field "updated_at"` (Postgres `42703`). This is visible in the captured network logs as the 400 on the mirror upsert.
 
-## What gets added
+2. **Unique constraint on `rfid` collides with empty strings / stale rows.** The local mirror has `UNIQUE (rfid)` and at least one legacy row (`Pelle`) with `rfid = ""`. When the realtime sync or a backfill tries to mirror another row whose rfid normalises to `""`, the upsert returns `23505` (visible as the 409 in network logs) and `mirrorUser` throws.
 
-### 1. Second Supabase client
+3. **Error swallowing makes the message wrong.** `assignmentService.registerUser` wraps everything in `try/catch` and returns `null` on any error, so any mirror failure is reported to the user as "User ID or RFID may already exist", regardless of the real cause.
 
-New file `src/integrations/userhub/client.ts` that creates a separate `createClient` instance using hard-coded User Hub URL + anon key (publishable, safe in code):
+## Fix
 
-- URL: `https://lafsigvzpefmmmapuiog.supabase.co`
-- Anon key: the publishable key from User Hub's `.env`
+### Database migration
 
-It uses `auth: { persistSession: false }` so it does not collide with this project's auth session in `localStorage`.
+- Drop the stale trigger so updates to local `users` no longer crash:
+  `DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;`
+- Normalise legacy empty rfid values to NULL so the UNIQUE constraint stops colliding:
+  `UPDATE public.users SET rfid = NULL WHERE rfid = '';`
 
-A small wrapper module `src/services/userHubService.ts` exposes:
-- `lookupByRfid(rfid)`
-- `lookupById(id)`
-- `searchByName(query)`
-- `listAll()`
-- `create({ name, rfid })` — User Hub auto-generates `id`
-- `update(id, { name?, rfid? })`
-- `remove(id)`
+(We don't need `updated_at` on the mirror — User Hub is the source of truth and the column wasn't being read anywhere.)
 
-### 2. Mirror logic
+### Code changes
 
-A helper `mirrorUser(user)` in the same service upserts the User Hub record into this project's `users` table by `id`. It is called:
-- after every successful lookup (so a freshly-created User Hub user is usable immediately for assignment)
-- after every create/update from admin
-- on a `realtime` subscription to User Hub's `users` table, so deletes/edits made elsewhere propagate
+- **`src/services/userHubService.ts`**
+  - In `mirrorUser`, coerce `rfid: ""` to `null` before upserting, mirroring what `createUser`/`updateUser` already do. This protects against any other source of empty-string rfids.
+  - Make `mirrorUser` non-fatal: log and swallow upsert errors rather than throwing. The hub is the source of truth; a mirror hiccup must not break a successful registration. Realtime will retry.
 
-A helper `unmirrorUser(id)` deletes the local mirror row, but only after first clearing any active assignment that references it (same wipe pattern already used in `resetAssignments`).
+- **`src/services/assignmentService.ts`**
+  - In `registerUser`, propagate the underlying error message instead of returning a bare `null`. Return either the user or an `{ error: string }` shape (or rethrow) so the kiosk can show something accurate.
 
-### 3. Service rewires
+- **`src/pages/Qm360Screen.tsx`** and **`src/pages/LoginScreen.tsx`**
+  - Update `handleRegister` to surface the real error string when registration fails, instead of the hard-coded "User ID or RFID may already exist" line.
 
-- `src/services/assignmentService.ts`
-  - `lookupUserByRfid` → calls `userHubService.lookupByRfid` then `mirrorUser`
-  - `searchUsersByName` → User Hub
-  - `registerUser` → `userHubService.create` then `mirrorUser`
-  - `relinkRfid` → `userHubService.update`
-  - Everything else (lanes, weapons, assignments) keeps using the local `supabase` client unchanged.
+### Verification
 
-- `src/services/adminService.ts` and `supabase/functions/admin-panel/index.ts`
-  - All `fetch_users / create_user / update_user / delete_user / purge_all_users` actions move off the edge function and call `userHubService` directly from the client (User Hub is publicly writable via anon key, same posture as this kiosk).
-  - The edge function keeps weapons + reset actions only.
-  - Import preview / CSV import call `userHubService.create / update`, then mirror.
+- Scan a brand-new RFID tag → registration succeeds, no 400/409 in network panel.
+- Re-scan the same tag → goes straight to the existing-user assignment flow.
+- Scan a tag while the legacy `Pelle` row still exists → no UNIQUE-constraint collision after the migration normalises empty rfids.
+- Backfill on app load no longer logs the `updated_at` 400.
 
-### 4. Realtime sync
+## Out of scope
 
-Add a one-time subscription on app boot (in `src/services/realtimeService.ts` or a new `useUserHubSync` hook mounted in `App.tsx`):
-
-```ts
-userHub.channel('users').on('postgres_changes',
-  { event: '*', schema: 'public', table: 'users' },
-  (payload) => mirror or unmirror based on payload.eventType
-).subscribe()
-```
-
-This keeps the mirror current even when a different project edits User Hub.
-
-### 5. Initial backfill
-
-On first load after this change, run a one-shot `userHubService.listAll()` → upsert into local `users` so the kiosk works even before anyone scans.
-
-## What does NOT change
-
-- Database schema in this project (already aligned in the previous step).
-- Lanes / weapons / qm360 logic and tables.
-- RLS policies.
-- The `admin-panel` edge function for non-user actions.
-- Authentication for admin pages.
-
-## Risks / things to confirm
-
-- **User Hub RLS**: this plan assumes User Hub's `users` table allows anon `select/insert/update/delete` (it appears to be a public kiosk-style app, same as this one). If it does not, user CRUD from the kiosk will fail and we will need either an edge function in User Hub or service-role access via a secret.
-- **Delete propagation**: if a user is deleted in User Hub while they hold an active lane, the mirror sync will first clear that lane assignment and unassign their weapon. That side effect is intentional but worth flagging.
-- **Two Realtime channels**: one against this project (already present for lanes/weapons), one against User Hub for users. Slightly more network, no functional issue.
-- **Offline / network**: every RFID scan now requires a round-trip to User Hub. The local mirror means lane/weapon state still renders, but a *new* unknown RFID cannot be resolved without network.
+- No changes to the Login Screen or Lane Overview business logic.
+- No changes to User Hub schema; all DB changes are in this project's mirror.
