@@ -10,8 +10,10 @@ export type { UserHubUser };
  * existing FK references (lane_assignments, weapons, qm360_*) keep working.
  */
 export async function mirrorUser(user: UserHubUser): Promise<void> {
-  // Coerce empty rfid to null so we don't collide with the UNIQUE(rfid) constraint.
-  const rfid = user.rfid && user.rfid.trim() ? user.rfid : null;
+  // Coerce empty / placeholder rfid to null so we don't collide with the UNIQUE(rfid) constraint
+  // and so cleared demo users appear unassigned locally.
+  const raw = user.rfid?.trim() ?? "";
+  const rfid = !raw || raw.startsWith("__cleared_") ? null : raw;
   const { error } = await supabase
     .from("users")
     .upsert(
@@ -191,11 +193,11 @@ export async function backfillMirror(): Promise<void> {
     await supabase
       .from("users")
       .upsert(
-        all.map((u) => ({
-          id: u.id,
-          name: u.name,
-          rfid: u.rfid && u.rfid.trim() ? u.rfid : null,
-        })),
+        all.map((u) => {
+          const raw = u.rfid?.trim() ?? "";
+          const rfid = !raw || raw.startsWith("__cleared_") ? null : raw;
+          return { id: u.id, name: u.name, rfid };
+        }),
         { onConflict: "id" },
       );
   } catch (error) {
