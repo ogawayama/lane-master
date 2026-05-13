@@ -29,7 +29,8 @@ export async function lookupUserByRfid(rfid: string): Promise<User | null> {
   if (!hubUser) return null;
   // Re-read from local mirror so the rest of the app uses local types.
   const { data } = await supabase.from("users").select("*").eq("id", hubUser.id).maybeSingle();
-  return data;
+  // User Hub is the source of truth — fall back if mirror upsert silently failed.
+  return data ?? { id: hubUser.id, name: hubUser.name, rfid: hubUser.rfid, created_at: hubUser.created_at };
 }
 
 export async function getExistingAssignment(
@@ -191,7 +192,7 @@ export async function searchUsersByName(query: string): Promise<User[]> {
 }
 
 export async function relinkRfid(userId: number, newRfid: string): Promise<User | null> {
-  await userHubService.updateUser(userId, { rfid: newRfid });
+  const updated = await userHubService.updateUser(userId, { rfid: newRfid });
   const { data } = await supabase.from("users").select("*").eq("id", userId).maybeSingle();
-  return data;
+  return data ?? { id: updated.id, name: updated.name, rfid: updated.rfid, created_at: updated.created_at };
 }
