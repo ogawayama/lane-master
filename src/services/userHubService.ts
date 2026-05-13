@@ -191,7 +191,11 @@ export async function backfillMirror(): Promise<void> {
     await supabase
       .from("users")
       .upsert(
-        all.map((u) => ({ id: u.id, name: u.name, rfid: u.rfid })),
+        all.map((u) => ({
+          id: u.id,
+          name: u.name,
+          rfid: u.rfid && u.rfid.trim() ? u.rfid : null,
+        })),
         { onConflict: "id" },
       );
   } catch (error) {
