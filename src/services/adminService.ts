@@ -197,14 +197,11 @@ export async function resetDemoMode() {
   if (fetchError) throw new Error(fetchError.message);
   const ids = ((data as { id: number }[] | null) ?? []).map((r) => r.id);
   if (!ids.length) return;
-  for (const id of ids) {
-    const placeholder = `__cleared_${id}_${Date.now()}`;
-    const { error } = await userHub
-      .from("users")
-      .update({ rfid: placeholder })
-      .eq("id", id);
-    if (error) throw new Error(error.message);
-  }
+  const { error } = await userHub
+    .from("users")
+    .update({ rfid: null })
+    .in("id", ids);
+  if (error) throw new Error(error.message);
 }
 
 export async function exportUsers(format: "csv" | "xlsx", rows: UserRecord[]) {
