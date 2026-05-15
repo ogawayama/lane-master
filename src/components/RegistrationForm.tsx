@@ -78,9 +78,9 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
                 <p className="font-semibold text-foreground">{user.name}</p>
                 <p className="text-xs text-muted-foreground font-['Share_Tech_Mono']">ID: {user.id}</p>
               </div>
-              <Button size="sm" onClick={() => onLink(user)} disabled={isLoading}>
+              <Button size="sm" onClick={() => handleLinkClick(user)} disabled={isLoading}>
                 <Link2 className="h-4 w-4 mr-1" />
-                {isLoading ? "Linking..." : "Link"}
+                {isLoading && linkingId === user.id ? "Linking..." : "Link"}
               </Button>
             </li>
           ))}
