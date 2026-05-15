@@ -195,6 +195,10 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
     if (e.key === "Enter") {
       const val = (e.target as HTMLInputElement).value;
       (e.target as HTMLInputElement).value = "";
+      if (state === "success") {
+        dismissSuccess();
+        return;
+      }
       handleScan(val);
     }
   };
