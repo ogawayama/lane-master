@@ -36,7 +36,7 @@ interface LoginScreenProps {
   section?: Section;
 }
 
-export default function LoginScreen({ heading = "GC IDT", themeHsl, section = "idt" }: LoginScreenProps = {}) {
+export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, section = "idt" }: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<AssignmentResult | null>(null);
