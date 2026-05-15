@@ -42,7 +42,33 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
   const [result, setResult] = useState<AssignmentResult | null>(null);
   const [pendingRfid, setPendingRfid] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [countdown, setCountdown] = useState(10);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const dismissSuccess = useCallback(() => {
+    setState("idle");
+    setMessage("");
+    setResult(null);
+    setCountdown(10);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
+  // Countdown for success state
+  useEffect(() => {
+    if (state !== "success") return;
+    setCountdown(10);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          dismissSuccess();
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state, dismissSuccess]);
 
   // Keep input focused
   const focusInput = useCallback(() => {
@@ -70,13 +96,15 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
         setResult(result);
         setState(result.success ? "success" : "error");
         setMessage(result.message);
-        // Auto-clear after 6s
-        setTimeout(() => {
-          setState("idle");
-          setMessage("");
-          setResult(null);
-          focusInput();
-        }, 6000);
+        // Auto-clear handled by countdown effect when state === "success"
+        if (!result.success) {
+          setTimeout(() => {
+            setState("idle");
+            setMessage("");
+            setResult(null);
+            focusInput();
+          }, 6000);
+        }
       } else {
         // Unknown RFID — show registration
         setPendingRfid(rfid.trim());
@@ -105,7 +133,9 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
       setResult(result);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+      if (!result.success) {
+        setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+      }
     } catch (err) {
       setState("error");
       setMessage("Registration error. Please try again.");
@@ -128,7 +158,9 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
       setResult(result);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+      if (!result.success) {
+        setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+      }
     } catch (err) {
       setState("error");
       setMessage("Linking error. Please try again.");
@@ -163,6 +195,10 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
     if (e.key === "Enter") {
       const val = (e.target as HTMLInputElement).value;
       (e.target as HTMLInputElement).value = "";
+      if (state === "success") {
+        dismissSuccess();
+        return;
+      }
       handleScan(val);
     }
   };
@@ -240,13 +276,15 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="flex flex-col items-center gap-4 rounded-2xl border border-accent/40 bg-accent/5 p-8 w-full text-center">
+            className="flex flex-col items-center gap-6 rounded-2xl border border-accent/40 bg-accent/5 p-8 w-full text-center">
             
-              <CheckCircle2 className="h-16 w-16 text-accent" />
               {result?.success && result.lane && result.weapon ? (
-                <div className="flex flex-col items-center gap-4 w-full">
-                  <p className="text-2xl font-bold text-foreground">
-                    Welcome {result.user?.name}. Pick up your {section === "live_fire" ? "tablet" : "weapon"} and proceed to your lane.
+                <div className="flex flex-col items-center gap-6 w-full">
+                  <h2 className="text-5xl md:text-6xl font-bold text-foreground tracking-tight">
+                    Welcome <span className="text-primary">{result.user?.name}</span>
+                  </h2>
+                  <p className="text-xl text-muted-foreground">
+                    Pick up your {section === "live_fire" ? "tablet" : "weapon"} and proceed to your lane
                   </p>
                   <div className="flex flex-col gap-3 w-full">
                     <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">
@@ -255,12 +293,25 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
                     </div>
                     <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">
                       <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Lane</span>
-                      <span className="text-3xl font-bold font-mono text-primary">{String(result.lane).padStart(3, "0")}</span>
+                      <span className="text-3xl font-bold font-mono text-primary">{result.lane}</span>
                     </div>
                   </div>
+                  <Button
+                    size="lg"
+                    onClick={dismissSuccess}
+                    className="w-full text-lg font-semibold h-14"
+                  >
+                    Confirm
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    Closing in {countdown}s
+                  </p>
                 </div>
               ) : (
-                <p className="text-2xl font-bold text-foreground">{message}</p>
+                <>
+                  <CheckCircle2 className="h-16 w-16 text-accent" />
+                  <p className="text-2xl font-bold text-foreground">{message}</p>
+                </>
               )}
             </motion.div>
           }

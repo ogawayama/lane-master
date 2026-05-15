@@ -1,47 +1,26 @@
-## Problem
+## Welcome message redesign
 
-The Hub's `users.rfid` column is **NOT NULL AND UNIQUE** (`users_rfid_key`). Setting all five demo users to `""` in one update collides on the second row.
+Update the success state in `src/pages/LoginScreen.tsx` (and apply the same changes to any other section login screens that render their own success block: `OdtScreen.tsx`, `LiveFireScreen.tsx`, `Qm360Screen.tsx` — I'll verify and mirror only where needed).
 
-We can't change the Hub schema from this project, so each cleared row needs a value that is non-null and unique.
+### New layout (top → bottom)
 
-## Fix
+1. **"Welcome [name]"** — large heading (bigger than current text, e.g. `text-4xl md:text-5xl font-bold`).
+2. **"Pick up your weapon and proceed to your lane"** — subheading (`text-xl text-muted-foreground`). For Live Fire section, keep the existing "tablet" wording substitution.
+3. **Weapon + Lane cards** — kept as-is, but lane number rendered without zero-padding (just `result.lane`, no `padStart`).
+4. **Confirm button** — primary full-width button labeled "Confirm". Clicking it (or pressing Enter) immediately closes the welcome message and returns to idle.
+5. **Countdown** — "Closing in Xs" text below the button, counting down from 10. When it reaches 0, the welcome auto-closes (same as today's 6s timeout, extended to 10s).
 
-**`src/services/adminService.ts` — `resetDemoMode`**
+### Behavior changes
 
-Update the demo users one at a time, writing a unique placeholder per user instead of a shared blank:
+- Auto-dismiss timer: **6s → 10s**.
+- Add a `useEffect` while `state === "success"` that runs a 1s interval to decrement a `countdown` state from 10 to 0, then dismisses.
+- Add a `handleConfirm` function that clears the timeout/interval and resets to idle (same logic as today's auto-clear).
+- Enter-key handling: the hidden RFID input currently captures Enter to submit a scan. While `state === "success"`, the Enter key should instead trigger Confirm. Implement by checking state in `handleKeyDown` — if success, call `handleConfirm` instead of `handleScan`. Keep the input focused so Enter is captured globally.
+- The Confirm button gets `autoFocus` when success renders (or we rely on the hidden input handler — using the existing focused input is simpler and avoids losing RFID focus behavior).
 
-```ts
-for (const id of ids) {
-  const placeholder = `__cleared_${id}_${Date.now()}`;
-  const { error } = await userHub
-    .from("users")
-    .update({ rfid: placeholder })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-}
-```
+### Technical notes
 
-The local mirror needs the placeholder to read as "blank" so the user truly looks unassigned and the tag becomes scannable as a new RFID. Two options, picking the second because it keeps the source of truth honest about "this was cleared":
-
-**`src/services/userHubService.ts` — `mirrorUser`**
-
-Treat any rfid starting with the `__cleared_` prefix as null when mirroring:
-
-```ts
-const raw = user.rfid?.trim() ?? "";
-const rfid = !raw || raw.startsWith("__cleared_") ? null : raw;
-```
-
-Apply the same coercion in `backfillMirror` and in `lookupByRfid` (a literal scan of `__cleared_…` should never match a user — `.eq("rfid", scanned)` won't match real scans anyway, so no extra guard needed there).
-
-## Verification
-
-- Reset demo mode → success, no UNIQUE / NOT NULL errors.
-- Demo users still listed; their RFID column shows the placeholder in raw Hub data but appears blank in the local admin (mirror = null).
-- Re-scanning a former demo tag goes through the registration flow.
-- Re-running reset is idempotent (each call generates a fresh `Date.now()` suffix, so no collision on repeat).
-
-## Out of scope
-
-- Hiding the placeholder string from the Hub-side admin UI (different project).
-- Making the Hub's rfid column nullable.
+- Lane padding removed only in the success display — admin/lanes views unchanged.
+- Countdown stored as a `useState<number>(10)` reset whenever entering success state.
+- Cleanup: clear interval on unmount and on state change away from success.
+- Use design tokens (`text-primary`, `bg-primary`, `text-muted-foreground`) — no hardcoded colors.
