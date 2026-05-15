@@ -16,7 +16,13 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
   const [name, setName] = useState("");
   const [results, setResults] = useState<User[]>([]);
   const [searched, setSearched] = useState(false);
+  const [linkingId, setLinkingId] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleLinkClick = (user: User) => {
+    setLinkingId(user.id);
+    onLink(user);
+  };
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
