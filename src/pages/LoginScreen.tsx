@@ -158,7 +158,9 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
       setResult(result);
       setState(result.success ? "success" : "error");
       setMessage(result.message);
-      setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+      if (!result.success) {
+        setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+      }
     } catch (err) {
       setState("error");
       setMessage("Linking error. Please try again.");
