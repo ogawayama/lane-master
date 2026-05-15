@@ -96,13 +96,15 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
         setResult(result);
         setState(result.success ? "success" : "error");
         setMessage(result.message);
-        // Auto-clear after 6s
-        setTimeout(() => {
-          setState("idle");
-          setMessage("");
-          setResult(null);
-          focusInput();
-        }, 6000);
+        // Auto-clear handled by countdown effect when state === "success"
+        if (!result.success) {
+          setTimeout(() => {
+            setState("idle");
+            setMessage("");
+            setResult(null);
+            focusInput();
+          }, 6000);
+        }
       } else {
         // Unknown RFID — show registration
         setPendingRfid(rfid.trim());
