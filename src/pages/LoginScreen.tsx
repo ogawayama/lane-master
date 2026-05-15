@@ -42,7 +42,33 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
   const [result, setResult] = useState<AssignmentResult | null>(null);
   const [pendingRfid, setPendingRfid] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [countdown, setCountdown] = useState(10);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const dismissSuccess = useCallback(() => {
+    setState("idle");
+    setMessage("");
+    setResult(null);
+    setCountdown(10);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
+  // Countdown for success state
+  useEffect(() => {
+    if (state !== "success") return;
+    setCountdown(10);
+    const interval = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(interval);
+          dismissSuccess();
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state, dismissSuccess]);
 
   // Keep input focused
   const focusInput = useCallback(() => {
