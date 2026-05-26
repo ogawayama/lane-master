@@ -33,6 +33,12 @@ const subLinks = [
   { suffix: "/admin", label: "Admin" },
 ];
 
+const prototypLinks = [
+  { href: "/duk?section=idt", label: "Duk (projector)" },
+  { href: "/tablet?section=idt", label: "Tablet (instructor)" },
+  { href: "/wizard?section=idt", label: "Wizard (facilitator)" },
+];
+
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
@@ -64,6 +70,26 @@ export default function Landing() {
           </div>
         ))}
       </nav>
+
+      {/* Helhetsprototyp — separat block för skal-spår 05 / Pass 0 skelett */}
+      <section className="mt-12 w-full max-w-4xl">
+        <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground mb-3 text-center">
+          Helhetsprototyp · Pass 0 skelett
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {prototypLinks.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center py-3 px-4 rounded border border-border bg-card text-foreground hover:bg-background/80 transition-colors text-sm font-medium"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
