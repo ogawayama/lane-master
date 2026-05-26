@@ -4,9 +4,11 @@ import { useSession } from "@/hooks/useSession";
 import { RemoteOverlay } from "@/components/prototyp/RemoteOverlay";
 import { BangridDuk } from "@/components/prototyp/BangridDuk";
 import { KriterieDuk } from "@/components/prototyp/KriterieDuk";
+import { SimulationDuk } from "@/components/prototyp/SimulationDuk";
 import { useRemoteControl, type RemoteEvent } from "@/hooks/useRemoteControl";
 import {
   setPhase,
+  toggleLaneUi,
   type Section as SessionSection,
 } from "@/services/sessionService";
 import type { Section as LaneSection } from "@/services/assignmentService";
@@ -42,9 +44,12 @@ export default function DukShell() {
   const section = (searchParams.get("section") ?? "idt") as SessionSection;
   const { session, loading } = useSession(section);
 
-  // Fjärr-driven phase-transition. OK och Back är de enda knappar som
-  // ändrar phase på duken. Övriga knappar (left/right) är reserverade
-  // för per-fas-navigering (AAR-karusell etc).
+  // Fjärr-driven phase-transition + per-fas-overrides.
+  // Grammatik per [helhetsprototyp/plan.md §4]:
+  //   OK    bekräfta / nästa
+  //   Back  ett steg bakåt
+  //   ▲ ▼   browse — i exercise-fasen återanvänds som Lane UI toggle
+  //   ◀ ▶   karusell (reserverad för AAR i Pass 6)
   const handleRemote = useCallback(
     (event: RemoteEvent) => {
       if (!session) return;
@@ -52,13 +57,27 @@ export default function DukShell() {
       if (event === "ok") {
         if (phase === "check-in") void setPhase(session.id, "preflight");
         else if (phase === "preflight") void setPhase(session.id, "exercise");
+        else if (phase === "exercise") void setPhase(session.id, "aar");
       } else if (event === "back") {
         if (phase === "preflight") void setPhase(session.id, "check-in");
+      } else if (event === "up") {
+        if (phase === "exercise") void toggleLaneUi(session.id, true);
+      } else if (event === "down") {
+        if (phase === "exercise") void toggleLaneUi(session.id, false);
       }
     },
     [session],
   );
   useRemoteControl(handleRemote);
+
+  // Auto-advance from exercise → AAR when timer hits 0 (callback from
+  // SimulationDuk). Stable callback so SimulationDuk doesn't re-trigger
+  // on every parent render.
+  const handleExerciseEnd = useCallback(() => {
+    if (session && session.phase === "exercise") {
+      void setPhase(session.id, "aar");
+    }
+  }, [session]);
 
   const phase = session?.phase ?? "idle";
 
@@ -89,7 +108,16 @@ export default function DukShell() {
         />
       )}
 
-      {!loading && phase !== "check-in" && phase !== "preflight" && (
+      {!loading && phase === "exercise" && (
+        <SimulationDuk
+          exercise={currentExercise}
+          laneUiVisible={session?.lane_ui_visible ?? false}
+          section={section}
+          onEnd={handleExerciseEnd}
+        />
+      )}
+
+      {!loading && phase !== "check-in" && phase !== "preflight" && phase !== "exercise" && (
         <PlaceholderScreen
           section={section}
           text={PHASE_LABEL[phase]}
