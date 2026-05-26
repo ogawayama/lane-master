@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import {
@@ -8,6 +9,14 @@ import {
 } from "@/services/sessionService";
 import { pressRemote } from "@/hooks/useRemoteControl";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  setSignal,
+  clearSignal,
+  clearAllSignals,
+  type DarStatus,
+} from "@/services/darService";
+import { useDARSignals } from "@/hooks/useDARSignals";
 
 /**
  * Helhetsprototyp — WizardShell (Pass 0).
@@ -54,6 +63,24 @@ export default function WizardShell() {
   const [searchParams] = useSearchParams();
   const section = (searchParams.get("section") ?? "idt") as Section;
   const { session, loading } = useSession(section);
+  const { byLane } = useDARSignals(session?.id);
+
+  // Read lanes from DB so the DAR panel adapts to studio size.
+  const [lanes, setLanes] = useState<number[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void supabase
+      .from("lane_assignments")
+      .select("lane_number")
+      .eq("section", section)
+      .order("lane_number")
+      .then(({ data }) => {
+        if (!cancelled && data) setLanes(data.map((d) => d.lane_number));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [section]);
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6 max-w-3xl mx-auto">
@@ -120,7 +147,7 @@ export default function WizardShell() {
       </section>
 
       {/* Remote injection — for testing without a keyboard */}
-      <section className="rounded-lg border border-border bg-card p-5">
+      <section className="rounded-lg border border-border bg-card p-5 mb-4">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
           Inject remote press (test without keyboard)
         </div>
@@ -136,6 +163,101 @@ export default function WizardShell() {
           <Button size="sm" variant="outline" onClick={() => pressRemote("holdOk")}>HOLD</Button>
         </div>
       </section>
+
+      {/* DAR Wizard-of-Oz signaller — Pass 5 */}
+      <section className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-amber-500">
+              DAR signals · Wizard-of-Oz (spår 03)
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              Drive triage state per lane. Appears live on /tablet during the
+              exercise phase. Never on the duk.
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!session}
+            onClick={() => session && void clearAllSignals(session.id)}
+            className="text-amber-600 hover:text-amber-700"
+          >
+            Clear all
+          </Button>
+        </div>
+
+        {lanes.length === 0 ? (
+          <div className="text-xs text-muted-foreground">No lanes configured for this section.</div>
+        ) : (
+          <div className="space-y-2">
+            {lanes.map((lane) => {
+              const current = byLane.get(lane)?.status;
+              const setStatus = (status: DarStatus) => {
+                if (!session) return;
+                void setSignal(session.id, section, lane, status);
+              };
+              return (
+                <div key={lane} className="flex items-center gap-2">
+                  <div className="text-xs font-mono w-12 text-muted-foreground">
+                    Lane {lane}
+                  </div>
+                  <div className="flex gap-1.5 flex-1">
+                    <SignalBtn
+                      label="green"
+                      active={current === "green"}
+                      onClick={() => setStatus("green")}
+                    />
+                    <SignalBtn
+                      label="yellow"
+                      active={current === "yellow"}
+                      onClick={() => setStatus("yellow")}
+                    />
+                    <SignalBtn
+                      label="red"
+                      active={current === "red"}
+                      onClick={() => setStatus("red")}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!current || !session}
+                      onClick={() => session && void clearSignal(session.id, lane)}
+                      className="text-[10px] h-7 px-2"
+                    >
+                      clear
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
+  );
+}
+
+function SignalBtn({
+  label,
+  active,
+  onClick,
+}: {
+  label: DarStatus;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const colorClass = {
+    green: active ? "bg-emerald-500 text-white" : "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10",
+    yellow: active ? "bg-amber-400 text-black" : "border-amber-400/40 text-amber-600 hover:bg-amber-400/10",
+    red: active ? "bg-red-500 text-white" : "border-red-500/40 text-red-600 hover:bg-red-500/10",
+  }[label];
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 h-7 rounded text-[10px] font-medium uppercase tracking-wider border transition-colors ${colorClass}`}
+    >
+      {label}
+    </button>
   );
 }
