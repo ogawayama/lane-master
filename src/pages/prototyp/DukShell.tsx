@@ -1,22 +1,28 @@
+import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import { RemoteOverlay } from "@/components/prototyp/RemoteOverlay";
 import { BangridDuk } from "@/components/prototyp/BangridDuk";
-import { useRemoteControl } from "@/hooks/useRemoteControl";
-import type { Section as SessionSection } from "@/services/sessionService";
+import { KriterieDuk } from "@/components/prototyp/KriterieDuk";
+import { useRemoteControl, type RemoteEvent } from "@/hooks/useRemoteControl";
+import {
+  setPhase,
+  type Section as SessionSection,
+} from "@/services/sessionService";
 import type { Section as LaneSection } from "@/services/assignmentService";
 
 /**
- * Helhetsprototyp — DukShell (Pass 0).
+ * Helhetsprototyp — DukShell.
  *
  * Detta är projektorduken — full-screen, "biograf"-språk per
- * helhetsprototyp/plan.md §3. I Pass 0 är den nästan tom: visar
- * vilken fas vi är i och bekräftar att den lyssnar på fjärren.
+ * helhetsprototyp/plan.md §3. Switchar på session.phase och driver
+ * phase-transitions via fjärr.
  *
- * Pass 1 lägger till bangrid (check-in).
- * Pass 3 lägger till kriterieskärm (preflight).
- * Pass 4 lägger till simulering-placeholder (exercise).
- * Pass 6 lägger till AAR-triage (aar).
+ * Pass 0  skelett + RemoteOverlay
+ * Pass 1  bangrid (check-in)
+ * Pass 3  kriterieskärm (preflight) + fjärr-driven phase-transitions
+ * Pass 4  simulering-placeholder (exercise)
+ * Pass 6  AAR-triage (aar)
  *
  * Section kan väljas via ?section=idt (default idt).
  */
@@ -36,15 +42,33 @@ export default function DukShell() {
   const section = (searchParams.get("section") ?? "idt") as SessionSection;
   const { session, loading } = useSession(section);
 
-  // Pass 0: just confirm the remote is wired. Real handlers land in
-  // Pass 3+ when each phase has actual interaction (Start, Next, etc).
-  useRemoteControl();
+  // Fjärr-driven phase-transition. OK och Back är de enda knappar som
+  // ändrar phase på duken. Övriga knappar (left/right) är reserverade
+  // för per-fas-navigering (AAR-karusell etc).
+  const handleRemote = useCallback(
+    (event: RemoteEvent) => {
+      if (!session) return;
+      const phase = session.phase;
+      if (event === "ok") {
+        if (phase === "check-in") void setPhase(session.id, "preflight");
+        else if (phase === "preflight") void setPhase(session.id, "exercise");
+      } else if (event === "back") {
+        if (phase === "preflight") void setPhase(session.id, "check-in");
+      }
+    },
+    [session],
+  );
+  useRemoteControl(handleRemote);
 
   const phase = session?.phase ?? "idle";
 
   // The lane_assignments table uses the same section codes as sessions
   // after the align-section-naming migration — safe to cast.
   const laneSection = section as unknown as LaneSection;
+
+  const currentExercise = session?.exercise_list[session.current_exercise_index] ?? null;
+  const exerciseNumber = (session?.current_exercise_index ?? 0) + 1;
+  const totalExercises = session?.exercise_list.length ?? 0;
 
   return (
     <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
@@ -56,13 +80,22 @@ export default function DukShell() {
         <BangridDuk section={laneSection} />
       )}
 
-      {!loading && phase !== "check-in" && (
+      {!loading && phase === "preflight" && (
+        <KriterieDuk
+          exercise={currentExercise}
+          exerciseNumber={exerciseNumber}
+          totalExercises={totalExercises}
+          awaitingExercise={!currentExercise}
+        />
+      )}
+
+      {!loading && phase !== "check-in" && phase !== "preflight" && (
         <PlaceholderScreen
           section={section}
           text={PHASE_LABEL[phase]}
           subline={
             session && session.exercise_list.length > 0
-              ? `Exercise ${session.current_exercise_index + 1} / ${session.exercise_list.length}`
+              ? `Exercise ${exerciseNumber} / ${totalExercises}`
               : undefined
           }
           hint={
@@ -82,8 +115,6 @@ function phaseToBuiltInPass(phase: string): string {
   switch (phase) {
     case "prepare":
       return "2";
-    case "preflight":
-      return "3";
     case "exercise":
       return "4";
     case "aar":
