@@ -29,7 +29,7 @@ export type SessionPhase =
   | "aar"
   | "ended";
 
-export type Section = "idt" | "odt" | "live-fire" | "qm360";
+export type Section = "idt" | "odt" | "live_fire" | "qm360";
 
 export interface ExerciseListItem {
   id: string;
