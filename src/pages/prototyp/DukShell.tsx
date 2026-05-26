@@ -1,11 +1,13 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import { RemoteOverlay } from "@/components/prototyp/RemoteOverlay";
 import { BangridDuk } from "@/components/prototyp/BangridDuk";
 import { KriterieDuk } from "@/components/prototyp/KriterieDuk";
 import { SimulationDuk } from "@/components/prototyp/SimulationDuk";
+import { AARDuk } from "@/components/prototyp/AARDuk";
 import { useRemoteControl, type RemoteEvent } from "@/hooks/useRemoteControl";
+import { supabase } from "@/integrations/supabase/client";
 import {
   setPhase,
   toggleLaneUi,
@@ -23,8 +25,8 @@ import type { Section as LaneSection } from "@/services/assignmentService";
  * Pass 0  skelett + RemoteOverlay
  * Pass 1  bangrid (check-in)
  * Pass 3  kriterieskärm (preflight) + fjärr-driven phase-transitions
- * Pass 4  simulering-placeholder (exercise)
- * Pass 6  AAR-triage (aar)
+ * Pass 4  simulering-placeholder (exercise) + Lane UI toggle
+ * Pass 6  AAR-karusell (aar)
  *
  * Section kan väljas via ?section=idt (default idt).
  */
@@ -44,12 +46,35 @@ export default function DukShell() {
   const section = (searchParams.get("section") ?? "idt") as SessionSection;
   const { session, loading } = useSession(section);
 
+  // AAR carousel index — lokalt state, en duk-pubblik. Spår 04:s
+  // karusell ska vara cirkulär; modulo görs i AARDuk:n.
+  const [aarIndex, setAarIndex] = useState(0);
+
+  // Reset karusellen när phase byter till AAR (instruktör börjar om).
+  useEffect(() => {
+    if (session?.phase === "aar") setAarIndex(0);
+  }, [session?.phase, session?.current_exercise_index]);
+
+  // Avancera till nästa övning (eller avsluta) när OK trycks i AAR.
+  const advanceFromAAR = useCallback(async () => {
+    if (!session) return;
+    const next = session.current_exercise_index + 1;
+    if (next < session.exercise_list.length) {
+      await supabase
+        .from("sessions")
+        .update({ current_exercise_index: next, phase: "preflight" })
+        .eq("id", session.id);
+    } else {
+      await setPhase(session.id, "ended");
+    }
+  }, [session]);
+
   // Fjärr-driven phase-transition + per-fas-overrides.
-  // Grammatik per [helhetsprototyp/plan.md §4]:
+  // Grammatik per [helhetsprototyp/plan.md §4 + spår 04:s karusell]:
   //   OK    bekräfta / nästa
   //   Back  ett steg bakåt
   //   ▲ ▼   browse — i exercise-fasen återanvänds som Lane UI toggle
-  //   ◀ ▶   karusell (reserverad för AAR i Pass 6)
+  //   ◀ ▶   karusell (AAR-fasen — cirkulär mellan skyttar)
   const handleRemote = useCallback(
     (event: RemoteEvent) => {
       if (!session) return;
@@ -58,15 +83,20 @@ export default function DukShell() {
         if (phase === "check-in") void setPhase(session.id, "preflight");
         else if (phase === "preflight") void setPhase(session.id, "exercise");
         else if (phase === "exercise") void setPhase(session.id, "aar");
+        else if (phase === "aar") void advanceFromAAR();
       } else if (event === "back") {
         if (phase === "preflight") void setPhase(session.id, "check-in");
       } else if (event === "up") {
         if (phase === "exercise") void toggleLaneUi(session.id, true);
       } else if (event === "down") {
         if (phase === "exercise") void toggleLaneUi(session.id, false);
+      } else if (event === "left") {
+        if (phase === "aar") setAarIndex((i) => i - 1); // AARDuk clampar cirkulärt
+      } else if (event === "right") {
+        if (phase === "aar") setAarIndex((i) => i + 1);
       }
     },
-    [session],
+    [session, advanceFromAAR],
   );
   useRemoteControl(handleRemote);
 
@@ -117,7 +147,15 @@ export default function DukShell() {
         />
       )}
 
-      {!loading && phase !== "check-in" && phase !== "preflight" && phase !== "exercise" && (
+      {!loading && phase === "aar" && (
+        <AARDuk
+          exercise={currentExercise}
+          section={section}
+          currentIndex={aarIndex}
+        />
+      )}
+
+      {!loading && phase !== "check-in" && phase !== "preflight" && phase !== "exercise" && phase !== "aar" && (
         <PlaceholderScreen
           section={section}
           text={PHASE_LABEL[phase]}
@@ -145,8 +183,6 @@ function phaseToBuiltInPass(phase: string): string {
       return "2";
     case "exercise":
       return "4";
-    case "aar":
-      return "6";
     case "ended":
       return "7";
     default:
