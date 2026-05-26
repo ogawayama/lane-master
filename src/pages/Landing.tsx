@@ -36,6 +36,7 @@ const subLinks = [
 const prototypLinks = [
   { href: "/duk?section=idt", label: "Duk (projector)" },
   { href: "/tablet?section=idt", label: "Tablet (instructor)" },
+  { href: "/tablet/prepare?section=idt", label: "Prepare session" },
   { href: "/wizard?section=idt", label: "Wizard (facilitator)" },
 ];
 
@@ -76,7 +77,7 @@ export default function Landing() {
         <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground mb-3 text-center">
           Helhetsprototyp · Pass 0 skelett
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {prototypLinks.map((link) => (
             <a
               key={link.href}

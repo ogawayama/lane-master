@@ -17,10 +17,11 @@ import OdtAdmin from "./pages/OdtAdmin";
 import LiveFireAdmin from "./pages/LiveFireAdmin";
 import Qm360Admin from "./pages/Qm360Admin";
 import NotFound from "./pages/NotFound";
-// Helhetsprototyp — Pass 0 shells
+// Helhetsprototyp — Pass 0 shells + Pass 2 prepare
 import DukShell from "./pages/prototyp/DukShell";
 import TabletShell from "./pages/prototyp/TabletShell";
 import WizardShell from "./pages/prototyp/WizardShell";
+import PreparePage from "./pages/prototyp/PreparePage";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useUserHubSync } from "@/hooks/useUserHubSync";
 
@@ -56,6 +57,7 @@ const App = () => (
           {/* Helhetsprototyp — skal-spår (spår 05) — drivs av sessions-tabellen */}
           <Route path="/duk" element={<DukShell />} />
           <Route path="/tablet" element={<TabletShell />} />
+          <Route path="/tablet/prepare" element={<PreparePage />} />
           <Route path="/wizard" element={<WizardShell />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import {
   setPhase,
@@ -36,6 +36,8 @@ export default function TabletShell() {
   const section = (searchParams.get("section") ?? "idt") as Section;
   const { session, loading } = useSession(section);
 
+  const showPrepareCta = !session || session.phase === "idle" || session.phase === "prepare";
+
   return (
     <div className="min-h-screen bg-background text-foreground p-6 max-w-2xl mx-auto">
       <div className="mb-6">
@@ -44,10 +46,25 @@ export default function TabletShell() {
         </div>
         <h1 className="text-2xl font-semibold">Instructor control</h1>
         <p className="text-sm text-muted-foreground">
-          Helhetsprototyp · Pass 0 skelett. Phase-controls här tills riktiga
-          ytor byggs i Pass 2/5.
+          Helhetsprototyp · meta-ytor. Pass 0 phase-controls kvar för
+          felsökning; verkliga arbetsytor länkade nedan.
         </p>
       </div>
+
+      {showPrepareCta && (
+        <Link
+          to={`/tablet/prepare?section=${section}`}
+          className="block mb-4 rounded-lg border-2 border-primary/40 bg-primary/5 p-5 hover:bg-primary/10 transition-colors"
+        >
+          <div className="text-[10px] uppercase tracking-[0.3em] text-primary mb-1">
+            Pre-pass · spår 01
+          </div>
+          <div className="font-medium text-lg">Build today's session →</div>
+          <div className="text-sm text-muted-foreground mt-1">
+            Pick exercises in order before trainees arrive.
+          </div>
+        </Link>
+      )}
 
       <div className="rounded-lg border border-border bg-card p-5">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
