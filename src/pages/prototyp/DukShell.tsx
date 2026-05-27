@@ -6,12 +6,14 @@ import { BangridDuk } from "@/components/prototyp/BangridDuk";
 import { KriterieDuk } from "@/components/prototyp/KriterieDuk";
 import { SimulationDuk } from "@/components/prototyp/SimulationDuk";
 import { AARDuk } from "@/components/prototyp/AARDuk";
+import { SelectExerciseDuk } from "@/components/prototyp/SelectExerciseDuk";
 import { StartConfirmOverlay } from "@/components/prototyp/StartConfirmOverlay";
 import { useRemoteControl, type RemoteEvent } from "@/hooks/useRemoteControl";
 import { supabase } from "@/integrations/supabase/client";
 import {
   setPhase,
   toggleLaneUi,
+  pickStartExercise,
   type Section as SessionSection,
 } from "@/services/sessionService";
 import {
@@ -44,6 +46,7 @@ import {
 const PHASE_LABEL: Record<string, string> = {
   idle: "Awaiting session",
   prepare: "Preparation in progress",
+  "select-exercise": "Choose starting exercise",
   "check-in": "Check-in",
   preflight: "Preflight & Play",
   exercise: "Exercise in progress",
@@ -59,6 +62,13 @@ export default function DukShell() {
   // AAR carousel index — lokalt state, en duk-pubblik. Spår 04:s
   // karusell ska vara cirkulär; modulo görs i AARDuk:n.
   const [aarIndex, setAarIndex] = useState(0);
+
+  // Select-exercise picker highlight — lokalt state (Q3 = A).
+  // Resettas till 0 när vi går in i select-exercise-fasen.
+  const [pickIndex, setPickIndex] = useState(0);
+  useEffect(() => {
+    if (session?.phase === "select-exercise") setPickIndex(0);
+  }, [session?.phase]);
 
   // Check-in readiness: prenumerera på lanes för att kunna beräkna
   // aggregat-status och visa confirm-overlay om OK trycks med
@@ -127,8 +137,16 @@ export default function DukShell() {
     (event: RemoteEvent) => {
       if (!session) return;
       const phase = session.phase;
+      const listLen = session.exercise_list.length;
       if (event === "ok") {
-        if (phase === "check-in") {
+        if (phase === "select-exercise") {
+          // Picker confirm: skriv index till DB, gå till check-in.
+          if (listLen > 0) {
+            const safe = Math.max(0, Math.min(pickIndex, listLen - 1));
+            void pickStartExercise(session.id, safe);
+          }
+        }
+        else if (phase === "check-in") {
           if (confirmOpen) {
             // Bekräftelse — starta ändå.
             setConfirmOpen(false);
@@ -155,11 +173,18 @@ export default function DukShell() {
         if (phase === "exercise") void toggleLaneUi(session.id, false);
       } else if (event === "left") {
         if (phase === "aar") setAarIndex((i) => i - 1); // AARDuk clampar cirkulärt
+        else if (phase === "select-exercise") {
+          // Picker — bounded, no wrap (matchar Q1=A skip ahead, no wrap).
+          setPickIndex((i) => Math.max(0, i - 1));
+        }
       } else if (event === "right") {
         if (phase === "aar") setAarIndex((i) => i + 1);
+        else if (phase === "select-exercise") {
+          setPickIndex((i) => Math.min(listLen - 1, i + 1));
+        }
       }
     },
-    [session, advanceFromAAR, allReady, confirmOpen, occupiedLanes.length],
+    [session, advanceFromAAR, allReady, confirmOpen, occupiedLanes.length, pickIndex],
   );
   useRemoteControl(handleRemote);
 
@@ -186,6 +211,13 @@ export default function DukShell() {
     <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
       {loading && (
         <PlaceholderScreen section={section} text="Connecting…" />
+      )}
+
+      {!loading && phase === "select-exercise" && (
+        <SelectExerciseDuk
+          exercises={session?.exercise_list ?? []}
+          selectedIndex={pickIndex}
+        />
       )}
 
       {!loading && phase === "check-in" && (
@@ -226,7 +258,7 @@ export default function DukShell() {
         />
       )}
 
-      {!loading && phase !== "check-in" && phase !== "preflight" && phase !== "exercise" && phase !== "aar" && (
+      {!loading && phase !== "select-exercise" && phase !== "check-in" && phase !== "preflight" && phase !== "exercise" && phase !== "aar" && (
         <PlaceholderScreen
           section={section}
           text={PHASE_LABEL[phase]}
@@ -252,8 +284,6 @@ function phaseToBuiltInPass(phase: string): string {
   switch (phase) {
     case "prepare":
       return "2";
-    case "exercise":
-      return "4";
     case "ended":
       return "7";
     default:

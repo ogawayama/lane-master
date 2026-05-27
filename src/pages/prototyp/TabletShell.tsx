@@ -86,6 +86,12 @@ export default function TabletShell() {
       )}
 
       {/* Waiting hints per phase — instruktören jobbar med fjärren mot duken */}
+      {session && session.phase === "select-exercise" && (
+        <WaitingPanel
+          title="Pick on the projector"
+          body="The exercise carousel is showing on the projector. Use ◀ ▶ to navigate and OK to select the starting exercise."
+        />
+      )}
       {session && session.phase === "check-in" && (
         <WaitingPanel
           title="Check-in in progress"

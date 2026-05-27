@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type SessionPhase =
   | "idle"
   | "prepare"
+  | "select-exercise"
   | "check-in"
   | "preflight"
   | "exercise"
@@ -100,6 +101,19 @@ export async function setExerciseList(
     .update({ exercise_list: list, current_exercise_index: 0 })
     .eq("id", sessionId);
   if (error) console.warn("setExerciseList failed:", error.message);
+}
+
+/** Atomically pick which exercise to start with (Chromecast picker) and
+ *  transition to check-in. Per user-beslut 2026-05-26 Q1 (skip ahead, no wrap):
+ *  current_exercise_index sätts; från picked till listans slut körs i sekvens. */
+export async function pickStartExercise(
+  sessionId: string,
+  index: number,
+): Promise<void> {
+  const { error } = await (sessionsTable() as any)
+    .update({ current_exercise_index: index, phase: "check-in" })
+    .eq("id", sessionId);
+  if (error) console.warn("pickStartExercise failed:", error.message);
 }
 
 /** Move to next exercise in the list. Loops via phase=preflight again. */

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUp, ArrowDown, X, Plus, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
@@ -16,6 +17,84 @@ import {
   type CatalogExercise,
 } from "@/data/exerciseCatalog";
 import { listAll } from "@/services/userHubService";
+
+// Sortordning för trainingType inom ready-gruppen — matchar
+// [spår 01 §Förvald nästa övning]: stigande svårighetsgrad.
+const TRAINING_TYPE_RANK: Record<CatalogExercise["trainingType"], number> = {
+  basic: 0,
+  advanced: 1,
+  combat: 2,
+};
+
+/**
+ * En rad i katalogen. motion.li med layout — om en övning byter
+ * grupp (vapen flippas live), glider raden mellan grupperna
+ * istället för att snappa.
+ *
+ * Add-knappen är ENDAST disabled när övningen redan är tillagd
+ * — inte när vapnet saknas. Det är medveten override per
+ * [spår 01 §Samlad position varv 2]: "Medveten override behövs."
+ */
+function CatalogRow({
+  ex,
+  ok,
+  reason,
+  already,
+  onAdd,
+}: {
+  ex: CatalogExercise;
+  ok: boolean;
+  reason?: string;
+  already: boolean;
+  onAdd: () => void;
+}) {
+  return (
+    <motion.li
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ layout: { duration: 0.35, ease: "easeOut" }, opacity: { duration: 0.2 } }}
+      className={`group rounded-lg border p-3 transition-colors ${
+        ok ? "border-border bg-card" : "border-border/50 bg-card/50"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`flex-1 ${ok ? "" : "opacity-50"}`}>
+          <div className="flex items-baseline gap-2">
+            <span className="font-medium">{ex.title}</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {ex.trainingType}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">{ex.description}</div>
+          <div className="flex flex-wrap gap-3 mt-2 text-[11px] text-muted-foreground">
+            <span>Hits ≥ {ex.hits_threshold}</span>
+            <span>Time ≤ {ex.time_seconds}s</span>
+            <span>Spread ≤ {ex.spread_threshold}</span>
+            <span className="font-mono">{ex.weaponTypes.join(" / ")}</span>
+          </div>
+          {!ok && reason && (
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-500">
+              <AlertCircle className="h-3 w-3" />
+              {reason}
+            </div>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant={already ? "secondary" : "outline"}
+          disabled={already}
+          onClick={onAdd}
+          className="shrink-0"
+        >
+          {already ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {already ? "Added" : "Add"}
+        </Button>
+      </div>
+    </motion.li>
+  );
+}
 
 /**
  * Helhetsprototyp — PreparePage (Pass 2).
@@ -56,6 +135,27 @@ export default function PreparePage() {
 
   const inList = useMemo(() => new Set(list.map((e) => e.id)), [list]);
 
+  // Split catalog: ready (weapons available) first, sorted by training-type
+  // ascending. Not-ready last, in insertion order. Per [spår 01 varv 2]:
+  // motorn symmetrisk, gränssnittet vägledande. Den första i ready-gruppen
+  // är samtidigt spår 01:s "förvald nästa övning" — faller ut gratis.
+  const { readyExercises, notReadyExercises } = useMemo(() => {
+    const ready: { ex: CatalogExercise; reason?: string }[] = [];
+    const notReady: { ex: CatalogExercise; reason?: string }[] = [];
+    for (const ex of EXERCISE_CATALOG) {
+      const { ok, reason } = exerciseRequiresWeaponType(ex, availableTypes);
+      if (ok) ready.push({ ex });
+      else notReady.push({ ex, reason });
+    }
+    ready.sort((a, b) => {
+      const t = TRAINING_TYPE_RANK[a.ex.trainingType] - TRAINING_TYPE_RANK[b.ex.trainingType];
+      if (t !== 0) return t;
+      // Stabilt på catalog-ordning vid samma trainingType.
+      return EXERCISE_CATALOG.indexOf(a.ex) - EXERCISE_CATALOG.indexOf(b.ex);
+    });
+    return { readyExercises: ready, notReadyExercises: notReady };
+  }, [availableTypes]);
+
   function addExercise(ex: CatalogExercise) {
     setList((cur) => [
       ...cur,
@@ -87,7 +187,10 @@ export default function PreparePage() {
   async function startSession() {
     if (!session || list.length === 0) return;
     await setExerciseList(session.id, list);
-    await setPhase(session.id, "check-in");
+    // Gå till select-exercise (Chromecast picker på duken) istället för
+    // direkt check-in — instruktören väljer startövning från duken med
+    // fjärren. Per user-beslut 2026-05-26.
+    await setPhase(session.id, "select-exercise");
     navigate(`/tablet?section=${section}`);
   }
 
@@ -119,53 +222,50 @@ export default function PreparePage() {
             Exercise catalog
           </div>
           <ul className="space-y-2">
-            {EXERCISE_CATALOG.map((ex) => {
-              const { ok, reason } = exerciseRequiresWeaponType(ex, availableTypes);
-              const already = inList.has(ex.id);
-              return (
-                <li
+            <AnimatePresence>
+              {readyExercises.map(({ ex }) => (
+                <CatalogRow
                   key={ex.id}
-                  className={`group rounded-lg border p-3 transition-colors ${
-                    ok ? "border-border bg-card" : "border-border/50 bg-card/50"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`flex-1 ${ok ? "" : "opacity-50"}`}>
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-medium">{ex.title}</span>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          {ex.trainingType}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{ex.description}</div>
-                      <div className="flex flex-wrap gap-3 mt-2 text-[11px] text-muted-foreground">
-                        <span>Hits ≥ {ex.hits_threshold}</span>
-                        <span>Time ≤ {ex.time_seconds}s</span>
-                        <span>Spread ≤ {ex.spread_threshold}</span>
-                        <span className="font-mono">{ex.weaponTypes.join(" / ")}</span>
-                      </div>
-                      {!ok && (
-                        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-500">
-                          <AlertCircle className="h-3 w-3" />
-                          {reason}
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={already ? "secondary" : "outline"}
-                      disabled={already}
-                      onClick={() => addExercise(ex)}
-                      className="shrink-0"
-                    >
-                      {already ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                      {already ? "Added" : "Add"}
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
+                  ex={ex}
+                  ok
+                  reason={undefined}
+                  already={inList.has(ex.id)}
+                  onAdd={() => addExercise(ex)}
+                />
+              ))}
+            </AnimatePresence>
           </ul>
+
+          {notReadyExercises.length > 0 && (
+            <>
+              <motion.div
+                layout
+                className="flex items-center gap-3 mt-6 mb-3"
+              >
+                <div className="flex-1 h-px bg-border" />
+                <div className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 flex items-center gap-1.5">
+                  <AlertCircle className="h-3 w-3" />
+                  Not currently available · weapons need to be ready first
+                </div>
+                <div className="flex-1 h-px bg-border" />
+              </motion.div>
+              <ul className="space-y-2">
+                <AnimatePresence>
+                  {notReadyExercises.map(({ ex, reason }) => (
+                    <CatalogRow
+                      key={ex.id}
+                      ex={ex}
+                      ok={false}
+                      reason={reason}
+                      already={inList.has(ex.id)}
+                      onAdd={() => addExercise(ex)}
+                    />
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </>
+          )}
+
           {weaponsLoading && (
             <div className="text-xs text-muted-foreground mt-2">Reading weapon status…</div>
           )}
@@ -234,7 +334,7 @@ export default function PreparePage() {
               disabled={list.length === 0 || !session}
               onClick={() => void startSession()}
             >
-              Start session → Check-in
+              Start session → Pick on the duk
             </Button>
             {session && session.phase !== "idle" && session.phase !== "prepare" && (
               <div className="text-[11px] text-amber-500 text-center">
