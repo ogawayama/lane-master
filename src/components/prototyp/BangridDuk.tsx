@@ -1,79 +1,149 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertCircle, AlertTriangle, Check } from "lucide-react";
+import type { LaneAssignment, Section } from "@/services/assignmentService";
 import {
-  fetchAllLanes,
-  type LaneAssignment,
-  type Section,
-} from "@/services/assignmentService";
-import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
+  aggregateLaneStatus,
+  deriveAlerts,
+  type ReadinessStatus,
+} from "@/services/readinessService";
+import type { ExerciseListItem } from "@/services/sessionService";
 
 /**
- * Helhetsprototyp — BangridDuk (Pass 1).
+ * Helhetsprototyp — BangridDuk (Pass 1 + Pass 1.5).
  *
- * Duken under check-in-fasen. Per helhetsprototyp/plan.md §5 Pass 1 +
- * spår 02:s [Beslut 2026-05-25]: en gemensam, "celebratory" yta som
- * fylls upp i takt med att skyttar blippar in på check-in-tableten.
+ * Duken under check-in-fasen. Gör DUBBEL TJÄNST:
+ *  1. Visa vem som checkat in (bangrid fylls upp i takt med RFID-blippar)
+ *  2. Visa per-bana readiness (vapen / batteri / ammo / comms) så
+ *     skyttarna kan självkorrigera
  *
- * Designspråk: "biograf" (per [10-feet UI §Tre UI-lager](GS-POM/spår/05)).
- * Stor, lugn, hero-känsla. Distinkt från LaneCard som är "kontrollrum".
+ * Per feedback 2026-05-26: layouten matchar wireframen — exercise-
+ * kontext top-left, härledda system-alerts top-right (visas bara om
+ * något är icke-ok), lane-grid med status-bar + vapen-rad-ikon.
  *
- * Datakälla: lane_assignments-tabellen (redan finns) — vi LÄSER bara.
- * Skrivning sker fortfarande från LoginScreen (RFIDSimulator).
- *
- * Öppen fråga: form på systemvarningar (per spår 02 §Öppna frågor) —
- * parkerad tills första riktiga test. Idag visar vi bara aktiv/tom.
+ * Designspråk: "biograf" — alla ser samma vy, ingen control-room-densitet.
  */
 
-export function BangridDuk({ section }: { section: Section }) {
-  const [lanes, setLanes] = useState<LaneAssignment[]>([]);
-  const [loaded, setLoaded] = useState(false);
+// Lane-status-färger på baren
+const BAR_COLOR: Record<ReadinessStatus, string> = {
+  na: "bg-white/10",
+  ok: "bg-emerald-500",
+  warning: "bg-amber-400",
+  critical: "bg-red-500",
+};
 
-  useEffect(() => {
-    void fetchAllLanes(section).then((data) => {
-      setLanes(data);
-      setLoaded(true);
-    });
-    const channel = subscribeLaneAssignments(section, setLanes);
-    return () => unsubscribe(channel);
-  }, [section]);
+const WEAPON_ICON_COLOR: Record<ReadinessStatus, string> = {
+  na: "text-white/30",
+  ok: "text-emerald-400",
+  warning: "text-amber-400",
+  critical: "text-red-500",
+};
 
-  const occupied = lanes.filter((l) => l.status === "occupied").length;
-  const total = lanes.length;
-  const allCheckedIn = total > 0 && occupied === total;
+const ALERT_INDICATOR_LABEL: Record<string, string> = {
+  weapon: "Lane",
+  battery: "Lane",
+  ammo: "Ammo below spec",
+  comms: "Lane",
+};
 
-  // Layout: studio (≤5) → ett rad, double studio (>5) → två rader
-  const cols = total <= 5 ? Math.max(total, 1) : Math.ceil(total / 2);
+export function BangridDuk({
+  section,
+  exercise,
+  lanes,
+}: {
+  section: Section;
+  exercise: ExerciseListItem | null;
+  lanes: LaneAssignment[];
+}) {
+  // Härledda alerts (top-right). Endast occupied lanes räknas.
+  const alerts = useMemo(() => {
+    const occupied = lanes
+      .filter((l) => l.status === "occupied")
+      .map((l) => ({
+        lane_number: l.lane_number,
+        weapon_status: (l.weapon_status ?? "na") as ReadinessStatus,
+        battery_status: (l.battery_status ?? "na") as ReadinessStatus,
+        ammo_status: (l.ammo_status ?? "na") as ReadinessStatus,
+        comms_status: (l.comms_status ?? "na") as ReadinessStatus,
+      }));
+    return deriveAlerts(occupied);
+  }, [lanes]);
+
+  const occupiedCount = lanes.filter((l) => l.status === "occupied").length;
+  const totalCount = lanes.length;
+  const cols = totalCount <= 5 ? Math.max(totalCount, 1) : Math.ceil(totalCount / 2);
 
   return (
-    <div className="flex flex-col h-full w-full p-12 text-white">
-      {/* Top — section + counter + instruction */}
-      <div className="flex items-baseline justify-between mb-12">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.4em] text-white/40 mb-2">
+    <div className="flex flex-col h-full w-full p-8 text-white">
+      {/* Header — exercise context (left) + system alerts (right) */}
+      <header className="flex items-start justify-between gap-8 mb-10">
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] uppercase tracking-[0.3em] text-white/40 mb-2">
             Check-in · {section.replace("_", " ").toUpperCase()}
+            {totalCount > 0 && (
+              <span className="ml-3 font-mono">{occupiedCount} / {totalCount}</span>
+            )}
           </div>
-          <h1 className="text-5xl font-light tracking-tight">
-            {allCheckedIn ? "All trainees checked in" : "Waiting for check-in"}
-          </h1>
+          {exercise ? (
+            <>
+              <h1 className="text-5xl font-light tracking-tight leading-[1.05]">
+                {exercise.title}
+              </h1>
+              <div className="text-sm text-white/40 mt-2 max-w-xl">
+                Trainees check in · weapons warm up · review status before start
+              </div>
+            </>
+          ) : (
+            <h1 className="text-5xl font-light tracking-tight leading-[1.05]">
+              Waiting for check-in
+            </h1>
+          )}
         </div>
-        <div className="text-right">
-          <div className="text-7xl font-mono tabular-nums leading-none">
-            {occupied}
-            <span className="text-white/30">/{total || "–"}</span>
-          </div>
-          <div className="text-[11px] uppercase tracking-[0.3em] text-white/40 mt-2">
-            Checked in
-          </div>
-        </div>
-      </div>
 
-      {/* Lane grid — fills middle, scales to count */}
+        {/* Top-right alerts — visas bara om något är non-ok */}
+        <div className="flex flex-wrap gap-3 justify-end max-w-[55%]">
+          <AnimatePresence>
+            {alerts.map((a) => (
+              <motion.div
+                key={`${a.indicator}-${a.severity}`}
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className={`flex items-start gap-3 rounded-lg border px-4 py-3 max-w-[18rem] ${
+                  a.severity === "critical"
+                    ? "border-red-500/50 bg-red-500/5"
+                    : "border-amber-400/50 bg-amber-400/5"
+                }`}
+              >
+                <div className="pt-0.5 shrink-0">
+                  {a.severity === "critical" ? (
+                    <AlertCircle className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-amber-400" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{a.label}</div>
+                  <div className="text-[11px] text-white/50 mt-0.5">
+                    {ALERT_INDICATOR_LABEL[a.indicator] === "Lane"
+                      ? `Issue detected on: Lane ${a.affectedLanes.join(", Lane ")}`
+                      : `Ammo below spec: Lane ${a.affectedLanes.join(", Lane ")}`}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </header>
+
+      {/* Lane grid */}
       <div className="flex-1 flex items-center justify-center">
         <div
-          className="grid gap-6 w-full max-w-[1600px]"
+          className="grid gap-5 w-full max-w-[1600px]"
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         >
-          {loaded && lanes.length === 0 && (
+          {lanes.length === 0 && (
             <div className="col-span-full text-center text-white/30 text-xl">
               No lanes configured for this section yet.
             </div>
@@ -84,11 +154,15 @@ export function BangridDuk({ section }: { section: Section }) {
         </div>
       </div>
 
-      {/* Bottom — instruction line. Calm, non-urgent. */}
-      <div className="text-center text-white/40 text-sm tracking-wide mt-12">
-        {allCheckedIn
-          ? "Press OK on the remote to start the exercise."
-          : "Tap your RFID on the check-in tablet to take a lane."}
+      {/* Bottom hint */}
+      <div className="text-center text-white/40 text-sm tracking-wide mt-8">
+        {occupiedCount === 0
+          ? "Tap your RFID on the check-in tablet to take a lane."
+          : occupiedCount < totalCount
+            ? "Tap your RFID on the check-in tablet to take a lane."
+            : alerts.length === 0
+              ? "All ready · Press OK on the remote to start."
+              : "Press OK to start (some lanes are not ready)."}
       </div>
     </div>
   );
@@ -96,62 +170,83 @@ export function BangridDuk({ section }: { section: Section }) {
 
 function LaneTile({ lane }: { lane: LaneAssignment }) {
   const occupied = lane.status === "occupied";
+  const readiness: ReadinessStatus = occupied
+    ? aggregateLaneStatus({
+        weapon_status: (lane.weapon_status ?? "ok") as ReadinessStatus,
+        battery_status: (lane.battery_status ?? "ok") as ReadinessStatus,
+        ammo_status: (lane.ammo_status ?? "ok") as ReadinessStatus,
+        comms_status: (lane.comms_status ?? "ok") as ReadinessStatus,
+      })
+    : "na";
+
+  const weaponStatus: ReadinessStatus = (lane.weapon_status ?? "na") as ReadinessStatus;
+
   return (
     <motion.div
       layout
-      className={`relative aspect-[3/4] rounded-2xl border flex flex-col items-center justify-center text-center overflow-hidden transition-colors duration-500 ${
-        occupied
-          ? "border-emerald-400/40 bg-emerald-500/5"
-          : "border-white/10 bg-white/[0.02]"
-      }`}
+      className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-5 flex flex-col min-h-[260px]"
     >
-      {/* Lane number — always big, dims when empty */}
-      <div
-        className={`text-[6rem] font-light leading-none tabular-nums transition-colors duration-500 ${
-          occupied ? "text-white" : "text-white/15"
-        }`}
-      >
+      {/* Lane number badge top-left (per wireframe) */}
+      <div className="absolute -top-3 -left-3 w-12 h-12 rounded-xl bg-amber-400 text-black flex items-center justify-center text-2xl font-bold tabular-nums shadow-lg">
         {lane.lane_number}
       </div>
-      <div
-        className={`text-[10px] uppercase tracking-[0.3em] mt-1 transition-colors duration-500 ${
-          occupied ? "text-emerald-300/80" : "text-white/20"
-        }`}
-      >
-        Lane
-      </div>
 
-      {/* Occupant — fades in once checked in */}
-      <AnimatePresence>
-        {occupied && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: "easeOut" }}
-            className="absolute bottom-6 left-4 right-4 flex flex-col items-center gap-1"
-          >
-            <div className="text-xl font-medium truncate max-w-full">
-              {lane.name ?? "Trainee"}
+      {/* Body */}
+      <div className="flex flex-col flex-1 items-center text-center pt-3">
+        {/* Name + rank */}
+        <div className={`text-xl font-medium leading-tight ${occupied ? "text-white" : "text-white/25"} truncate max-w-full`}>
+          {occupied ? lane.name : "—"}
+        </div>
+        <div className="text-[11px] text-white/40 mt-0.5">
+          {occupied ? "Rank" : "Empty"}
+        </div>
+
+        {/* Status bar */}
+        <div className={`mt-5 h-1.5 w-full rounded-full ${BAR_COLOR[readiness]} transition-colors duration-500`} />
+
+        {/* Weapon row */}
+        <div className="mt-auto pt-5 w-full">
+          {occupied ? (
+            <WeaponRow
+              weaponName={lane.weapon_name ?? "—"}
+              weaponType={lane.weapon_type ?? ""}
+              weaponStatus={weaponStatus}
+            />
+          ) : (
+            <div className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-[11px] text-white/30">
+              Waiting for assignment
             </div>
-            {lane.weapon_name && (
-              <div className="text-xs text-white/60 truncate max-w-full">
-                {lane.weapon_name}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Soft glow ring once occupied — biograf accent */}
-      {occupied && (
-        <motion.div
-          aria-hidden
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="absolute inset-0 rounded-2xl pointer-events-none shadow-[inset_0_0_60px_-20px_rgba(52,211,153,0.5)]"
-        />
-      )}
+          )}
+        </div>
+      </div>
     </motion.div>
+  );
+}
+
+function WeaponRow({
+  weaponName,
+  weaponType,
+  weaponStatus,
+}: {
+  weaponName: string;
+  weaponType: string;
+  weaponStatus: ReadinessStatus;
+}) {
+  const Icon =
+    weaponStatus === "critical"
+      ? AlertCircle
+      : weaponStatus === "warning"
+        ? AlertTriangle
+        : Check;
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-left">
+      <Icon className={`h-4 w-4 shrink-0 ${WEAPON_ICON_COLOR[weaponStatus]}`} />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate">{weaponName}</div>
+        {weaponType && (
+          <div className="text-[10px] text-white/50 truncate">{weaponType}</div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import { RemoteOverlay } from "@/components/prototyp/RemoteOverlay";
@@ -6,6 +6,7 @@ import { BangridDuk } from "@/components/prototyp/BangridDuk";
 import { KriterieDuk } from "@/components/prototyp/KriterieDuk";
 import { SimulationDuk } from "@/components/prototyp/SimulationDuk";
 import { AARDuk } from "@/components/prototyp/AARDuk";
+import { StartConfirmOverlay } from "@/components/prototyp/StartConfirmOverlay";
 import { useRemoteControl, type RemoteEvent } from "@/hooks/useRemoteControl";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -13,7 +14,16 @@ import {
   toggleLaneUi,
   type Section as SessionSection,
 } from "@/services/sessionService";
-import type { Section as LaneSection } from "@/services/assignmentService";
+import {
+  fetchAllLanes,
+  type LaneAssignment,
+  type Section as LaneSection,
+} from "@/services/assignmentService";
+import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
+import {
+  deriveAlerts,
+  type ReadinessStatus,
+} from "@/services/readinessService";
 
 /**
  * Helhetsprototyp — DukShell.
@@ -50,6 +60,44 @@ export default function DukShell() {
   // karusell ska vara cirkulär; modulo görs i AARDuk:n.
   const [aarIndex, setAarIndex] = useState(0);
 
+  // Check-in readiness: prenumerera på lanes för att kunna beräkna
+  // aggregat-status och visa confirm-overlay om OK trycks med
+  // ej-all-gröna lanes.
+  const laneSectionEarly = section as unknown as LaneSection;
+  const [lanes, setLanes] = useState<LaneAssignment[]>([]);
+  useEffect(() => {
+    void fetchAllLanes(laneSectionEarly).then(setLanes);
+    const channel = subscribeLaneAssignments(laneSectionEarly, setLanes);
+    return () => unsubscribe(channel);
+  }, [laneSectionEarly]);
+
+  const occupiedLanes = useMemo(
+    () =>
+      lanes
+        .filter((l) => l.status === "occupied")
+        .map((l) => ({
+          lane_number: l.lane_number,
+          weapon_status: (l.weapon_status ?? "na") as ReadinessStatus,
+          battery_status: (l.battery_status ?? "na") as ReadinessStatus,
+          ammo_status: (l.ammo_status ?? "na") as ReadinessStatus,
+          comms_status: (l.comms_status ?? "na") as ReadinessStatus,
+        })),
+    [lanes],
+  );
+  const readinessAlerts = useMemo(() => deriveAlerts(occupiedLanes), [occupiedLanes]);
+  const allReady = occupiedLanes.length > 0 && readinessAlerts.length === 0;
+  const readyCount = occupiedLanes.length - new Set(
+    readinessAlerts.flatMap((a) => a.affectedLanes),
+  ).size;
+
+  // Confirm overlay visibility — endast i check-in när någon lane är non-ok.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Stäng confirm:en så fort phase ändras bort från check-in (t.ex. om
+  // någon annan driver via /wizard medan overlayen är öppen).
+  useEffect(() => {
+    if (session?.phase !== "check-in") setConfirmOpen(false);
+  }, [session?.phase]);
+
   // Reset karusellen när phase byter till AAR (instruktör börjar om).
   useEffect(() => {
     if (session?.phase === "aar") setAarIndex(0);
@@ -80,12 +128,27 @@ export default function DukShell() {
       if (!session) return;
       const phase = session.phase;
       if (event === "ok") {
-        if (phase === "check-in") void setPhase(session.id, "preflight");
+        if (phase === "check-in") {
+          if (confirmOpen) {
+            // Bekräftelse — starta ändå.
+            setConfirmOpen(false);
+            void setPhase(session.id, "preflight");
+          } else if (allReady) {
+            // Direktstart.
+            void setPhase(session.id, "preflight");
+          } else if (occupiedLanes.length > 0) {
+            // Någon checkad in men inte all-grön → öppna confirm.
+            setConfirmOpen(true);
+          }
+          // (ingen checkad in → ignore)
+        }
         else if (phase === "preflight") void setPhase(session.id, "exercise");
         else if (phase === "exercise") void setPhase(session.id, "aar");
         else if (phase === "aar") void advanceFromAAR();
       } else if (event === "back") {
-        if (phase === "preflight") void setPhase(session.id, "check-in");
+        if (confirmOpen) {
+          setConfirmOpen(false);
+        } else if (phase === "preflight") void setPhase(session.id, "check-in");
       } else if (event === "up") {
         if (phase === "exercise") void toggleLaneUi(session.id, true);
       } else if (event === "down") {
@@ -96,7 +159,7 @@ export default function DukShell() {
         if (phase === "aar") setAarIndex((i) => i + 1);
       }
     },
-    [session, advanceFromAAR],
+    [session, advanceFromAAR, allReady, confirmOpen, occupiedLanes.length],
   );
   useRemoteControl(handleRemote);
 
@@ -113,7 +176,7 @@ export default function DukShell() {
 
   // The lane_assignments table uses the same section codes as sessions
   // after the align-section-naming migration — safe to cast.
-  const laneSection = section as unknown as LaneSection;
+  const laneSection = laneSectionEarly;
 
   const currentExercise = session?.exercise_list[session.current_exercise_index] ?? null;
   const exerciseNumber = (session?.current_exercise_index ?? 0) + 1;
@@ -126,7 +189,15 @@ export default function DukShell() {
       )}
 
       {!loading && phase === "check-in" && (
-        <BangridDuk section={laneSection} />
+        <BangridDuk section={laneSection} exercise={currentExercise} lanes={lanes} />
+      )}
+
+      {phase === "check-in" && confirmOpen && (
+        <StartConfirmOverlay
+          alerts={readinessAlerts}
+          laneCount={occupiedLanes.length}
+          readyCount={readyCount}
+        />
       )}
 
       {!loading && phase === "preflight" && (

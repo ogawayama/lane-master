@@ -17,6 +17,18 @@ import {
   type DarStatus,
 } from "@/services/darService";
 import { useDARSignals } from "@/hooks/useDARSignals";
+import {
+  setLaneIndicator,
+  resetLaneToOk,
+  type ReadinessIndicator,
+  type ReadinessStatus,
+} from "@/services/readinessService";
+import {
+  fetchAllLanes,
+  type LaneAssignment,
+  type Section as LaneSection,
+} from "@/services/assignmentService";
+import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
 
 /**
  * Helhetsprototyp — WizardShell (Pass 0).
@@ -65,22 +77,17 @@ export default function WizardShell() {
   const { session, loading } = useSession(section);
   const { byLane } = useDARSignals(session?.id);
 
-  // Read lanes from DB so the DAR panel adapts to studio size.
-  const [lanes, setLanes] = useState<number[]>([]);
+  // Realtime lane state — driver både DAR-panelen (behöver bara lane_number)
+  // och readiness-panelen (behöver weapon/battery/ammo/comms_status).
+  const laneSection = section as unknown as LaneSection;
+  const [laneRows, setLaneRows] = useState<LaneAssignment[]>([]);
   useEffect(() => {
-    let cancelled = false;
-    void supabase
-      .from("lane_assignments")
-      .select("lane_number")
-      .eq("section", section)
-      .order("lane_number")
-      .then(({ data }) => {
-        if (!cancelled && data) setLanes(data.map((d) => d.lane_number));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [section]);
+    void fetchAllLanes(laneSection).then(setLaneRows);
+    const channel = subscribeLaneAssignments(laneSection, setLaneRows);
+    return () => unsubscribe(channel);
+  }, [laneSection]);
+  const lanes = laneRows.map((l) => l.lane_number);
+  const occupiedRows = laneRows.filter((l) => l.status === "occupied");
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6 max-w-3xl mx-auto">
@@ -234,7 +241,125 @@ export default function WizardShell() {
           </div>
         )}
       </section>
+
+      {/* Readiness Wizard-of-Oz — Pass 1.5 */}
+      <section className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-5 mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-sky-500">
+              Lane readiness · Wizard-of-Oz (spår 02 halva A)
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              Drive weapon / battery / ammo / comms status per lane.
+              Visible publicly on the duk during check-in. Defaults to OK
+              when a trainee blips in.
+            </div>
+          </div>
+        </div>
+
+        {occupiedRows.length === 0 ? (
+          <div className="text-xs text-muted-foreground">
+            No trainees checked in yet. Statuses only appear once a lane
+            is occupied.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {occupiedRows.map((row) => (
+              <div key={row.lane_number} className="rounded border border-border bg-card p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs">
+                    <span className="font-mono text-muted-foreground">Lane {row.lane_number}</span>{" "}
+                    <span className="text-foreground">· {row.name ?? "—"}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-[10px] text-sky-600 hover:text-sky-700"
+                    onClick={() => void resetLaneToOk(laneSection, row.lane_number)}
+                  >
+                    All OK
+                  </Button>
+                </div>
+                <div className="space-y-1.5">
+                  <ReadinessRow
+                    label="Weapon"
+                    indicator="weapon"
+                    current={(row.weapon_status ?? "na") as ReadinessStatus}
+                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "weapon", s)}
+                  />
+                  <ReadinessRow
+                    label="Battery"
+                    indicator="battery"
+                    current={(row.battery_status ?? "na") as ReadinessStatus}
+                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "battery", s)}
+                  />
+                  <ReadinessRow
+                    label="Ammo"
+                    indicator="ammo"
+                    current={(row.ammo_status ?? "na") as ReadinessStatus}
+                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "ammo", s)}
+                  />
+                  <ReadinessRow
+                    label="Comms"
+                    indicator="comms"
+                    current={(row.comms_status ?? "na") as ReadinessStatus}
+                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "comms", s)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
+  );
+}
+
+function ReadinessRow({
+  label,
+  current,
+  onSet,
+}: {
+  label: string;
+  indicator: ReadinessIndicator;
+  current: ReadinessStatus;
+  onSet: (s: ReadinessStatus) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="text-[10px] font-mono w-16 text-muted-foreground uppercase tracking-wider">
+        {label}
+      </div>
+      <div className="flex gap-1.5 flex-1">
+        <ReadinessBtn label="ok" active={current === "ok"} onClick={() => onSet("ok")} />
+        <ReadinessBtn label="warning" active={current === "warning"} onClick={() => onSet("warning")} />
+        <ReadinessBtn label="critical" active={current === "critical"} onClick={() => onSet("critical")} />
+      </div>
+    </div>
+  );
+}
+
+function ReadinessBtn({
+  label,
+  active,
+  onClick,
+}: {
+  label: "ok" | "warning" | "critical";
+  active: boolean;
+  onClick: () => void;
+}) {
+  const colorClass = {
+    ok: active ? "bg-emerald-500 text-white" : "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10",
+    warning: active ? "bg-amber-400 text-black" : "border-amber-400/40 text-amber-600 hover:bg-amber-400/10",
+    critical: active ? "bg-red-500 text-white" : "border-red-500/40 text-red-600 hover:bg-red-500/10",
+  }[label];
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 h-7 rounded text-[10px] font-medium uppercase tracking-wider border transition-colors ${colorClass}`}
+    >
+      {label}
+    </button>
   );
 }
 
