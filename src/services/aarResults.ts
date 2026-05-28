@@ -1,19 +1,20 @@
 import type { ExerciseListItem } from "@/services/sessionService";
 import type { Criterion, Severity } from "@/data/cueLibrary";
+import { buildShotSequence, type ShotSequence } from "@/services/shotSimulation";
 
 /**
- * Helhetsprototyp — AAR-resultat (Pass 6).
+ * Helhetsprototyp — AAR-resultat (Pass 6, omdesignad 2026-05-28).
  *
- * Per [helhetsprototyp/plan.md §5 Pass 6 + §2]: vi har ingen
- * sensordata att gå mot än. Genererar därför deterministiska
- * mock-resultat per (lane, exercise) — så samma skytt på samma
- * övning alltid ger samma siffror och färger.
+ * Per [beslut 2026-05-28]: hits + spread härleds från samma skott-
+ * sekvens som SimulationDuk visade live på papptavlorna. Det innebär
+ * att AAR-siffrorna stämmer med bilden — instruktören kan peka på en
+ * miss på tavlan och se den i HIT-räknaren.
  *
- * När riktig sensor-pipeline finns: ersätt computeResult() med
- * en query mot exercise_runs-tabellen (skapas i Pass 7 om
- * persistens behövs mellan övningar).
+ * Time genereras separat (deterministiskt) eftersom skott-sekvensens
+ * sista tidsstämpel är en överenskommen approximation, inte själva
+ * "övningstiden".
  *
- * Triage-scoring per [spår 04 § Hypotes + § Riskigaste antagandet]:
+ * Triage-scoring per [spår 04 § Hypotes]:
  *   green   = i förhållande till tröskeln (passes the threshold)
  *   yellow  = strax under/över (borderline)
  *   red     = klart under/över (fail)
@@ -33,17 +34,19 @@ export interface AARResult {
   spread_status: Status;
   reds: Criterion[];
   yellows: Criterion[];
+  /** Skott-sekvensen som drev metrics — används för target-rendering. */
+  sequence: ShotSequence;
 }
 
-/** Deterministic LCG seeded by lane × exercise id. */
-function seed(lane: number, exerciseId: string): number {
+/** Deterministisk LCG seedad på (lane, exercise.id). */
+function seedFor(lane: number, exerciseId: string): number {
   let s = lane * 9301 + 49297;
   for (const ch of exerciseId) s = (s * 31 + ch.charCodeAt(0)) | 0;
   return Math.abs(s);
 }
 
-function lcg(s: number): () => number {
-  let state = s;
+function lcg(initialSeed: number): () => number {
+  let state = initialSeed;
   return () => {
     state = (state * 9301 + 49297) % 233280;
     return state / 233280;
@@ -77,18 +80,28 @@ export function computeResult(
   weapon: string | null,
   exercise: ExerciseListItem,
 ): AARResult {
-  const rand = lcg(seed(lane, exercise.id));
+  const sequence = buildShotSequence(lane, exercise);
 
-  // Generate values around the threshold with some spread so we get a
-  // mix of green/yellow/red across lanes (instructive for a demo AAR).
-  const hits_th = exercise.hits_threshold ?? 5;
-  const time_th = exercise.time_seconds ?? 60;
+  // Hits = faktiskt antal träffar i sekvensen.
+  const hits = sequence.shots.filter((s) => s.hit).length;
+
+  // Spread i cm: spread_pct (0..40) skalas mot exercise.spread_threshold
+  // så vi får realistisk mix grön/gul/röd. Faktor 1.6 ger lite glidning
+  // över tröskeln för borderline-fallen.
   const spread_th = exercise.spread_threshold ?? 20;
+  const spread = Math.max(
+    1,
+    Math.round((sequence.spread_pct / 40) * spread_th * 1.6),
+  );
 
-  const hits = Math.max(0, Math.round(hits_th * (0.5 + rand() * 0.7))); // 50-120% of threshold
-  const time = Math.round(time_th * (0.7 + rand() * 0.7)); // 70-140%
-  const spread = Math.round(spread_th * (0.6 + rand() * 0.8)); // 60-140%
+  // Time genereras separat — sekvensens tidstämplar är en approximation
+  // av "när skotten föll", inte total övningstid. En extra LCG-rotering
+  // ger spridning kring threshold.
+  const rand = lcg(seedFor(lane, exercise.id) ^ 0x5a5a5a);
+  const time_th = exercise.time_seconds ?? 60;
+  const time = Math.round(time_th * (0.7 + rand() * 0.7));
 
+  const hits_th = exercise.hits_threshold ?? 5;
   const hit_status = score(hits, hits_th, "ge");
   const time_status = score(time, time_th, "le");
   const spread_status = score(spread, spread_th, "le");
@@ -114,17 +127,21 @@ export function computeResult(
     spread_status,
     reds,
     yellows,
+    sequence,
   };
 }
 
-/** Sort trainees so the most-red comes first — free ingångspunkt
- *  per [spår 04 §Interaktionsmodell — karusell 2026-05-25]:
- *  instruktören börjar typiskt på största behovet, men kan navigera
- *  fritt med ◀ ▶. */
+/**
+ * Sort trainees so the most-red comes first. Per [spår 04 §Interaktions-
+ * modell] valde instruktören tidigare karusell-ordningen själv — i den
+ * nya split-vyn syns alla samtidigt, men prioritetsordningen styr ändå
+ * default-focus och bana-ordning vänster→höger.
+ */
 export function sortByPriority(results: AARResult[]): AARResult[] {
   return [...results].sort((a, b) => {
-    // More reds first; tie: lower lane number first.
     if (b.reds.length !== a.reds.length) return b.reds.length - a.reds.length;
+    if (b.yellows.length !== a.yellows.length)
+      return b.yellows.length - a.yellows.length;
     return a.lane - b.lane;
   });
 }

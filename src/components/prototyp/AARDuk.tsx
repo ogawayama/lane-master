@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Timer, Crosshair, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,23 +9,32 @@ import {
   type AARResult,
   type Status,
 } from "@/services/aarResults";
-import { pickCue, type Criterion } from "@/data/cueLibrary";
+import type { Shot } from "@/services/shotSimulation";
+import { pickCue } from "@/data/cueLibrary";
 import type { ExerciseListItem, Section } from "@/services/sessionService";
 
 /**
- * Helhetsprototyp — AARDuk (Pass 6).
+ * Helhetsprototyp — AARDuk (Pass 6, omdesignad 2026-05-28).
  *
- * Duken under AAR-fasen. Per [spår 04 spårkort]:
- *   • Karusell-modell: cirkulär, fri ingångspunkt (instruktören väljer
- *     vilken röd skytt först), navigation = kvittering (ingen "klar")
- *   • Tre kriterie-kort per skytt (Hit / Time / Spread), färgade
- *     röd/gul/grön mot tröskelvärdena
- *   • Röda kort auto-expanderade med pick-up-line — instruktören
- *     riffar på den, läser inte upp den
- *   • Prioriteringsordning vid flera röda: HIT > TIME > SPREAD
+ * Två lägen, styrda från DukShell via fjärr:
  *
- * Designspråk: "biograf" — stor, lugn, en skytt i taget på duken.
- * Triage-kort renderas distinkt från DAR-triage (som bor på tablet).
+ *   1. OVERVIEW  — split-view, alla banor sida vid sida. Varje bana
+ *      visar sitt papptavle-mönster (samma som under DAR), tre metric-
+ *      chips, samt 1-rads pick-up-line för röda kriterier. En bana är
+ *      markerad som "focus" — ◀ ▶ flyttar markeringen.
+ *
+ *   2. ZOOM      — hero-vy för en enskild skytt. Stor target med hit-
+ *      pattern, full pick-up-line per rött kriterium, identity vänster.
+ *      Triggas med OK från overview. Back/OK tar tillbaka till overview.
+ *
+ * Per [beslut 2026-05-28]: ersätter karusell-modellen (2026-05-25). Den
+ * kollektiva vyn matchar speglingsprincipen (alla ser samma vy
+ * samtidigt) och ger visuell kontinuitet med DAR-papptavlorna. Zoom-
+ * läget bevarar möjligheten till individuell drill-down — instruktören
+ * väljer själv när hen vill gå djupt.
+ *
+ * Skott-mönstret kommer från samma deterministiska sequence som
+ * SimulationDuk visade live. Hits/spread härleds från samma data.
  */
 
 interface LaneInfo {
@@ -36,9 +45,9 @@ interface LaneInfo {
 }
 
 const STATUS_TINT: Record<Status, string> = {
-  red: "bg-red-500/10 border-red-500/40 text-red-300",
-  yellow: "bg-amber-400/10 border-amber-400/40 text-amber-200",
-  green: "bg-emerald-500/10 border-emerald-500/30 text-emerald-200",
+  red: "bg-red-500/12 border-red-500/45 text-red-200",
+  yellow: "bg-amber-400/10 border-amber-400/40 text-amber-100",
+  green: "bg-emerald-500/8 border-emerald-500/25 text-emerald-100",
 };
 
 const STATUS_DOT: Record<Status, string> = {
@@ -47,16 +56,25 @@ const STATUS_DOT: Record<Status, string> = {
   green: "bg-emerald-500",
 };
 
+const STATUS_STROKE: Record<Status, string> = {
+  red: "#ef4444",
+  yellow: "#fbbf24",
+  green: "#10b981",
+};
+
 export function AARDuk({
   exercise,
   section,
-  currentIndex,
+  focusIndex,
+  zoomed,
 }: {
   exercise: ExerciseListItem | null;
   section: Section;
-  currentIndex: number;
+  /** Index i prioriterad resultatlista — clampas cykliskt i komponenten. */
+  focusIndex: number;
+  /** Zoom-läge — drivs från DukShell via fjärr-OK. */
+  zoomed: boolean;
 }) {
-  // Hämta occupied lanes och bygg resultat per skytt.
   const [lanes, setLanes] = useState<LaneInfo[]>([]);
 
   useEffect(() => {
@@ -84,147 +102,334 @@ export function AARDuk({
     );
   }, [lanes, exercise]);
 
-  // currentIndex är clamp:ad och cyklisk via DukShell:s karusell-handler.
-  const safeIndex = results.length > 0
-    ? ((currentIndex % results.length) + results.length) % results.length
+  const safeFocus = results.length > 0
+    ? ((focusIndex % results.length) + results.length) % results.length
     : 0;
-  const current = results[safeIndex];
 
   if (!exercise) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-white text-center px-12">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">
-          After Action Review
-        </div>
-        <div className="text-5xl font-light">No exercise to review</div>
-      </div>
+      <EmptyState
+        title="No exercise to review"
+        sub="Return to preflight or load an exercise."
+      />
     );
   }
 
   if (results.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-white text-center px-12">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">
-          After Action Review
-        </div>
-        <div className="text-5xl font-light">No trainees on the lanes</div>
-        <div className="mt-4 text-sm text-white/40">
-          Press OK on the remote to continue.
-        </div>
-      </div>
+      <EmptyState
+        title="No trainees on the lanes"
+        sub="Press OK on the remote to continue."
+      />
     );
   }
 
   return (
     <div className="flex-1 flex flex-col text-white">
-      {/* Top — context */}
-      <div className="flex items-baseline justify-between px-12 pt-12">
-        <div className="text-[11px] uppercase tracking-[0.4em] text-white/40">
+      {/* Header */}
+      <div className="grid grid-cols-3 items-baseline px-12 pt-10 pb-4">
+        <div className="text-[11px] uppercase tracking-[0.4em] text-white/45">
           After Action Review
         </div>
-        <div className="text-[11px] uppercase tracking-[0.3em] text-white/30 font-mono truncate max-w-[60%]">
+        <div className="text-center text-[11px] uppercase tracking-[0.3em] text-white/40 font-mono truncate">
           {exercise.title}
+        </div>
+        <div className="text-right text-[11px] uppercase tracking-[0.3em] text-white/40 font-mono tabular-nums">
+          {results.length} trainees · {results.filter((r) => r.reds.length > 0).length} priority
         </div>
       </div>
 
-      {/* Hero — current trainee */}
+      {/* Main */}
       <AnimatePresence mode="wait">
-        <motion.div
-          key={current.lane}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className="flex-1 grid grid-cols-[420px_1fr] gap-12 px-12 py-8"
-        >
-          {/* Left — trainee identity */}
-          <div className="flex flex-col justify-center">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">
-              Lane {current.lane}
-            </div>
-            <div className="text-6xl font-light leading-none tracking-tight">
-              {current.trainee ?? "—"}
-            </div>
-            <div className="mt-4 text-base text-white/40">
-              {current.weapon ?? "—"}
-            </div>
-            {current.reds.length > 0 && (
-              <div className="mt-8 inline-flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-[11px] uppercase tracking-[0.3em] text-red-300">
-                  {current.reds.length} priority{current.reds.length > 1 ? "s" : ""} to work on
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Right — three criterion cards */}
-          <div className="flex flex-col justify-center gap-3">
-            <CriterionCard
-              icon={<Target className="h-5 w-5" />}
-              label="Hits"
-              value={`${current.hits}`}
-              threshold={`≥ ${exercise.hits_threshold ?? "—"}`}
-              status={current.hit_status}
-              cue={
-                severityOf(current.hit_status)
-                  ? pickCue(current.lane, exercise.id, "hit", severityOf(current.hit_status)!)
-                  : null
-              }
-              expanded={current.hit_status === "red"}
+        {zoomed ? (
+          <motion.div
+            key="zoom"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="flex-1 flex flex-col"
+          >
+            <ZoomView result={results[safeFocus]} exercise={exercise} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="overview"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="flex-1 flex flex-col"
+          >
+            <OverviewGrid
+              results={results}
+              exercise={exercise}
+              focusIndex={safeFocus}
             />
-            <CriterionCard
-              icon={<Timer className="h-5 w-5" />}
-              label="Time"
-              value={`${current.time_seconds}s`}
-              threshold={`≤ ${exercise.time_seconds}s`}
-              status={current.time_status}
-              cue={
-                severityOf(current.time_status)
-                  ? pickCue(current.lane, exercise.id, "time", severityOf(current.time_status)!)
-                  : null
-              }
-              expanded={current.time_status === "red"}
-            />
-            <CriterionCard
-              icon={<Crosshair className="h-5 w-5" />}
-              label="Spread"
-              value={`${current.spread_cm} cm`}
-              threshold={`≤ ${exercise.spread_threshold} cm`}
-              status={current.spread_status}
-              cue={
-                severityOf(current.spread_status)
-                  ? pickCue(current.lane, exercise.id, "spread", severityOf(current.spread_status)!)
-                  : null
-              }
-              expanded={current.spread_status === "red"}
-            />
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
-      {/* Bottom — carousel indicator + hints */}
-      <div className="px-12 pb-10">
-        <div className="flex items-center justify-between mb-4">
-          <CarouselDots count={results.length} active={safeIndex} statuses={results.map(r => r.reds.length > 0 ? "red" : r.yellows.length > 0 ? "yellow" : "green")} />
-          <div className="text-[10px] uppercase tracking-[0.3em] text-white/30 font-mono">
-            {safeIndex + 1} / {results.length}
+      {/* Bottom — remote hints */}
+      <div className="px-12 pb-7 flex items-center justify-center gap-7 text-white/40 text-[10px] uppercase tracking-[0.3em]">
+        {zoomed ? (
+          <>
+            <RemoteHint keys={["◀", "▶"]} label="other trainee" />
+            <Dot />
+            <RemoteHint keys={["BACK"]} label="back to overview" />
+            <Dot />
+            <RemoteHint keys={["HOLD OK"]} label="next exercise" />
+          </>
+        ) : (
+          <>
+            <RemoteHint keys={["◀", "▶"]} label="select trainee" />
+            <Dot />
+            <RemoteHint keys={["OK"]} label="zoom in" />
+            <Dot />
+            <RemoteHint keys={["HOLD OK"]} label="next exercise" />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/* Overview — alla skyttar sida vid sida                                */
+/* ──────────────────────────────────────────────────────────────────── */
+
+function OverviewGrid({
+  results,
+  exercise,
+  focusIndex,
+}: {
+  results: AARResult[];
+  exercise: ExerciseListItem;
+  focusIndex: number;
+}) {
+  return (
+    <div
+      className="flex-1 px-8 pb-2 grid gap-4"
+      style={{
+        gridTemplateColumns: `repeat(${results.length}, minmax(0, 1fr))`,
+      }}
+    >
+      {results.map((r, i) => (
+        <LaneCard
+          key={r.lane}
+          result={r}
+          exercise={exercise}
+          focused={i === focusIndex}
+        />
+      ))}
+    </div>
+  );
+}
+
+function LaneCard({
+  result,
+  exercise,
+  focused,
+}: {
+  result: AARResult;
+  exercise: ExerciseListItem;
+  focused: boolean;
+}) {
+  // Värsta status över alla tre kriterier — bestämmer kortets accent.
+  const worst: Status =
+    result.reds.length > 0 ? "red" : result.yellows.length > 0 ? "yellow" : "green";
+
+  // En cue per kort — det högst prioriterade röda kriteriet, om något.
+  const headlineCue = useMemo(() => {
+    const priorityOrder = ["hit", "time", "spread"] as const;
+    for (const crit of priorityOrder) {
+      if (result.reds.includes(crit)) {
+        return { crit, cue: pickCue(result.lane, exercise.id, crit, "red") };
+      }
+    }
+    return null;
+  }, [result, exercise.id]);
+
+  return (
+    <motion.div
+      layout
+      animate={{
+        scale: focused ? 1.02 : 1,
+      }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className={`relative rounded-2xl border bg-white/[0.02] p-4 flex flex-col gap-3 transition-colors ${
+        focused
+          ? "border-white/60 shadow-[0_0_0_1px_rgba(255,255,255,0.4)]"
+          : "border-white/8"
+      }`}
+    >
+      {/* Identity */}
+      <div className="flex items-baseline justify-between">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+            Lane {result.lane}
+          </div>
+          <div className="text-xl font-light leading-tight truncate max-w-[180px]">
+            {result.trainee ?? "—"}
           </div>
         </div>
-        <div className="flex items-center justify-center gap-6 text-white/40 text-sm">
-          <div className="flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4" />
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-xs uppercase tracking-[0.3em]">between trainees</span>
-          </div>
-          <span className="text-white/20">·</span>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center h-6 w-9 rounded border border-white/30 text-[10px] font-mono">
-              OK
-            </span>
-            <span className="text-xs uppercase tracking-[0.3em]">next exercise</span>
-          </div>
+        <StatusBadge status={worst} />
+      </div>
+
+      {/* Target */}
+      <TargetSvg
+        shots={result.sequence.shots}
+        worst={worst}
+        size="md"
+      />
+
+      {/* Metric chips */}
+      <div className="grid grid-cols-3 gap-1.5">
+        <MetricChip
+          label="Hit"
+          value={`${result.hits}`}
+          status={result.hit_status}
+        />
+        <MetricChip
+          label="Time"
+          value={`${result.time_seconds}s`}
+          status={result.time_status}
+        />
+        <MetricChip
+          label="Spread"
+          value={`${result.spread_cm}cm`}
+          status={result.spread_status}
+        />
+      </div>
+
+      {/* Pick-up-line — en rad, för det värsta röda */}
+      <div className="min-h-[44px] text-[11px] leading-snug">
+        {headlineCue ? (
+          <div className="text-red-200/90 italic">"{headlineCue.cue}"</div>
+        ) : worst === "yellow" ? (
+          <div className="text-amber-100/70 italic">Borderline — worth a follow-up.</div>
+        ) : (
+          <div className="text-emerald-200/60">✓ On track across all criteria.</div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function MetricChip({
+  label,
+  value,
+  status,
+}: {
+  label: string;
+  value: string;
+  status: Status;
+}) {
+  const tint = STATUS_TINT[status];
+  return (
+    <div className={`rounded-lg border px-2 py-1.5 ${tint}`}>
+      <div className="text-[9px] uppercase tracking-[0.25em] opacity-70">{label}</div>
+      <div className="text-base font-light tabular-nums leading-tight">{value}</div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: Status }) {
+  const label =
+    status === "red" ? "Attention" : status === "yellow" ? "Review" : "Good";
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
+      <span className="text-[9px] uppercase tracking-[0.3em] text-white/60">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/* Zoom — hero-vy för en skytt                                          */
+/* ──────────────────────────────────────────────────────────────────── */
+
+function ZoomView({
+  result,
+  exercise,
+}: {
+  result: AARResult;
+  exercise: ExerciseListItem;
+}) {
+  const worst: Status =
+    result.reds.length > 0 ? "red" : result.yellows.length > 0 ? "yellow" : "green";
+
+  return (
+    <div className="flex-1 grid grid-cols-[380px_1fr_460px] gap-10 px-12 py-6">
+      {/* Identity */}
+      <div className="flex flex-col justify-center">
+        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">
+          Lane {result.lane}
         </div>
+        <div className="text-6xl font-light leading-none tracking-tight">
+          {result.trainee ?? "—"}
+        </div>
+        <div className="mt-4 text-base text-white/50">{result.weapon ?? "—"}</div>
+        <div className="mt-8">
+          <StatusBadge status={worst} />
+          {result.reds.length > 0 && (
+            <div className="mt-2 text-[11px] uppercase tracking-[0.3em] text-red-300/90">
+              {result.reds.length} priorit{result.reds.length > 1 ? "ies" : "y"} to work on
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stor target med hit-pattern */}
+      <div className="flex items-center justify-center">
+        <div className="w-full max-w-[460px] aspect-square">
+          <TargetSvg shots={result.sequence.shots} worst={worst} size="lg" />
+        </div>
+      </div>
+
+      {/* Criterion cards med full pick-up-line */}
+      <div className="flex flex-col justify-center gap-3">
+        <CriterionCard
+          icon={<Target className="h-5 w-5" />}
+          label="Hits"
+          value={`${result.hits}`}
+          threshold={`≥ ${exercise.hits_threshold ?? "—"}`}
+          status={result.hit_status}
+          cue={
+            severityOf(result.hit_status)
+              ? pickCue(result.lane, exercise.id, "hit", severityOf(result.hit_status)!)
+              : null
+          }
+          expanded={result.hit_status !== "green"}
+        />
+        <CriterionCard
+          icon={<Timer className="h-5 w-5" />}
+          label="Time"
+          value={`${result.time_seconds}s`}
+          threshold={`≤ ${exercise.time_seconds}s`}
+          status={result.time_status}
+          cue={
+            severityOf(result.time_status)
+              ? pickCue(result.lane, exercise.id, "time", severityOf(result.time_status)!)
+              : null
+          }
+          expanded={result.time_status !== "green"}
+        />
+        <CriterionCard
+          icon={<Crosshair className="h-5 w-5" />}
+          label="Spread"
+          value={`${result.spread_cm} cm`}
+          threshold={`≤ ${exercise.spread_threshold} cm`}
+          status={result.spread_status}
+          cue={
+            severityOf(result.spread_status)
+              ? pickCue(result.lane, exercise.id, "spread", severityOf(result.spread_status)!)
+              : null
+          }
+          expanded={result.spread_status !== "green"}
+        />
       </div>
     </div>
   );
@@ -251,7 +456,7 @@ function CriterionCard({
   const dot = STATUS_DOT[status];
 
   return (
-    <div className={`rounded-2xl border ${tint} px-5 py-4 transition-all`}>
+    <div className={`rounded-2xl border ${tint} px-5 py-4`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${dot}`} />
@@ -271,7 +476,7 @@ function CriterionCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.22 }}
             className="overflow-hidden"
           >
             <div className="pt-3 mt-3 border-t border-white/10 text-base leading-snug">
@@ -287,30 +492,109 @@ function CriterionCard({
   );
 }
 
-function CarouselDots({
-  count,
-  active,
-  statuses,
+/* ──────────────────────────────────────────────────────────────────── */
+/* Target SVG — renderar skotten från shot-sequence                     */
+/* ──────────────────────────────────────────────────────────────────── */
+
+function TargetSvg({
+  shots,
+  worst,
+  size,
 }: {
-  count: number;
-  active: number;
-  statuses: Status[];
+  shots: Shot[];
+  worst: Status;
+  size: "md" | "lg";
 }) {
+  const hitRadius = size === "lg" ? 2.4 : 2.2;
+  const missRadius = size === "lg" ? 1.6 : 1.5;
+  const accent = STATUS_STROKE[worst];
+
   return (
-    <div className="flex items-center gap-1.5">
-      {Array.from({ length: count }).map((_, i) => {
-        const isActive = i === active;
-        const s = statuses[i];
-        const color = s === "red" ? "bg-red-500" : s === "yellow" ? "bg-amber-400" : "bg-emerald-500";
-        return (
+    <svg
+      viewBox="-50 -50 100 100"
+      className="w-full h-full"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Papptavla — samma estetik som SimulationDuk för kontinuitet */}
+      <circle cx="0" cy="0" r="48" fill="#1c1c26" stroke="#33334a" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="36" fill="none" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="25" fill="none" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="14" fill="none" stroke="#ffffff" strokeOpacity="0.14" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="2.5" fill="#ffffff" fillOpacity="0.18" />
+      <line x1="-4" y1="0" x2="4" y2="0" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.3" />
+      <line x1="0" y1="-4" x2="0" y2="4" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.3" />
+
+      {/* Subtilt status-glow runt kanten (bara i AAR — ger en tonkänsla
+          utan att skotten själva blir färgade) */}
+      <circle
+        cx="0"
+        cy="0"
+        r="48"
+        fill="none"
+        stroke={accent}
+        strokeOpacity={worst === "green" ? 0.15 : worst === "yellow" ? 0.35 : 0.5}
+        strokeWidth="0.6"
+      />
+
+      {/* Skott */}
+      {shots.map((shot) => (
+        <g key={shot.i}>
+          {shot.hit ? (
+            <>
+              <circle cx={shot.x} cy={shot.y} r={hitRadius} fill="#ffffff" opacity="0.92" />
+              <circle cx={shot.x} cy={shot.y} r={hitRadius + 1} fill="none" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="0.4" />
+            </>
+          ) : (
+            <circle
+              cx={shot.x}
+              cy={shot.y}
+              r={missRadius}
+              fill="none"
+              stroke="#ffffff"
+              strokeOpacity="0.45"
+              strokeWidth="0.5"
+            />
+          )}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/* Småkomponenter                                                       */
+/* ──────────────────────────────────────────────────────────────────── */
+
+function RemoteHint({ keys, label }: { keys: string[]; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
+        {keys.map((k) => (
           <span
-            key={i}
-            className={`rounded-full transition-all ${
-              isActive ? `${color} w-6 h-1.5` : "bg-white/20 w-1.5 h-1.5"
-            }`}
-          />
-        );
-      })}
+            key={k}
+            className="inline-flex items-center justify-center h-6 min-w-[24px] px-1.5 rounded border border-white/25 font-mono text-[10px] text-white/60"
+          >
+            {k}
+          </span>
+        ))}
+      </div>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function Dot() {
+  return <span className="text-white/15">·</span>;
+}
+
+function EmptyState({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-white text-center px-12">
+      <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">
+        After Action Review
+      </div>
+      <div className="text-5xl font-light">{title}</div>
+      <div className="mt-4 text-sm text-white/40">{sub}</div>
     </div>
   );
 }

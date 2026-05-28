@@ -12,7 +12,6 @@ import { useRemoteControl, type RemoteEvent } from "@/hooks/useRemoteControl";
 import { supabase } from "@/integrations/supabase/client";
 import {
   setPhase,
-  toggleLaneUi,
   pickStartExercise,
   type Section as SessionSection,
 } from "@/services/sessionService";
@@ -59,9 +58,11 @@ export default function DukShell() {
   const section = (searchParams.get("section") ?? "idt") as SessionSection;
   const { session, loading } = useSession(section);
 
-  // AAR carousel index — lokalt state, en duk-pubblik. Spår 04:s
-  // karusell ska vara cirkulär; modulo görs i AARDuk:n.
-  const [aarIndex, setAarIndex] = useState(0);
+  // AAR-läge — split-view per [beslut 2026-05-28] istället för karusell.
+  // focusIndex pekar ut vald skytt (cirkulärt clampad i AARDuk).
+  // zoomed = hero-vy för djupare analys av en skytt.
+  const [aarFocus, setAarFocus] = useState(0);
+  const [aarZoom, setAarZoom] = useState(false);
 
   // Select-exercise picker highlight — lokalt state (Q3 = A).
   // Resettas till 0 när vi går in i select-exercise-fasen.
@@ -108,9 +109,12 @@ export default function DukShell() {
     if (session?.phase !== "check-in") setConfirmOpen(false);
   }, [session?.phase]);
 
-  // Reset karusellen när phase byter till AAR (instruktör börjar om).
+  // Reset focus + zoom när phase byter till AAR eller övning byts.
   useEffect(() => {
-    if (session?.phase === "aar") setAarIndex(0);
+    if (session?.phase === "aar") {
+      setAarFocus(0);
+      setAarZoom(false);
+    }
   }, [session?.phase, session?.current_exercise_index]);
 
   // Avancera till nästa övning (eller avsluta) när OK trycks i AAR.
@@ -128,11 +132,13 @@ export default function DukShell() {
   }, [session]);
 
   // Fjärr-driven phase-transition + per-fas-overrides.
-  // Grammatik per [helhetsprototyp/plan.md §4 + spår 04:s karusell]:
-  //   OK    bekräfta / nästa
-  //   Back  ett steg bakåt
-  //   ▲ ▼   browse — i exercise-fasen återanvänds som Lane UI toggle
-  //   ◀ ▶   karusell (AAR-fasen — cirkulär mellan skyttar)
+  // Grammatik per [helhetsprototyp/plan.md §4 + beslut 2026-05-28]:
+  //   OK       bekräfta / nästa / zoom-toggle
+  //   HoldOK   commit-actions (i AAR = nästa övning)
+  //   Back     ett steg bakåt / avsluta zoom
+  //   ▲ ▼     browse-listor (välj övning) — Lane UI-toggle utgår,
+  //            duken visar nu Lane UI permanent under exercise
+  //   ◀ ▶     navigera (AAR = flytta selection mellan skyttar)
   const handleRemote = useCallback(
     (event: RemoteEvent) => {
       if (!session) return;
@@ -148,43 +154,46 @@ export default function DukShell() {
         }
         else if (phase === "check-in") {
           if (confirmOpen) {
-            // Bekräftelse — starta ändå.
             setConfirmOpen(false);
             void setPhase(session.id, "preflight");
           } else if (allReady) {
-            // Direktstart.
             void setPhase(session.id, "preflight");
           } else if (occupiedLanes.length > 0) {
-            // Någon checkad in men inte all-grön → öppna confirm.
             setConfirmOpen(true);
           }
-          // (ingen checkad in → ignore)
         }
         else if (phase === "preflight") void setPhase(session.id, "exercise");
         else if (phase === "exercise") void setPhase(session.id, "aar");
-        else if (phase === "aar") void advanceFromAAR();
+        else if (phase === "aar") {
+          // OK togglar zoom in/ut. Nästa övning ligger på HoldOK.
+          setAarZoom((z) => !z);
+        }
+      } else if (event === "holdOk") {
+        // Commit-action: i AAR = nästa övning eller avsluta.
+        if (phase === "aar") void advanceFromAAR();
       } else if (event === "back") {
         if (confirmOpen) {
           setConfirmOpen(false);
-        } else if (phase === "preflight") void setPhase(session.id, "check-in");
-      } else if (event === "up") {
-        if (phase === "exercise") void toggleLaneUi(session.id, true);
-      } else if (event === "down") {
-        if (phase === "exercise") void toggleLaneUi(session.id, false);
+        } else if (phase === "preflight") {
+          void setPhase(session.id, "check-in");
+        } else if (phase === "aar" && aarZoom) {
+          setAarZoom(false);
+        }
       } else if (event === "left") {
-        if (phase === "aar") setAarIndex((i) => i - 1); // AARDuk clampar cirkulärt
+        if (phase === "aar") setAarFocus((i) => i - 1); // cirkulärt clamp i AARDuk
         else if (phase === "select-exercise") {
-          // Picker — bounded, no wrap (matchar Q1=A skip ahead, no wrap).
           setPickIndex((i) => Math.max(0, i - 1));
         }
       } else if (event === "right") {
-        if (phase === "aar") setAarIndex((i) => i + 1);
+        if (phase === "aar") setAarFocus((i) => i + 1);
         else if (phase === "select-exercise") {
           setPickIndex((i) => Math.min(listLen - 1, i + 1));
         }
       }
+      // ▲ ▼ ignoreras i nya gränssnittet — Lane UI är permanent under
+      // exercise och AAR har inga browse-listor.
     },
-    [session, advanceFromAAR, allReady, confirmOpen, occupiedLanes.length, pickIndex],
+    [session, advanceFromAAR, allReady, confirmOpen, occupiedLanes.length, pickIndex, aarZoom],
   );
   useRemoteControl(handleRemote);
 
@@ -244,7 +253,6 @@ export default function DukShell() {
       {!loading && phase === "exercise" && (
         <SimulationDuk
           exercise={currentExercise}
-          laneUiVisible={session?.lane_ui_visible ?? false}
           section={section}
           onEnd={handleExerciseEnd}
         />
@@ -254,7 +262,8 @@ export default function DukShell() {
         <AARDuk
           exercise={currentExercise}
           section={section}
-          currentIndex={aarIndex}
+          focusIndex={aarFocus}
+          zoomed={aarZoom}
         />
       )}
 
