@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { CssVarsProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { m3Theme } from "@/theme/m3Theme";
 import Landing from "./pages/Landing";
 import LoginScreen from "./pages/LoginScreen";
 import OdtScreen from "./pages/OdtScreen";
@@ -33,13 +36,15 @@ const AppShell = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppShell />
-        <ThemeToggle />
+  <CssVarsProvider theme={m3Theme} defaultMode="dark" modeStorageKey="lanemaster-color-scheme">
+    <CssBaseline enableColorScheme />
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppShell />
+          <ThemeToggle />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/idt" element={<LoginScreen />} />
@@ -62,8 +67,9 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </CssVarsProvider>
 );
 
 export default App;
