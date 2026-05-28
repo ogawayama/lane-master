@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+import {
+  Error as ErrorIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckIcon,
+  ChevronRight,
+  PlayArrow,
+} from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, AlertTriangle, Check, ChevronRight, Play } from "lucide-react";
 import type { LaneAssignment, Section } from "@/services/assignmentService";
 import {
   aggregateLaneStatus,
@@ -10,45 +17,31 @@ import {
 } from "@/services/readinessService";
 import { useLastRemoteEvent } from "@/hooks/useRemoteControl";
 import type { ExerciseListItem } from "@/services/sessionService";
-// PhaseHints inte importerad här — NEXT-knappen längst ner ÄR fas-hinten
-// för check-in. Att lägga PhaseHints till skulle bara duplicera.
+import { dukTypography, tvSafeInset } from "@/theme/tv";
 
 /**
- * Helhetsprototyp — BangridDuk (Pass 1 + Pass 1.5 + iteration 2026-05-26).
+ * Helhetsprototyp — BangridDuk (M3-omskrivning 2026-05-28).
  *
- * Duken under check-in-fasen. Gör DUBBEL TJÄNST:
- *  1. Visa vem som checkat in (bangrid fylls upp i takt med RFID-blippar)
- *  2. Visa per-bana readiness (vapen / batteri / ammo / comms) så
- *     skyttarna kan självkorrigera
- *
- * Iteration efter user-feedback 2026-05-26:
- *   • Bannummer centrerade ovanför kortet (matchar wireframen, mindre kollision)
- *   • Issue-label per kort vid non-ok (instruktör ser VAD som är fel, inte bara ATT)
- *   • Visuell NEXT-knapp bottom-right — affordans för fjärr-OK, inte klickbar
- *
- * Designspråk: "biograf" — alla ser samma vy, ingen control-room-densitet.
+ * Duken under check-in-fasen. M3-stil med:
+ *   • Lane-cards via MUI Card med tonal surface
+ *   • Lane-number badge i M3 neutral (vit över black, inte amber)
+ *   • Status-bar längst ner per kort, M3 statusToken-färger
+ *   • Issue-chips som M3 outlined Chips med Error/Warning ikoner
+ *   • Top-right alerts som filled M3 Cards med statusContainer-tint
+ *   • NEXT-knapp som M3 FilledTonalButton-stil (read-only affordance)
  */
 
-// Lane-status-färger via semantiska tokens. Tokens definierade i
-// index.css; UNIFORM-landningen blir ett tokens-byte snarare än en
-// komponent-refactor.
-const BAR_COLOR: Record<ReadinessStatus, string> = {
-  na: "bg-white/10",
-  ok: "bg-status-success",
-  warning: "bg-status-warning",
-  critical: "bg-status-attention",
+const STATUS_COLOR: Record<ReadinessStatus, string> = {
+  na: "transparent",
+  ok: "var(--mui-palette-success-main)",
+  warning: "var(--mui-palette-warning-main)",
+  critical: "var(--mui-palette-error-main)",
 };
 
-const WEAPON_ICON_COLOR: Record<ReadinessStatus, string> = {
-  na: "text-white/30",
-  ok: "text-status-success",
-  warning: "text-status-warning",
-  critical: "text-status-attention",
-};
-
-// Per-kort issue-label — kort, glance:able. Återanvänds även av
-// top-right-alerts indirekt (de använder deriveAlerts:s grupperade text).
-const ISSUE_LABEL: Record<ReadinessIndicator, { warning: string; critical: string }> = {
+const ISSUE_LABEL: Record<
+  ReadinessIndicator,
+  { warning: string; critical: string }
+> = {
   weapon: { warning: "Weapon issue", critical: "Weapon offline" },
   battery: { warning: "Battery low", critical: "Battery critical" },
   ammo: { warning: "Ammo low", critical: "Ammo critical" },
@@ -62,12 +55,6 @@ interface LaneIssue {
   severity: "warning" | "critical";
 }
 
-/**
- * Returnera ALLA non-ok issues för en lane, sorterade critical → warning,
- * och inom samma severity i INDICATOR_ORDER. En lane kan ha flera samtidigt
- * (t.ex. både battery low och wifi unstable) — alla ska synas på kortet
- * (per user-feedback 2026-05-26: det finns gott om vertikalt utrymme).
- */
 function allIssues(lane: LaneAssignment): LaneIssue[] {
   const issues: LaneIssue[] = [];
   for (const sev of ["critical", "warning"] as const) {
@@ -88,7 +75,6 @@ export function BangridDuk({
   exercise: ExerciseListItem | null;
   lanes: LaneAssignment[];
 }) {
-  // Härledda alerts (top-right). Endast occupied lanes räknas.
   const alerts = useMemo(() => {
     const occupied = lanes
       .filter((l) => l.status === "occupied")
@@ -108,39 +94,52 @@ export function BangridDuk({
 
   const someOneCheckedIn = occupiedCount > 0;
   const allReady = someOneCheckedIn && alerts.length === 0;
-  const nonReadyCount = alerts.length === 0
-    ? 0
-    : new Set(alerts.flatMap((a) => a.affectedLanes)).size;
+  const nonReadyCount =
+    alerts.length === 0 ? 0 : new Set(alerts.flatMap((a) => a.affectedLanes)).size;
 
   return (
-    <div className="flex flex-col h-full w-full p-8 text-white">
+    <Stack sx={{ ...tvSafeInset, flex: 1 }}>
       {/* Header — exercise context (left) + system alerts (right) */}
-      <header className="flex items-start justify-between gap-8 mb-10">
-        <div className="flex-1 min-w-0">
-          <div className="text-[11px] uppercase tracking-[0.3em] text-white/40 mb-2">
-            Check-in · {section.replace("_", " ").toUpperCase()}
+      <Stack
+        direction="row"
+        spacing={4}
+        sx={{ alignItems: "flex-start", justifyContent: "space-between", mb: 5 }}
+      >
+        <Stack sx={{ flex: 1, minWidth: 0 }} spacing={1.5}>
+          <Stack direction="row" spacing={2}>
+            <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
+              Check-in · {section.replace("_", " ").toUpperCase()}
+            </Typography>
             {totalCount > 0 && (
-              <span className="ml-3 font-mono">{occupiedCount} / {totalCount}</span>
+              <Typography
+                sx={{
+                  ...dukTypography.labelMedium,
+                  fontFamily: '"Roboto Mono", monospace',
+                  color: "text.secondary",
+                }}
+              >
+                {occupiedCount} / {totalCount}
+              </Typography>
             )}
-          </div>
+          </Stack>
           {exercise ? (
             <>
-              <h1 className="text-5xl font-light tracking-tight leading-[1.05]">
+              <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
                 {exercise.title}
-              </h1>
-              <div className="text-sm text-white/40 mt-2 max-w-xl">
+              </Typography>
+              <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary", maxWidth: 720 }}>
                 Trainees check in · weapons warm up · review status before start
-              </div>
+              </Typography>
             </>
           ) : (
-            <h1 className="text-5xl font-light tracking-tight leading-[1.05]">
+            <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
               Waiting for check-in
-            </h1>
+            </Typography>
           )}
-        </div>
+        </Stack>
 
-        {/* Top-right alerts — visas bara om något är non-ok */}
-        <div className="flex flex-wrap gap-3 justify-end max-w-[55%]">
+        {/* Top-right alerts — M3 filled cards with statusContainer-tint */}
+        <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", justifyContent: "flex-end", maxWidth: "55%" }} useFlexGap>
           <AnimatePresence>
             {alerts.map((a) => (
               <motion.div
@@ -149,60 +148,77 @@ export function BangridDuk({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className={`flex items-start gap-3 rounded-lg border px-4 py-3 max-w-[18rem] ${
-                  a.severity === "critical"
-                    ? "border-status-attention/50 bg-status-attention/5"
-                    : "border-status-warning/50 bg-status-warning/5"
-                }`}
               >
-                <div className="pt-0.5 shrink-0">
+                <Card
+                  sx={{
+                    px: 2.5,
+                    py: 1.5,
+                    bgcolor:
+                      a.severity === "critical"
+                        ? "var(--mui-palette-m3-errorContainer)"
+                        : "var(--mui-palette-m3-statusWarningContainer)",
+                    color:
+                      a.severity === "critical"
+                        ? "var(--mui-palette-m3-onErrorContainer)"
+                        : "var(--mui-palette-text-primary)",
+                    maxWidth: 280,
+                    display: "flex",
+                    gap: 1.5,
+                    alignItems: "flex-start",
+                  }}
+                >
                   {a.severity === "critical" ? (
-                    <AlertCircle className="h-5 w-5 text-status-attention" />
+                    <ErrorIcon sx={{ color: "error.main", fontSize: 24, mt: "2px" }} />
                   ) : (
-                    <AlertTriangle className="h-5 w-5 text-status-warning" />
+                    <WarningIcon sx={{ color: "warning.main", fontSize: 24, mt: "2px" }} />
                   )}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{a.label}</div>
-                  <div className="text-[11px] text-white/50 mt-0.5">
-                    Lane {a.affectedLanes.join(", Lane ")}
-                  </div>
-                </div>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 14, fontWeight: 500 }}>{a.label}</Typography>
+                    <Typography sx={{ fontSize: 11, opacity: 0.7, mt: 0.25 }}>
+                      Lane {a.affectedLanes.join(", Lane ")}
+                    </Typography>
+                  </Box>
+                </Card>
               </motion.div>
             ))}
           </AnimatePresence>
-        </div>
-      </header>
+        </Stack>
+      </Stack>
 
       {/* Lane grid */}
-      <div className="flex-1 flex items-center justify-center">
-        <div
-          className="grid gap-x-5 gap-y-3 w-full max-w-[1600px]"
-          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 3,
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            width: "100%",
+            maxWidth: 1600,
+          }}
         >
           {lanes.length === 0 && (
-            <div className="col-span-full text-center text-white/30 text-xl">
+            <Typography sx={{ ...dukTypography.bodyLarge, gridColumn: "1 / -1", textAlign: "center", color: "text.secondary" }}>
               No lanes configured for this section yet.
-            </div>
+            </Typography>
           )}
           {lanes.map((lane) => (
             <LaneTile key={lane.id} lane={lane} />
           ))}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      {/* Bottom action row — instruction + NEXT button */}
-      <div className="flex items-center justify-between mt-8 px-2">
-        <div className="text-white/40 text-sm tracking-wide">
+      {/* Bottom action row */}
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mt: 4, px: 1 }}>
+        <Typography sx={{ ...dukTypography.bodyMedium, color: "text.secondary" }}>
           {!someOneCheckedIn
             ? "Tap your RFID on the check-in tablet to take a lane."
             : !allReady
               ? `${nonReadyCount} lane${nonReadyCount === 1 ? "" : "s"} not ready — review before starting.`
               : "All ready."}
-        </div>
+        </Typography>
         <NextButton enabled={someOneCheckedIn} allReady={allReady} />
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -217,54 +233,105 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
       })
     : "na";
 
-  const weaponStatus: ReadinessStatus = (lane.weapon_status ?? "na") as ReadinessStatus;
   const issues = occupied ? allIssues(lane) : [];
 
   return (
-    <div className="flex flex-col items-center">
-      {/* Lane number badge — centered above the card. Neutral white-on-
-          black (identitet, inte status) så status-färgerna i bar:en och
-          issue-chipsen får tala fritt (UX-review 2026-05-28). */}
-      <div className="w-12 h-12 rounded-xl bg-white text-black flex items-center justify-center text-2xl font-bold tabular-nums shadow-lg mb-[-12px] z-10">
-        {lane.lane_number}
-      </div>
-
-      {/* Card */}
-      <motion.div
-        layout
-        className="relative w-full rounded-2xl border border-white/10 bg-white/[0.03] pt-8 px-5 pb-5 flex flex-col min-h-[260px]"
+    <Stack sx={{ alignItems: "center" }}>
+      {/* Lane number badge — neutral white-on-black (identity, not status) */}
+      <Box
+        sx={{
+          width: 56,
+          height: 56,
+          borderRadius: "16px",
+          bgcolor: "common.white",
+          color: "common.black",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          ...dukTypography.headlineSmall,
+          fontWeight: 700,
+          fontVariantNumeric: "tabular-nums",
+          boxShadow: 4,
+          mb: -1.5,
+          zIndex: 10,
+        }}
       >
-        <div className="flex flex-col flex-1 items-center text-center">
-          {/* Name + rank */}
-          <div className={`text-xl font-medium leading-tight ${occupied ? "text-white" : "text-white/25"} truncate max-w-full`}>
+        {lane.lane_number}
+      </Box>
+
+      {/* Lane card */}
+      <Card
+        component={motion.div}
+        layout
+        sx={{
+          width: "100%",
+          minHeight: 280,
+          bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
+          pt: 4,
+          px: 2.5,
+          pb: 2.5,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Stack sx={{ alignItems: "center", textAlign: "center", flex: 1 }} spacing={0.5}>
+          <Typography
+            sx={{
+              ...dukTypography.titleMedium,
+              color: occupied ? "text.primary" : "text.disabled",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "100%",
+            }}
+          >
             {occupied ? lane.name : "—"}
-          </div>
-          <div className="text-[11px] text-white/40 mt-0.5">
+          </Typography>
+          <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
             {occupied ? "Rank" : "Empty"}
-          </div>
+          </Typography>
 
           {/* Status bar */}
-          <div className={`mt-5 h-1.5 w-full rounded-full ${BAR_COLOR[readiness]} transition-colors duration-500`} />
+          <Box
+            sx={{
+              mt: 2.5,
+              height: 6,
+              width: "100%",
+              borderRadius: "999px",
+              bgcolor: STATUS_COLOR[readiness] === "transparent" ? "rgba(255,255,255,0.1)" : STATUS_COLOR[readiness],
+              transition: "background-color 500ms",
+            }}
+          />
 
           {/* Weapon row */}
-          <div className="mt-auto pt-5 w-full">
+          <Box sx={{ width: "100%", pt: 2.5, mt: "auto" }}>
             {occupied ? (
               <WeaponRow
                 weaponName={lane.weapon_name ?? "—"}
                 weaponType={lane.weapon_type ?? ""}
-                weaponStatus={weaponStatus}
+                weaponStatus={(lane.weapon_status ?? "na") as ReadinessStatus}
               />
             ) : (
-              <div className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-[11px] text-white/30">
+              <Box
+                sx={{
+                  borderRadius: 1.5,
+                  border: 1,
+                  borderColor: "divider",
+                  bgcolor: "var(--mui-palette-m3-surfaceContainer)",
+                  px: 1.5,
+                  py: 1,
+                  fontSize: 11,
+                  color: "text.disabled",
+                }}
+              >
                 Waiting for assignment
-              </div>
+              </Box>
             )}
-          </div>
+          </Box>
 
-          {/* Issue-labels — en chip per non-ok indikator. Stackade vertikalt
-              (per user-feedback 2026-05-26: en lane kan ha flera samtidiga). */}
+          {/* Issue chips */}
           {issues.length > 0 && (
-            <div className="mt-2 w-full flex flex-col gap-1.5">
+            <Stack sx={{ mt: 1, width: "100%" }} spacing={0.75}>
               <AnimatePresence>
                 {issues.map((issue) => (
                   <motion.div
@@ -273,26 +340,45 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.2 }}
-                    className={`w-full flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px] font-medium ${
-                      issue.severity === "critical"
-                        ? "bg-status-attention/10 text-status-attention border border-status-attention/30"
-                        : "bg-status-warning/10 text-status-warning border border-status-warning/30"
-                    }`}
                   >
-                    {issue.severity === "critical" ? (
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    ) : (
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    )}
-                    <span className="truncate">{ISSUE_LABEL[issue.indicator][issue.severity]}</span>
+                    <Chip
+                      icon={
+                        issue.severity === "critical" ? (
+                          <ErrorIcon sx={{ fontSize: "16px !important" }} />
+                        ) : (
+                          <WarningIcon sx={{ fontSize: "16px !important" }} />
+                        )
+                      }
+                      label={ISSUE_LABEL[issue.indicator][issue.severity]}
+                      size="small"
+                      sx={{
+                        width: "100%",
+                        height: 28,
+                        borderRadius: "8px",
+                        fontSize: 11,
+                        fontWeight: 500,
+                        bgcolor:
+                          issue.severity === "critical"
+                            ? "var(--mui-palette-m3-errorContainer)"
+                            : "var(--mui-palette-m3-statusWarningContainer)",
+                        color:
+                          issue.severity === "critical"
+                            ? "var(--mui-palette-error-main)"
+                            : "var(--mui-palette-warning-main)",
+                        "& .MuiChip-icon": {
+                          color: "inherit",
+                          ml: 0.5,
+                        },
+                      }}
+                    />
                   </motion.div>
                 ))}
               </AnimatePresence>
-            </div>
+            </Stack>
           )}
-        </div>
-      </motion.div>
-    </div>
+        </Stack>
+      </Card>
+    </Stack>
   );
 }
 
@@ -307,27 +393,68 @@ function WeaponRow({
 }) {
   const Icon =
     weaponStatus === "critical"
-      ? AlertCircle
+      ? ErrorIcon
       : weaponStatus === "warning"
-        ? AlertTriangle
-        : Check;
+        ? WarningIcon
+        : CheckIcon;
+  const iconColor =
+    weaponStatus === "critical"
+      ? "error.main"
+      : weaponStatus === "warning"
+        ? "warning.main"
+        : weaponStatus === "ok"
+          ? "success.main"
+          : "text.disabled";
+
   return (
-    <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-left">
-      <Icon className={`h-4 w-4 shrink-0 ${WEAPON_ICON_COLOR[weaponStatus]}`} />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium truncate">{weaponName}</div>
+    <Stack
+      direction="row"
+      spacing={1.25}
+      sx={{
+        alignItems: "center",
+        borderRadius: 1.5,
+        border: 1,
+        borderColor: "divider",
+        bgcolor: "var(--mui-palette-m3-surfaceContainer)",
+        px: 1.5,
+        py: 1,
+        textAlign: "left",
+      }}
+    >
+      <Icon sx={{ color: iconColor, fontSize: 20, flexShrink: 0 }} />
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography
+          sx={{
+            fontSize: 14,
+            fontWeight: 500,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {weaponName}
+        </Typography>
         {weaponType && (
-          <div className="text-[10px] text-white/50 truncate">{weaponType}</div>
+          <Typography
+            sx={{
+              fontSize: 10,
+              color: "text.secondary",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {weaponType}
+          </Typography>
         )}
-      </div>
-    </div>
+      </Box>
+    </Stack>
   );
 }
 
 /**
- * NEXT-knapp som affordans för fjärr-OK. INTE klickbar — duken ska
- * inte ha mus-element (spår 05 §Beslut 2026-05-25). Glow:ar kort när
- * fjärr-OK trycks så det syns att knappen reagerar.
+ * NEXT-knapp som affordans för fjärr-OK. Visuell M3 FilledTonalButton-stil
+ * men INTE klickbar (duken har inga mus-element). Pulse på fjärr-OK.
  */
 function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean }) {
   const last = useLastRemoteEvent();
@@ -341,26 +468,47 @@ function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean
   }, [last, enabled]);
 
   const tone = !enabled
-    ? "border-white/10 text-white/30 bg-white/[0.02]"
+    ? { bg: "var(--mui-palette-m3-surfaceContainerLow)", fg: "text.disabled", border: "transparent" }
     : allReady
-      ? "border-status-success/40 text-status-success bg-status-success/5"
-      : "border-status-warning/40 text-status-warning bg-status-warning/5";
+      ? {
+          bg: "var(--mui-palette-m3-statusSuccessContainer)",
+          fg: "var(--mui-palette-success-main)",
+          border: "var(--mui-palette-success-main)",
+        }
+      : {
+          bg: "var(--mui-palette-m3-statusWarningContainer)",
+          fg: "var(--mui-palette-warning-main)",
+          border: "var(--mui-palette-warning-main)",
+        };
 
   return (
-    <div
+    <Box
       aria-hidden
-      className={`flex items-center gap-4 rounded-xl border px-6 py-3 select-none transition-all duration-200 ${tone} ${
-        flash ? "scale-[1.03] brightness-125" : ""
-      }`}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        borderRadius: "16px",
+        border: 1,
+        borderColor: tone.border,
+        bgcolor: tone.bg,
+        px: 3,
+        py: 1.5,
+        userSelect: "none",
+        transition: "all 200ms",
+        transform: flash ? "scale(1.03)" : "scale(1)",
+        filter: flash ? "brightness(1.25)" : "none",
+        color: tone.fg,
+      }}
     >
-      <Play className="h-5 w-5" />
-      <div className="flex flex-col items-start">
-        <div className="text-lg font-medium tracking-tight">Next</div>
-        <div className="text-[10px] uppercase tracking-[0.3em] opacity-70">
+      <PlayArrow sx={{ fontSize: 24 }} />
+      <Stack sx={{ alignItems: "flex-start" }}>
+        <Typography sx={{ ...dukTypography.titleLarge, color: tone.fg }}>Next</Typography>
+        <Typography sx={{ ...dukTypography.labelMedium, color: tone.fg, opacity: 0.7 }}>
           Press OK on remote
-        </div>
-      </div>
-      <ChevronRight className="h-4 w-4 opacity-60 ml-1" />
-    </div>
+        </Typography>
+      </Stack>
+      <ChevronRight sx={{ fontSize: 18, opacity: 0.6, ml: 0.5 }} />
+    </Box>
   );
 }

@@ -1,14 +1,14 @@
+import { Box, Chip, Stack, Typography } from "@mui/material";
+import { dukTypography } from "@/theme/tv";
+
 /**
- * Helhetsprototyp — PhaseHints (introducerad 2026-05-28).
+ * Helhetsprototyp — PhaseHints (M3-omskrivning 2026-05-28).
  *
  * Enhetlig hint-rad nederst på duken som visar tillgängliga fjärrknappar
- * i aktuell fas. Per UX-review 2026-05-28: tidigare fanns hint-rader bara
- * på Kriterie/Simulation/AAR (inkonsekvent), och Bangrid/SelectExercise
- * krävde att instruktören minns grammatiken.
+ * i aktuell fas. M3 BottomAppBar-inspirerad: tonal-tinted surface,
+ * keyboard-chips renderade som M3 outlined Chips med fast font.
  *
- * Använd <PhaseHints hints={[...]}/> längst ner i varje duk-vy. Stilen
- * matchar duk-språket ("biograf"): låg vikt, generöst spacing, läsbart
- * på 10 fot via konsekvent storlek över alla faser.
+ * dukTypography labelLarge ger 16px/uppercase — läsbart på 10 fot.
  */
 
 export interface RemoteKeyHint {
@@ -23,35 +23,75 @@ export interface RemoteKeyHint {
 export function PhaseHints({ hints }: { hints: RemoteKeyHint[] }) {
   if (hints.length === 0) return null;
   return (
-    <div className="px-12 pb-7 flex items-center justify-center gap-7 text-white/45 text-[11px] uppercase tracking-[0.3em]">
+    <Box
+      sx={{
+        px: 6,
+        pb: 4,
+        pt: 2,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 5,
+      }}
+    >
       {hints.map((h, i) => (
-        <span key={`${h.label}-${i}`} className="contents">
-          {i > 0 && <span className="text-white/15">·</span>}
+        <Stack
+          key={`${h.label}-${i}`}
+          direction="row"
+          spacing={3}
+          sx={{ alignItems: "center" }}
+        >
+          {i > 0 && (
+            <Typography
+              sx={{
+                color: "divider",
+                fontSize: "16px",
+              }}
+            >
+              ·
+            </Typography>
+          )}
           <Hint hint={h} />
-        </span>
+        </Stack>
       ))}
-    </div>
+    </Box>
   );
 }
 
 function Hint({ hint }: { hint: RemoteKeyHint }) {
-  const keyTone = hint.primary
-    ? "border-white/55 text-white/85"
-    : "border-white/25 text-white/55";
-  const labelTone = hint.primary ? "text-white/70" : "text-white/45";
   return (
-    <span className="inline-flex items-center gap-2">
-      <span className="inline-flex items-center gap-1">
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+      <Stack direction="row" spacing={0.5}>
         {hint.keys.map((k) => (
-          <span
+          <Chip
             key={k}
-            className={`inline-flex items-center justify-center h-7 min-w-[28px] px-2 rounded border font-mono text-[11px] ${keyTone}`}
-          >
-            {k}
-          </span>
+            label={k}
+            variant="outlined"
+            size="small"
+            sx={{
+              height: 32,
+              minWidth: 32,
+              borderRadius: "8px",
+              fontFamily: '"Roboto Mono", monospace',
+              fontSize: "13px",
+              fontWeight: 500,
+              borderColor: hint.primary ? "primary.main" : "outline",
+              borderWidth: hint.primary ? 1.5 : 1,
+              color: hint.primary ? "primary.main" : "text.secondary",
+              "& .MuiChip-label": { px: 1.5 },
+            }}
+          />
         ))}
-      </span>
-      <span className={labelTone}>{hint.label}</span>
-    </span>
+      </Stack>
+      <Typography
+        sx={{
+          ...dukTypography.labelMedium,
+          color: hint.primary ? "text.primary" : "text.secondary",
+          opacity: hint.primary ? 0.95 : 0.7,
+        }}
+      >
+        {hint.label}
+      </Typography>
+    </Stack>
   );
 }

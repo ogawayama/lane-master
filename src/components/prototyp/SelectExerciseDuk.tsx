@@ -1,29 +1,33 @@
+import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+import { PlayArrow, CenterFocusStrong } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Crosshair } from "lucide-react";
 import type { ExerciseListItem } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+import {
+  carouselItemSx,
+  dukTypography,
+  focusRing,
+  heroCardSx,
+  tvSafeInset,
+} from "@/theme/tv";
 
-// Fjärr-hints för select-exercise-fasen.
+/**
+ * Helhetsprototyp — SelectExerciseDuk (M3-omskrivning 2026-05-28).
+ *
+ * Implementerar Google TV:s Featured Carousel-pattern (per
+ * developer.android.com/design/ui/tv § Components):
+ *   • Hero-area med stort kort för aktuell highlight
+ *   • Thumbnail-strip nedanför med focus-rings på vald
+ *   • D-pad-driven ◀ ▶ för bläddring
+ *
+ * Använder M3-tokens från CssVarsProvider + dukTypography för 10-foot
+ * läsbarhet. Featured Carousel-shape (28px corner radius) per spec.
+ */
+
 const SELECT_HINTS: RemoteKeyHint[] = [
   { keys: ["◀", "▶"], label: "browse" },
   { keys: ["OK"], label: "start with this exercise", primary: true },
 ];
-
-/**
- * Helhetsprototyp — SelectExerciseDuk (iteration 2026-05-26).
- *
- * Chromecast-stil picker mellan prepare och check-in. Per user-feedback:
- * instruktören ser hela passet som en thumbnail-strip på duken och kan
- * välja startpunkt med fjärren. Övningarna körs sen i sekvens från den
- * picked till listans slut (Q1 = A: skip ahead, no wrap).
- *
- * Pickerns highlight-state lever lokalt i DukShell (Q3 = A). Vid OK
- * skrivs current_exercise_index till DB:n och phase byts till check-in.
- *
- * Designspråk: biograf. Stort hero-kort + horisontell strip av thumbnails.
- * "Bilder" är gradient-platshållare (vi har inga foton än); kan ersättas
- * av riktiga bilder via en optional image-prop per övning senare.
- */
 
 export function SelectExerciseDuk({
   exercises,
@@ -34,15 +38,20 @@ export function SelectExerciseDuk({
 }) {
   if (exercises.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-white text-center px-12">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">
+      <Stack
+        sx={{ ...tvSafeInset, flex: 1, alignItems: "center", justifyContent: "center" }}
+        spacing={2}
+      >
+        <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
           Today's session
-        </div>
-        <div className="text-5xl font-light mb-4">No exercises planned</div>
-        <div className="text-sm text-white/40 max-w-md">
+        </Typography>
+        <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+          No exercises planned
+        </Typography>
+        <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>
           Open /tablet/prepare to add exercises before starting.
-        </div>
-      </div>
+        </Typography>
+      </Stack>
     );
   }
 
@@ -50,16 +59,15 @@ export function SelectExerciseDuk({
   const current = exercises[safeIndex];
 
   return (
-    <div className="flex-1 flex flex-col text-white relative">
-      {/* Top context — date / instructor / session id */}
-      <div className="px-12 pt-12">
-        <div className="text-[11px] uppercase tracking-[0.4em] text-white/40">
+    <Stack sx={{ flex: 1 }}>
+      <Box sx={{ px: 6, pt: 6 }}>
+        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
           Today's session · {exercises.length} exercise{exercises.length === 1 ? "" : "s"}
-        </div>
-      </div>
+        </Typography>
+      </Box>
 
-      {/* Hero — large card for the currently-highlighted exercise */}
-      <div className="flex-1 flex items-center justify-center px-12 py-8">
+      {/* Hero — Featured Carousel-stil per Android TV Compose */}
+      <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", px: 6, py: 3 }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={current.id}
@@ -67,44 +75,100 @@ export function SelectExerciseDuk({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="relative w-full max-w-[1280px] aspect-[16/7] rounded-3xl overflow-hidden flex"
-            style={{ background: gradientFor(current.weapon) }}
+            style={{ width: "100%", maxWidth: 1280 }}
           >
-            {/* Left: text */}
-            <div className="relative z-10 flex flex-col justify-center p-12 max-w-[55%]">
-              <div className="text-[11px] uppercase tracking-[0.3em] text-white/50 mb-4">
-                {safeIndex === 0 ? "First up" : `Exercise ${safeIndex + 1} of ${exercises.length}`}
-              </div>
-              <h1 className="text-5xl font-light leading-[1.05] tracking-tight mb-4">
-                {current.title}
-              </h1>
-              <div className="flex flex-wrap gap-3 text-xs text-white/60 font-mono mb-8">
-                {current.weapon && <Chip>{current.weapon}</Chip>}
-                {current.hits_threshold !== undefined && <Chip>Hits ≥ {current.hits_threshold}</Chip>}
-                {current.time_seconds !== undefined && <Chip>Time ≤ {current.time_seconds}s</Chip>}
-                {current.spread_threshold !== undefined && <Chip>Spread ≤ {current.spread_threshold} cm</Chip>}
-              </div>
-              <SelectCta />
-            </div>
+            <Card
+              sx={{
+                ...heroCardSx,
+                aspectRatio: "16 / 7",
+                background: gradientFor(current.weapon),
+                display: "flex",
+                position: "relative",
+              }}
+            >
+              {/* Left: text content */}
+              <Stack
+                sx={{
+                  position: "relative",
+                  zIndex: 1,
+                  justifyContent: "center",
+                  p: 6,
+                  maxWidth: "55%",
+                }}
+                spacing={3}
+              >
+                <Typography
+                  sx={{
+                    ...dukTypography.labelMedium,
+                    color: "rgba(255,255,255,0.65)",
+                  }}
+                >
+                  {safeIndex === 0
+                    ? "First up"
+                    : `Exercise ${safeIndex + 1} of ${exercises.length}`}
+                </Typography>
+                <Typography
+                  sx={{
+                    ...dukTypography.displayMedium,
+                    color: "white",
+                  }}
+                >
+                  {current.title}
+                </Typography>
+                <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
+                  {current.weapon && <HeroChip>{current.weapon}</HeroChip>}
+                  {current.hits_threshold !== undefined && (
+                    <HeroChip>Hits ≥ {current.hits_threshold}</HeroChip>
+                  )}
+                  {current.time_seconds !== undefined && (
+                    <HeroChip>Time ≤ {current.time_seconds}s</HeroChip>
+                  )}
+                  {current.spread_threshold !== undefined && (
+                    <HeroChip>Spread ≤ {current.spread_threshold} cm</HeroChip>
+                  )}
+                </Stack>
+                <SelectCta />
+              </Stack>
 
-            {/* Right: visual placeholder (gradient + symbol) */}
-            <div className="absolute right-0 top-0 bottom-0 w-[55%] flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-black/40" />
-              <Crosshair className="h-48 w-48 text-white/15" strokeWidth={0.8} />
-            </div>
+              {/* Right: visual placeholder (gradient + symbol) */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: "55%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    background:
+                      "linear-gradient(to left, transparent, transparent, rgba(0,0,0,0.4))",
+                  }}
+                />
+                <CenterFocusStrong
+                  sx={{ fontSize: 260, color: "rgba(255,255,255,0.15)", strokeWidth: 0.5 }}
+                />
+              </Box>
+            </Card>
           </motion.div>
         </AnimatePresence>
-      </div>
+      </Box>
 
-      {/* Thumbnail strip — fjärr-hinten lever i den globala PhaseHints nedan */}
-      <div className="px-12 pb-4">
-        <div className="flex items-center gap-4 mb-3">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+      {/* Thumbnail-strip */}
+      <Box sx={{ px: 6, pb: 2 }}>
+        <Stack direction="row" spacing={3} sx={{ alignItems: "center", mb: 2 }}>
+          <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
             In order
-          </div>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-        <div className="flex gap-3 overflow-hidden">
+          </Typography>
+          <Box sx={{ flex: 1, height: 1, bgcolor: "divider" }} />
+        </Stack>
+        <Stack direction="row" spacing={2} sx={{ overflow: "hidden" }}>
           {exercises.map((ex, i) => (
             <Thumbnail
               key={`${ex.id}-${i}`}
@@ -114,31 +178,53 @@ export function SelectExerciseDuk({
               total={exercises.length}
             />
           ))}
-        </div>
-      </div>
+        </Stack>
+      </Box>
 
       <PhaseHints hints={SELECT_HINTS} />
-    </div>
+    </Stack>
   );
 }
 
-function Chip({ children }: { children: React.ReactNode }) {
+function HeroChip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-white/20 bg-white/[0.05] px-3 py-1">
-      {children}
-    </span>
+    <Chip
+      label={children}
+      variant="outlined"
+      sx={{
+        bgcolor: "rgba(255,255,255,0.08)",
+        borderColor: "rgba(255,255,255,0.25)",
+        color: "rgba(255,255,255,0.85)",
+        fontFamily: '"Roboto Mono", monospace',
+        fontSize: "14px",
+        height: 32,
+        borderRadius: "16px",
+      }}
+    />
   );
 }
 
 function SelectCta() {
   return (
-    <div
+    <Box
       aria-hidden
-      className="inline-flex items-center gap-3 self-start rounded-full bg-status-warning text-black px-6 py-3 text-base font-medium shadow-lg shadow-status-warning/20"
+      sx={{
+        display: "inline-flex",
+        alignSelf: "flex-start",
+        alignItems: "center",
+        gap: 1.5,
+        bgcolor: "primary.main",
+        color: "primary.contrastText",
+        px: 4,
+        py: 1.5,
+        borderRadius: "9999px",
+        boxShadow: 4,
+        ...dukTypography.labelLarge,
+      }}
     >
-      <Play className="h-5 w-5 fill-current" />
-      <span>Press OK to select</span>
-    </div>
+      <PlayArrow sx={{ fontSize: 24 }} />
+      Press OK to select
+    </Box>
   );
 }
 
@@ -153,42 +239,95 @@ function Thumbnail({
   selected: boolean;
   total: number;
 }) {
-  // Each thumbnail is approximately equal width — clamp to a reasonable
-  // size so 3-10 exercises all look good.
-  const widthClass = total <= 3 ? "w-[300px]" : total <= 5 ? "w-[220px]" : "w-[180px]";
+  const width = total <= 3 ? 320 : total <= 5 ? 240 : 200;
   return (
     <motion.div
       layout
-      className={`relative ${widthClass} aspect-[16/9] rounded-xl overflow-hidden transition-all duration-300 ${
-        selected
-          ? "ring-2 ring-white scale-[1.04]"
-          : "ring-1 ring-white/10 opacity-50"
-      }`}
-      style={{ background: gradientFor(exercise.weapon) }}
+      style={{
+        width,
+        flexShrink: 0,
+        aspectRatio: "16 / 9",
+        opacity: selected ? 1 : 0.5,
+        scale: selected ? 1.04 : 1,
+      }}
     >
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Crosshair
-          className={`h-10 w-10 ${selected ? "text-white/30" : "text-white/15"}`}
-          strokeWidth={1}
-        />
-      </div>
-      {/* Index badge */}
-      <div className="absolute top-2 left-2 text-[10px] font-mono uppercase tracking-wider text-white/60">
-        {String(index + 1).padStart(2, "0")}
-      </div>
-      {/* Title at bottom, gradient scrim */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3">
-        <div className="text-[11px] font-medium text-white truncate">{exercise.title}</div>
-      </div>
+      <Card
+        sx={{
+          borderRadius: "20px",
+          overflow: "hidden",
+          outline: selected ? "3px solid" : "none",
+          outlineColor: "primary.main",
+          outlineOffset: "4px",
+          height: "100%",
+          background: gradientFor(exercise.weapon),
+          position: "relative",
+          transition: "all 200ms cubic-bezier(0.2, 0, 0, 1)",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <CenterFocusStrong
+            sx={{
+              fontSize: 56,
+              color: selected ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.15)",
+            }}
+          />
+        </Box>
+        <Typography
+          sx={{
+            position: "absolute",
+            top: 8,
+            left: 10,
+            fontFamily: '"Roboto Mono", monospace',
+            fontSize: 11,
+            color: "rgba(255,255,255,0.6)",
+            textTransform: "uppercase",
+            letterSpacing: 1,
+          }}
+        >
+          {String(index + 1).padStart(2, "0")}
+        </Typography>
+        <Box
+          sx={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            p: 1.5,
+            background:
+              "linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.3), transparent)",
+          }}
+        >
+          <Typography
+            sx={{
+              color: "white",
+              fontSize: 13,
+              fontWeight: 500,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {exercise.title}
+          </Typography>
+        </Box>
+      </Card>
     </motion.div>
   );
 }
 
-// Stable gradient per weapon — visual identitet utan riktiga bilder.
-// Samma logik som KriterieDuk så hero och kriterieskärm visuellt stämmer.
 function gradientFor(weapon?: string): string {
-  if (!weapon) return "linear-gradient(135deg, #1f2937 0%, #0f172a 100%)";
+  if (!weapon) {
+    return "linear-gradient(135deg, var(--mui-palette-m3-surfaceContainerHigh) 0%, var(--mui-palette-m3-surfaceContainer) 100%)";
+  }
   const seed = [...weapon].reduce((a, c) => a + c.charCodeAt(0), 0);
   const hue = seed % 360;
-  return `linear-gradient(135deg, hsl(${hue} 35% 25%) 0%, hsl(${(hue + 40) % 360} 50% 12%) 100%)`;
+  return `linear-gradient(135deg, hsl(${hue} 35% 22%) 0%, hsl(${(hue + 40) % 360} 50% 10%) 100%)`;
 }

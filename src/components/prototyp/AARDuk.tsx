@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Target, Timer, Crosshair, ChevronLeft, ChevronRight } from "lucide-react";
+import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+import {
+  GpsFixed as TargetIcon,
+  AccessTime as TimerIcon,
+  CenterFocusStrong as SpreadIcon,
+} from "@mui/icons-material";
 import { supabase } from "@/integrations/supabase/client";
 import {
   computeResult,
@@ -13,29 +18,23 @@ import type { Shot } from "@/services/shotSimulation";
 import { pickCue } from "@/data/cueLibrary";
 import type { ExerciseListItem, Section } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+import { dukTypography, focusRing } from "@/theme/tv";
 
 /**
- * Helhetsprototyp — AARDuk (Pass 6, omdesignad 2026-05-28).
+ * Helhetsprototyp — AARDuk (M3-omskrivning 2026-05-28).
  *
- * Två lägen, styrda från DukShell via fjärr:
+ * Två lägen styrda av DukShell via fjärr:
+ *   1. OVERVIEW — alla skyttar sida vid sida som M3 Cards. ◀ ▶ flyttar
+ *      M3 focus-ring runt vald bana. Pick-up-line per kort (kort version).
+ *   2. ZOOM — hero-vy för en skytt. Stor target med annoteringar
+ *      (pilar, spread-ringar), full pick-up-line per criterion.
  *
- *   1. OVERVIEW  — split-view, alla banor sida vid sida. Varje bana
- *      visar sitt papptavle-mönster (samma som under DAR), tre metric-
- *      chips, samt 1-rads pick-up-line för röda kriterier. En bana är
- *      markerad som "focus" — ◀ ▶ flyttar markeringen.
- *
- *   2. ZOOM      — hero-vy för en enskild skytt. Stor target med hit-
- *      pattern, full pick-up-line per rött kriterium, identity vänster.
- *      Triggas med OK från overview. Back/OK tar tillbaka till overview.
- *
- * Per [beslut 2026-05-28]: ersätter karusell-modellen (2026-05-25). Den
- * kollektiva vyn matchar speglingsprincipen (alla ser samma vy
- * samtidigt) och ger visuell kontinuitet med DAR-papptavlorna. Zoom-
- * läget bevarar möjligheten till individuell drill-down — instruktören
- * väljer själv när hen vill gå djupt.
- *
- * Skott-mönstret kommer från samma deterministiska sequence som
- * SimulationDuk visade live. Hits/spread härleds från samma data.
+ * M3-stil:
+ *   - Lane-cards: surfaceContainerLow + outline focus
+ *   - Status-färger via tokens (status-attention/-warning/-success)
+ *   - Criterion-cards: surfaceContainer med tonal tint per status
+ *   - SVG-targets: behåller egen rendering men strokes via CSS vars
+ *   - Type scale: dukTypography för 10-foot UI
  */
 
 interface LaneInfo {
@@ -45,29 +44,28 @@ interface LaneInfo {
   status: string;
 }
 
-// Semantiska tokens — definierade i index.css. Tonas via /N (t.ex. /10).
-// red→attention, yellow→warning, green→success (per spår 03/04 triage).
-const STATUS_TINT: Record<Status, string> = {
-  red: "bg-status-attention/12 border-status-attention/45 text-status-attention",
-  yellow: "bg-status-warning/10 border-status-warning/40 text-status-warning",
-  green: "bg-status-success/8 border-status-success/25 text-status-success",
+// Status-tokens via M3 + våra extensions
+const STATUS_BG: Record<Status, string> = {
+  red: "var(--mui-palette-m3-statusAttentionContainer)",
+  yellow: "var(--mui-palette-m3-statusWarningContainer)",
+  green: "var(--mui-palette-m3-statusSuccessContainer)",
 };
-
+const STATUS_FG: Record<Status, string> = {
+  red: "var(--mui-palette-error-main)",
+  yellow: "var(--mui-palette-warning-main)",
+  green: "var(--mui-palette-success-main)",
+};
 const STATUS_DOT: Record<Status, string> = {
-  red: "bg-status-attention",
-  yellow: "bg-status-warning",
-  green: "bg-status-success",
+  red: "var(--mui-palette-error-main)",
+  yellow: "var(--mui-palette-warning-main)",
+  green: "var(--mui-palette-success-main)",
 };
-
-// SVG-stroke kan inte ärva från Tailwind klasser → läs CSS-variabeln
-// direkt med hsl(var(--...)). Hålls i sync med tokens.
 const STATUS_STROKE: Record<Status, string> = {
-  red: "hsl(var(--status-attention))",
-  yellow: "hsl(var(--status-warning))",
-  green: "hsl(var(--status-success))",
+  red: "var(--mui-palette-error-main)",
+  yellow: "var(--mui-palette-warning-main)",
+  green: "var(--mui-palette-success-main)",
 };
 
-// Fjärr-hints för AAR-fasen — drivs av PhaseHints.
 const OVERVIEW_HINTS: RemoteKeyHint[] = [
   { keys: ["◀", "▶"], label: "select trainee" },
   { keys: ["OK"], label: "zoom in", primary: true },
@@ -87,9 +85,7 @@ export function AARDuk({
 }: {
   exercise: ExerciseListItem | null;
   section: Section;
-  /** Index i prioriterad resultatlista — clampas cykliskt i komponenten. */
   focusIndex: number;
-  /** Zoom-läge — drivs från DukShell via fjärr-OK. */
   zoomed: boolean;
 }) {
   const prefersReducedMotion = useReducedMotion();
@@ -114,9 +110,7 @@ export function AARDuk({
   const results = useMemo<AARResult[]>(() => {
     if (!exercise) return [];
     return sortByPriority(
-      lanes.map((l) =>
-        computeResult(l.lane_number, l.name, l.weapon_name, exercise),
-      ),
+      lanes.map((l) => computeResult(l.lane_number, l.name, l.weapon_name, exercise)),
     );
   }, [lanes, exercise]);
 
@@ -125,37 +119,51 @@ export function AARDuk({
     : 0;
 
   if (!exercise) {
-    return (
-      <EmptyState
-        title="No exercise to review"
-        sub="Return to preflight or load an exercise."
-      />
-    );
+    return <EmptyState title="No exercise to review" sub="Return to preflight or load an exercise." />;
   }
-
   if (results.length === 0) {
-    return (
-      <EmptyState
-        title="No trainees on the lanes"
-        sub="Press OK on the remote to continue."
-      />
-    );
+    return <EmptyState title="No trainees on the lanes" sub="Press OK on the remote to continue." />;
   }
 
   return (
-    <div className="flex-1 flex flex-col text-white">
+    <Stack sx={{ flex: 1, color: "text.primary" }}>
       {/* Header */}
-      <div className="grid grid-cols-3 items-baseline px-12 pt-10 pb-4">
-        <div className="text-[11px] uppercase tracking-[0.4em] text-white/45">
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          alignItems: "baseline",
+          px: 6,
+          pt: 5,
+          pb: 2,
+        }}
+      >
+        <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
           After Action Review
-        </div>
-        <div className="text-center text-[11px] uppercase tracking-[0.3em] text-white/40 font-mono truncate">
+        </Typography>
+        <Typography
+          sx={{
+            ...dukTypography.labelMedium,
+            color: "text.secondary",
+            textAlign: "center",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {exercise.title}
-        </div>
-        <div className="text-right text-[11px] uppercase tracking-[0.3em] text-white/40 font-mono tabular-nums">
+        </Typography>
+        <Typography
+          sx={{
+            ...dukTypography.labelMedium,
+            color: "text.secondary",
+            textAlign: "right",
+            fontFamily: '"Roboto Mono", monospace',
+          }}
+        >
           {results.length} trainees · {results.filter((r) => r.reds.length > 0).length} priority
-        </div>
-      </div>
+        </Typography>
+      </Box>
 
       {/* Main */}
       <AnimatePresence mode="wait">
@@ -166,7 +174,7 @@ export function AARDuk({
             animate={{ opacity: 1, scale: 1 }}
             exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: "easeOut" }}
-            className="flex-1 flex flex-col"
+            style={{ flex: 1, display: "flex", flexDirection: "column" }}
           >
             <ZoomView result={results[safeFocus]} exercise={exercise} />
           </motion.div>
@@ -177,26 +185,19 @@ export function AARDuk({
             animate={{ opacity: 1 }}
             exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
-            className="flex-1 flex flex-col"
+            style={{ flex: 1, display: "flex", flexDirection: "column" }}
           >
-            <OverviewGrid
-              results={results}
-              exercise={exercise}
-              focusIndex={safeFocus}
-            />
+            <OverviewGrid results={results} exercise={exercise} focusIndex={safeFocus} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Bottom — remote hints */}
       <PhaseHints hints={zoomed ? ZOOM_HINTS : OVERVIEW_HINTS} />
-    </div>
+    </Stack>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────── */
-/* Overview — alla skyttar sida vid sida                                */
-/* ──────────────────────────────────────────────────────────────────── */
+/* ─── Overview ─────────────────────────────────────────────────────── */
 
 function OverviewGrid({
   results,
@@ -208,21 +209,20 @@ function OverviewGrid({
   focusIndex: number;
 }) {
   return (
-    <div
-      className="flex-1 px-8 pb-2 grid gap-4"
-      style={{
+    <Box
+      sx={{
+        flex: 1,
+        px: 4,
+        pb: 1,
+        display: "grid",
+        gap: 2,
         gridTemplateColumns: `repeat(${results.length}, minmax(0, 1fr))`,
       }}
     >
       {results.map((r, i) => (
-        <LaneCard
-          key={r.lane}
-          result={r}
-          exercise={exercise}
-          focused={i === focusIndex}
-        />
+        <LaneCard key={r.lane} result={r} exercise={exercise} focused={i === focusIndex} />
       ))}
-    </div>
+    </Box>
   );
 }
 
@@ -236,11 +236,9 @@ function LaneCard({
   focused: boolean;
 }) {
   const prefersReducedMotion = useReducedMotion();
-  // Värsta status över alla tre kriterier — bestämmer kortets accent.
   const worst: Status =
     result.reds.length > 0 ? "red" : result.yellows.length > 0 ? "yellow" : "green";
 
-  // En cue per kort — det högst prioriterade röda kriteriet, om något.
   const headlineCue = useMemo(() => {
     const priorityOrder = ["hit", "time", "spread"] as const;
     for (const crit of priorityOrder) {
@@ -252,153 +250,160 @@ function LaneCard({
   }, [result, exercise.id]);
 
   return (
-    <motion.div
+    <Card
+      component={motion.div}
       layout
-      animate={{
-        scale: focused && !prefersReducedMotion ? 1.04 : 1,
-      }}
+      animate={{ scale: focused && !prefersReducedMotion ? 1.04 : 1 }}
       transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
-      className={`relative rounded-2xl border bg-white/[0.02] p-4 flex flex-col gap-3 transition-colors ${
-        focused
-          ? "border-status-warning/80 shadow-[0_0_0_2px_hsl(var(--status-warning)/0.35)]"
-          : "border-white/8"
-      }`}
+      sx={{
+        p: 2,
+        display: "flex",
+        flexDirection: "column",
+        gap: 1.5,
+        bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
+        outline: focused ? "3px solid" : "none",
+        outlineColor: "warning.main",
+        outlineOffset: "2px",
+        transition: "outline-color 200ms",
+      }}
     >
-      {/* Identity */}
-      <div className="flex items-baseline justify-between">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "baseline" }}>
+        <Box>
+          <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
             Lane {result.lane}
-          </div>
-          <div className="text-xl font-light leading-tight truncate max-w-[180px]">
+          </Typography>
+          <Typography
+            sx={{
+              ...dukTypography.titleMedium,
+              color: "text.primary",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: 180,
+            }}
+          >
             {result.trainee ?? "—"}
-          </div>
-        </div>
+          </Typography>
+        </Box>
         <StatusBadge status={worst} />
-      </div>
+      </Stack>
 
-      {/* Target */}
-      <TargetSvg
-        shots={result.sequence.shots}
-        worst={worst}
-        size="md"
-      />
+      <TargetSvg shots={result.sequence.shots} worst={worst} size="md" />
 
-      {/* Metric chips */}
-      <div className="grid grid-cols-3 gap-1.5">
-        <MetricChip
-          label="Hit"
-          value={`${result.hits}`}
-          status={result.hit_status}
-        />
-        <MetricChip
-          label="Time"
-          value={`${result.time_seconds}s`}
-          status={result.time_status}
-        />
-        <MetricChip
-          label="Spread"
-          value={`${result.spread_cm}cm`}
-          status={result.spread_status}
-        />
-      </div>
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0.75 }}>
+        <MetricChip label="Hit" value={`${result.hits}`} status={result.hit_status} />
+        <MetricChip label="Time" value={`${result.time_seconds}s`} status={result.time_status} />
+        <MetricChip label="Spread" value={`${result.spread_cm}cm`} status={result.spread_status} />
+      </Box>
 
-      {/* Pick-up-line — en rad, för det värsta röda */}
-      <div className="min-h-[44px] text-[11px] leading-snug">
+      <Box sx={{ minHeight: 44 }}>
         {headlineCue ? (
-          <div className="text-status-attention/90">"{headlineCue.cue}"</div>
+          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: "error.main" }}>
+            "{headlineCue.cue}"
+          </Typography>
         ) : worst === "yellow" ? (
-          <div className="text-status-warning/80">Borderline — worth a follow-up.</div>
+          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: "warning.main", opacity: 0.85 }}>
+            Borderline — worth a follow-up.
+          </Typography>
         ) : (
-          <div className="text-status-success/70">✓ On track across all criteria.</div>
+          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: "success.main", opacity: 0.85 }}>
+            ✓ On track across all criteria.
+          </Typography>
         )}
-      </div>
-    </motion.div>
+      </Box>
+    </Card>
   );
 }
 
-function MetricChip({
-  label,
-  value,
-  status,
-}: {
-  label: string;
-  value: string;
-  status: Status;
-}) {
-  const tint = STATUS_TINT[status];
+function MetricChip({ label, value, status }: { label: string; value: string; status: Status }) {
   return (
-    <div className={`rounded-lg border px-2 py-1.5 ${tint}`}>
-      <div className="text-[9px] uppercase tracking-[0.25em] opacity-70">{label}</div>
-      <div className="text-base font-light tabular-nums leading-tight">{value}</div>
-    </div>
+    <Box
+      sx={{
+        borderRadius: 1.5,
+        border: 1,
+        borderColor: STATUS_FG[status],
+        bgcolor: STATUS_BG[status],
+        color: STATUS_FG[status],
+        px: 1,
+        py: 0.75,
+      }}
+    >
+      <Typography sx={{ fontSize: 9, letterSpacing: "0.25em", opacity: 0.7, textTransform: "uppercase" }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: 16, fontWeight: 400, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}>
+        {value}
+      </Typography>
+    </Box>
   );
 }
 
 function StatusBadge({ status }: { status: Status }) {
-  const label =
-    status === "red" ? "Attention" : status === "yellow" ? "Review" : "Good";
+  const label = status === "red" ? "Attention" : status === "yellow" ? "Review" : "Good";
   return (
-    <div className="flex items-center gap-1.5">
-      <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
-      <span className="text-[9px] uppercase tracking-[0.3em] text-white/60">
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: STATUS_DOT[status] }} />
+      <Typography sx={{ fontSize: 9, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase" }}>
         {label}
-      </span>
-    </div>
+      </Typography>
+    </Stack>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────── */
-/* Zoom — hero-vy för en skytt                                          */
-/* ──────────────────────────────────────────────────────────────────── */
+/* ─── Zoom ─────────────────────────────────────────────────────────── */
 
-function ZoomView({
-  result,
-  exercise,
-}: {
-  result: AARResult;
-  exercise: ExerciseListItem;
-}) {
+function ZoomView({ result, exercise }: { result: AARResult; exercise: ExerciseListItem }) {
   const worst: Status =
     result.reds.length > 0 ? "red" : result.yellows.length > 0 ? "yellow" : "green";
 
   return (
-    <div className="flex-1 grid grid-cols-[380px_1fr_460px] gap-10 px-12 py-6">
+    <Box
+      sx={{
+        flex: 1,
+        display: "grid",
+        gridTemplateColumns: "380px 1fr 460px",
+        gap: 5,
+        px: 6,
+        py: 3,
+      }}
+    >
       {/* Identity */}
-      <div className="flex flex-col justify-center">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-2">
+      <Stack sx={{ justifyContent: "center" }} spacing={2}>
+        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
           Lane {result.lane}
-        </div>
-        <div className="text-6xl font-light leading-none tracking-tight">
+        </Typography>
+        <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
           {result.trainee ?? "—"}
-        </div>
-        <div className="mt-4 text-base text-white/50">{result.weapon ?? "—"}</div>
-        <div className="mt-8">
+        </Typography>
+        <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>
+          {result.weapon ?? "—"}
+        </Typography>
+        <Box sx={{ mt: 4 }}>
           <StatusBadge status={worst} />
           {result.reds.length > 0 && (
-            <div className="mt-2 text-[11px] uppercase tracking-[0.3em] text-status-attention/90">
+            <Typography sx={{ ...dukTypography.labelMedium, color: "error.main", mt: 1 }}>
               {result.reds.length} priorit{result.reds.length > 1 ? "ies" : "y"} to work on
-            </div>
+            </Typography>
           )}
-        </div>
-      </div>
+        </Box>
+      </Stack>
 
-      {/* Stor target med hit-pattern + annoteringar för red criteria */}
-      <div className="flex items-center justify-center">
-        <div className="w-full max-w-[460px] aspect-square">
+      {/* Target with annotations */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Box sx={{ width: "100%", maxWidth: 460, aspectRatio: "1 / 1" }}>
           <TargetSvg
             shots={result.sequence.shots}
             worst={worst}
             size="lg"
             annotations={computeAnnotations(result)}
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      {/* Criterion cards med full pick-up-line */}
-      <div className="flex flex-col justify-center gap-3">
+      {/* Criterion cards */}
+      <Stack sx={{ justifyContent: "center" }} spacing={1.5}>
         <CriterionCard
-          icon={<Target className="h-5 w-5" />}
+          icon={<TargetIcon sx={{ fontSize: 22 }} />}
           label="Hits"
           value={`${result.hits}`}
           threshold={`≥ ${exercise.hits_threshold ?? "—"}`}
@@ -411,7 +416,7 @@ function ZoomView({
           expanded={result.hit_status !== "green"}
         />
         <CriterionCard
-          icon={<Timer className="h-5 w-5" />}
+          icon={<TimerIcon sx={{ fontSize: 22 }} />}
           label="Time"
           value={`${result.time_seconds}s`}
           threshold={`≤ ${exercise.time_seconds}s`}
@@ -424,7 +429,7 @@ function ZoomView({
           expanded={result.time_status !== "green"}
         />
         <CriterionCard
-          icon={<Crosshair className="h-5 w-5" />}
+          icon={<SpreadIcon sx={{ fontSize: 22 }} />}
           label="Spread"
           value={`${result.spread_cm} cm`}
           threshold={`≤ ${exercise.spread_threshold} cm`}
@@ -436,8 +441,8 @@ function ZoomView({
           }
           expanded={result.spread_status !== "green"}
         />
-      </div>
-    </div>
+      </Stack>
+    </Box>
   );
 }
 
@@ -458,24 +463,35 @@ function CriterionCard({
   cue: string | null;
   expanded: boolean;
 }) {
-  const tint = STATUS_TINT[status];
-  const dot = STATUS_DOT[status];
-
   return (
-    <div className={`rounded-2xl border ${tint} px-5 py-4`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${dot}`} />
+    <Card
+      sx={{
+        bgcolor: STATUS_BG[status],
+        borderRadius: "20px",
+        border: 1,
+        borderColor: STATUS_FG[status],
+        px: 2.5,
+        py: 2,
+        color: STATUS_FG[status],
+      }}
+    >
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+          <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: STATUS_DOT[status] }} />
           {icon}
-          <span className="text-[11px] uppercase tracking-[0.3em] opacity-80">
+          <Typography sx={{ fontSize: 11, letterSpacing: "0.3em", opacity: 0.85, textTransform: "uppercase" }}>
             {label}
-          </span>
-        </div>
-        <div className="flex items-baseline gap-3">
-          <span className="text-3xl font-light tabular-nums">{value}</span>
-          <span className="text-xs opacity-60 font-mono">{threshold}</span>
-        </div>
-      </div>
+          </Typography>
+        </Stack>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline" }}>
+          <Typography sx={{ ...dukTypography.headlineSmall, fontVariantNumeric: "tabular-nums" }}>
+            {value}
+          </Typography>
+          <Typography sx={{ fontSize: 12, opacity: 0.6, fontFamily: '"Roboto Mono", monospace' }}>
+            {threshold}
+          </Typography>
+        </Stack>
+      </Stack>
       <AnimatePresence>
         {expanded && cue && (
           <motion.div
@@ -483,48 +499,29 @@ function CriterionCard({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22 }}
-            className="overflow-hidden"
+            style={{ overflow: "hidden" }}
           >
-            <div className="pt-3 mt-3 border-t border-white/10 text-base leading-snug">
-              <div className="text-[10px] uppercase tracking-[0.3em] opacity-60 mb-1">
+            <Box sx={{ pt: 1.5, mt: 1.5, borderTop: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+              <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", opacity: 0.6, mb: 0.5, textTransform: "uppercase" }}>
                 Pick-up line
-              </div>
-              "{cue}"
-            </div>
+              </Typography>
+              <Typography sx={{ fontSize: 16, lineHeight: 1.4 }}>"{cue}"</Typography>
+            </Box>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </Card>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────── */
-/* Target SVG — renderar skotten från shot-sequence                     */
-/* ──────────────────────────────────────────────────────────────────── */
+/* ─── Annotations ──────────────────────────────────────────────────── */
 
-/**
- * Pilar & spread-ringar för zoom-läget — porterat från [spår 04 sim.html]
- * (UX-review 2026-05-28). Två typer:
- *
- *  - arrow      För HIT-red: pilar från centrum mot missarnas tyngdpunkt
- *               med riktningsetikett ("pulls left", "drops low", etc.)
- *  - spread-rings For SPREAD-red: limit-ring (grön streckad) vs actual-ring
- *               (red streckad) — visar hur långt utanför tröskeln spridningen är
- *
- * Renderas ENDAST i zoom (overview-korten ska vara rena så ögat snabbt
- * kan svepa över alla skyttar utan visuellt brus).
- */
 type Annotation =
   | { type: "arrow"; x1: number; y1: number; x2: number; y2: number; label: string }
   | { type: "spread-rings"; r_limit: number; r_actual: number };
 
 function computeAnnotations(result: AARResult): Annotation[] {
   const ann: Annotation[] = [];
-
-  // SPREAD red → ringar. Limit-ringen ligger alltid vid r=25% (det är
-  // hur skalningen i computeResult är definierad: spread_pct=25 motsvarar
-  // exakt threshold-cm). Actual = sequence.spread_pct, klamp så ringen
-  // syns även om den krympt liten.
   if (result.spread_status === "red") {
     ann.push({
       type: "spread-rings",
@@ -532,17 +529,12 @@ function computeAnnotations(result: AARResult): Annotation[] {
       r_actual: Math.min(45, Math.max(8, result.sequence.spread_pct)),
     });
   }
-
-  // HIT red → pil mot missarnas tyngdpunkt (om det finns minst två
-  // missar att räkna på, annars är riktningen brus).
   if (result.hit_status === "red") {
     const misses = result.sequence.shots.filter((s) => !s.hit);
     if (misses.length >= 2) {
       const cx = misses.reduce((a, s) => a + s.x, 0) / misses.length;
       const cy = misses.reduce((a, s) => a + s.y, 0) / misses.length;
       const mag = Math.sqrt(cx * cx + cy * cy);
-      // Bara om missarna verkligen klustrar (mag > 8% från centrum).
-      // Slumpmässigt spridda missar ska inte få en falsk pil.
       if (mag > 8) {
         let label = "";
         if (Math.abs(cx) > Math.abs(cy)) {
@@ -550,20 +542,14 @@ function computeAnnotations(result: AARResult): Annotation[] {
         } else {
           label = cy > 0 ? "drops low" : "shoots high";
         }
-        ann.push({
-          type: "arrow",
-          x1: 0,
-          y1: 0,
-          x2: Math.round(cx),
-          y2: Math.round(cy),
-          label,
-        });
+        ann.push({ type: "arrow", x1: 0, y1: 0, x2: Math.round(cx), y2: Math.round(cy), label });
       }
     }
   }
-
   return ann;
 }
+
+/* ─── Target SVG ───────────────────────────────────────────────────── */
 
 function TargetSvg({
   shots,
@@ -581,158 +567,85 @@ function TargetSvg({
   const accent = STATUS_STROKE[worst];
 
   return (
-    <svg
-      viewBox="-50 -50 100 100"
-      className="w-full h-full"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Papptavla — samma estetik som SimulationDuk för kontinuitet */}
-      <circle cx="0" cy="0" r="48" fill="#1c1c26" stroke="#33334a" strokeWidth="0.4" />
-      <circle cx="0" cy="0" r="36" fill="none" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="0.4" />
-      <circle cx="0" cy="0" r="25" fill="none" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.4" />
-      <circle cx="0" cy="0" r="14" fill="none" stroke="#ffffff" strokeOpacity="0.14" strokeWidth="0.4" />
-      <circle cx="0" cy="0" r="2.5" fill="#ffffff" fillOpacity="0.18" />
-      <line x1="-4" y1="0" x2="4" y2="0" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.3" />
-      <line x1="0" y1="-4" x2="0" y2="4" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.3" />
+    <Box sx={{ width: "100%", aspectRatio: "1 / 1" }}>
+      <svg
+        viewBox="-50 -50 100 100"
+        style={{ width: "100%", height: "100%" }}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle cx="0" cy="0" r="48" fill="var(--mui-palette-m3-surfaceContainer)" stroke="var(--mui-palette-m3-outlineVariant)" strokeWidth="0.4" />
+        <circle cx="0" cy="0" r="36" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
+        <circle cx="0" cy="0" r="25" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.4" />
+        <circle cx="0" cy="0" r="14" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.4" />
+        <circle cx="0" cy="0" r="2.5" fill="rgba(255,255,255,0.18)" />
+        <line x1="-4" y1="0" x2="4" y2="0" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
+        <line x1="0" y1="-4" x2="0" y2="4" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
 
-      {/* Subtilt status-glow runt kanten (bara i AAR — ger en tonkänsla
-          utan att skotten själva blir färgade) */}
-      <circle
-        cx="0"
-        cy="0"
-        r="48"
-        fill="none"
-        stroke={accent}
-        strokeOpacity={worst === "green" ? 0.15 : worst === "yellow" ? 0.35 : 0.5}
-        strokeWidth="0.6"
-      />
+        <circle
+          cx="0"
+          cy="0"
+          r="48"
+          fill="none"
+          stroke={accent}
+          strokeOpacity={worst === "green" ? 0.15 : worst === "yellow" ? 0.35 : 0.5}
+          strokeWidth="0.6"
+        />
 
-      {/* Annotations (bara i zoom) — ritas BAKOM skotten så skotten syns över */}
-      {annotations.map((a, i) => {
-        if (a.type === "spread-rings") {
+        {annotations.map((a, i) => {
+          if (a.type === "spread-rings") {
+            return (
+              <g key={`ann-${i}`}>
+                <circle cx="0" cy="0" r={a.r_limit} fill="none" stroke="var(--mui-palette-success-main)" strokeOpacity="0.7" strokeWidth="0.5" strokeDasharray="2,1.5" />
+                <circle cx="0" cy="0" r={a.r_actual} fill="none" stroke="var(--mui-palette-error-main)" strokeOpacity="0.8" strokeWidth="0.6" strokeDasharray="2,1.5" />
+                <text x={a.r_limit + 2} y="-1.5" fill="var(--mui-palette-success-main)" fontSize="3.2" opacity="0.85" fontFamily="ui-monospace, monospace">
+                  limit
+                </text>
+                <text x={a.r_actual + 2} y="4" fill="var(--mui-palette-error-main)" fontSize="3.2" opacity="0.85" fontFamily="ui-monospace, monospace">
+                  actual
+                </text>
+              </g>
+            );
+          }
           return (
             <g key={`ann-${i}`}>
-              <circle
-                cx="0"
-                cy="0"
-                r={a.r_limit}
-                fill="none"
-                stroke="hsl(var(--status-success))"
-                strokeOpacity="0.7"
-                strokeWidth="0.5"
-                strokeDasharray="2,1.5"
-              />
-              <circle
-                cx="0"
-                cy="0"
-                r={a.r_actual}
-                fill="none"
-                stroke="hsl(var(--status-attention))"
-                strokeOpacity="0.8"
-                strokeWidth="0.6"
-                strokeDasharray="2,1.5"
-              />
-              <text
-                x={a.r_limit + 2}
-                y="-1.5"
-                fill="hsl(var(--status-success))"
-                fontSize="3.2"
-                opacity="0.85"
-                fontFamily="ui-monospace, monospace"
-              >
-                limit
-              </text>
-              <text
-                x={a.r_actual + 2}
-                y="4"
-                fill="hsl(var(--status-attention))"
-                fontSize="3.2"
-                opacity="0.85"
-                fontFamily="ui-monospace, monospace"
-              >
-                actual
+              <defs>
+                <marker id={`arrowhead-${i}`} markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto">
+                  <path d="M0,0 L5,2.5 L0,5 Z" fill={accent} opacity="0.7" />
+                </marker>
+              </defs>
+              <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke={accent} strokeWidth="0.8" strokeDasharray="2,1.2" opacity="0.55" markerEnd={`url(#arrowhead-${i})`} />
+              <text x={a.x2} y={a.y2 - 3} fill={accent} fontSize="3.2" opacity="0.9" fontFamily="ui-monospace, monospace" textAnchor="middle">
+                {a.label}
               </text>
             </g>
           );
-        }
-        // arrow
-        return (
-          <g key={`ann-${i}`}>
-            <defs>
-              <marker
-                id={`arrowhead-${i}`}
-                markerWidth="5"
-                markerHeight="5"
-                refX="2.5"
-                refY="2.5"
-                orient="auto"
-              >
-                <path d="M0,0 L5,2.5 L0,5 Z" fill={accent} opacity="0.7" />
-              </marker>
-            </defs>
-            <line
-              x1={a.x1}
-              y1={a.y1}
-              x2={a.x2}
-              y2={a.y2}
-              stroke={accent}
-              strokeWidth="0.8"
-              strokeDasharray="2,1.2"
-              opacity="0.55"
-              markerEnd={`url(#arrowhead-${i})`}
-            />
-            <text
-              x={a.x2}
-              y={a.y2 - 3}
-              fill={accent}
-              fontSize="3.2"
-              opacity="0.9"
-              fontFamily="ui-monospace, monospace"
-              textAnchor="middle"
-            >
-              {a.label}
-            </text>
-          </g>
-        );
-      })}
+        })}
 
-      {/* Skott */}
-      {shots.map((shot) => (
-        <g key={shot.i}>
-          {shot.hit ? (
-            <>
-              <circle cx={shot.x} cy={shot.y} r={hitRadius} fill="#ffffff" opacity="0.92" />
-              <circle cx={shot.x} cy={shot.y} r={hitRadius + 1} fill="none" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="0.4" />
-            </>
-          ) : (
-            <circle
-              cx={shot.x}
-              cy={shot.y}
-              r={missRadius}
-              fill="none"
-              stroke="#ffffff"
-              strokeOpacity="0.45"
-              strokeWidth="0.5"
-            />
-          )}
-        </g>
-      ))}
-    </svg>
+        {shots.map((shot) => (
+          <g key={shot.i}>
+            {shot.hit ? (
+              <>
+                <circle cx={shot.x} cy={shot.y} r={hitRadius} fill="#ffffff" opacity="0.92" />
+                <circle cx={shot.x} cy={shot.y} r={hitRadius + 1} fill="none" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="0.4" />
+              </>
+            ) : (
+              <circle cx={shot.x} cy={shot.y} r={missRadius} fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="0.5" />
+            )}
+          </g>
+        ))}
+      </svg>
+    </Box>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────── */
-/* Småkomponenter                                                       */
-/* ──────────────────────────────────────────────────────────────────── */
-
 function EmptyState({ title, sub }: { title: string; sub: string }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-white text-center px-12">
-      <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">
+    <Stack sx={{ flex: 1, alignItems: "center", justifyContent: "center", textAlign: "center" }} spacing={2}>
+      <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
         After Action Review
-      </div>
-      <div className="text-5xl font-light">{title}</div>
-      <div className="mt-4 text-sm text-white/40">{sub}</div>
-    </div>
+      </Typography>
+      <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>{title}</Typography>
+      <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>{sub}</Typography>
+    </Stack>
   );
 }

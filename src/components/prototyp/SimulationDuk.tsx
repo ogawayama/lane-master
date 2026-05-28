@@ -1,35 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { Box, Stack, Typography } from "@mui/material";
 import { supabase } from "@/integrations/supabase/client";
 import { buildShotSequence, type Shot } from "@/services/shotSimulation";
 import type { ExerciseListItem, Section } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+import { dukTypography } from "@/theme/tv";
 
-// Fjärr-hints för exercise-fasen.
+/**
+ * Helhetsprototyp — SimulationDuk (M3-omskrivning 2026-05-28).
+ *
+ * Papptavlor per upptagen bana, skott dyker upp över tid (deterministisk
+ * sekvens från shotSimulation.ts). Ren bild — inga triage-färger på
+ * duken under övning. M3-chrome runt: live-indikator som M3 status-dot,
+ * timer i extra-large mono-font (dukTypography.timerHero), nedräkning
+ * subtilt placerad övre höger.
+ */
+
 const EXERCISE_HINTS: RemoteKeyHint[] = [
   { keys: ["OK"], label: "end early", primary: true },
 ];
-
-/**
- * Helhetsprototyp — SimulationDuk (Pass 4, omdesignad 2026-05-28).
- *
- * Per [beslut 2026-05-28]: duken visar inte längre en timer-platshållare
- * under exercise-fasen. Istället visar duken **papptavlor per bana** med
- * skott som dyker upp över tid — samma mönster som syns här följer med
- * in i AAR-vyn utan diskontinuitet.
- *
- * Designprincip: "rent" — INGA triage-färger på duken under övning.
- * Skotten är bara skott (träff = ifylld punkt, miss = ring). Färger
- * och tolkning är instruktörens privata skikt (DAR-tabletten).
- *
- * Lane UI är inte längre en overlay-toggle — det här ÄR Lane UI,
- * permanent under hela övningen. Det är vad alla i rummet ser.
- *
- * När en stand-in: i verklig drift visar duken Unity-spelet. Dessa
- * papptavlor är en test-rigg-affordance så testpersoner har något att
- * reagera på och så att DAR→AAR-kontinuiteten kan utvärderas.
- */
 
 interface LaneInfo {
   lane_number: number;
@@ -51,7 +42,6 @@ export function SimulationDuk({
   section: Section;
   onEnd: () => void;
 }) {
-  // Endast upptagna banor visas på duken under övning.
   const { data: lanes = [] } = useQuery({
     queryKey: ["sim-lanes-occupied", section],
     queryFn: async () => {
@@ -68,23 +58,14 @@ export function SimulationDuk({
 
   const totalMs = (exercise?.time_seconds ?? 60) * 1000;
 
-  // Deterministisk skott-sekvens per bana — samma instans som AARDuk
-  // konsumerar. Memoiseras på exercise + lanes så vi inte rebuildar
-  // varje render.
   const sequences = useMemo<LaneSequence[]>(() => {
     if (!exercise) return [];
     return lanes.map((l) => {
       const seq = buildShotSequence(l.lane_number, exercise);
-      return {
-        ...l,
-        shots: seq.shots,
-        total_shots: seq.total_shots,
-      };
+      return { ...l, shots: seq.shots, total_shots: seq.total_shots };
     });
   }, [lanes, exercise]);
 
-  // RAF-driven elapsed-räknare. Driver vilka skott som syns just nu.
-  // Resettas när exercise byter (eller komponenten remountar).
   const [elapsedMs, setElapsedMs] = useState(0);
   useEffect(() => {
     if (!exercise) return;
@@ -94,26 +75,23 @@ export function SimulationDuk({
     const tick = () => {
       const elapsed = performance.now() - start;
       setElapsedMs(elapsed);
-      if (elapsed < totalMs) {
-        rafId = requestAnimationFrame(tick);
-      }
+      if (elapsed < totalMs) rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, [exercise?.id, totalMs]);
 
-  // Auto-end när tiden runnit ut. onEnd är stabilt callback från DukShell.
   useEffect(() => {
-    if (totalMs > 0 && elapsedMs >= totalMs) {
-      onEnd();
-    }
+    if (totalMs > 0 && elapsedMs >= totalMs) onEnd();
   }, [elapsedMs, totalMs, onEnd]);
 
   if (!exercise) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-white">
-        <div className="text-4xl font-light">No exercise running</div>
-      </div>
+      <Stack sx={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+          No exercise running
+        </Typography>
+      </Stack>
     );
   }
 
@@ -122,25 +100,70 @@ export function SimulationDuk({
   const ss = String(Math.floor((remainingMs % 60000) / 1000)).padStart(2, "0");
 
   return (
-    <div className="flex-1 flex flex-col text-white">
-      {/* Header — diskret kontext + nedräkning */}
-      <div className="grid grid-cols-3 items-baseline px-12 pt-10 pb-6">
-        <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.4em] text-white/40">
-          <span className="w-1.5 h-1.5 rounded-full bg-status-attention animate-pulse" />
-          <span>Live · Exercise running</span>
-        </div>
-        <div className="text-center text-[11px] uppercase tracking-[0.3em] text-white/40 font-mono truncate">
+    <Stack sx={{ flex: 1 }}>
+      {/* Header — Live + title + timer */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          alignItems: "baseline",
+          px: 6,
+          pt: 5,
+          pb: 3,
+        }}
+      >
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              bgcolor: "error.main",
+              animation: "pulse 1.4s ease-in-out infinite",
+              "@keyframes pulse": {
+                "0%, 100%": { opacity: 1 },
+                "50%": { opacity: 0.25 },
+              },
+            }}
+          />
+          <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
+            Live · Exercise running
+          </Typography>
+        </Stack>
+        <Typography
+          sx={{
+            ...dukTypography.labelMedium,
+            color: "text.secondary",
+            textAlign: "center",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {exercise.title}
-        </div>
-        <div className="text-right text-[11px] uppercase tracking-[0.3em] text-white/40 font-mono tabular-nums">
+        </Typography>
+        <Typography
+          sx={{
+            ...dukTypography.titleLarge,
+            color: "text.primary",
+            textAlign: "right",
+            fontFamily: '"Roboto Mono", monospace',
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
           {mm}:{ss}
-        </div>
-      </div>
+        </Typography>
+      </Box>
 
-      {/* Lanes-vyn — papptavlor sida vid sida */}
-      <div
-        className="flex-1 px-8 pb-8 grid gap-6 items-end"
-        style={{
+      {/* Lane targets row */}
+      <Box
+        sx={{
+          flex: 1,
+          px: 4,
+          pb: 4,
+          display: "grid",
+          alignItems: "end",
+          gap: 3,
           gridTemplateColumns: `repeat(${Math.max(1, sequences.length)}, minmax(0, 1fr))`,
         }}
       >
@@ -154,14 +177,21 @@ export function SimulationDuk({
           />
         ))}
         {sequences.length === 0 && (
-          <div className="col-span-full flex items-center justify-center text-white/30 text-lg">
+          <Typography
+            sx={{
+              ...dukTypography.bodyLarge,
+              gridColumn: "1 / -1",
+              textAlign: "center",
+              color: "text.disabled",
+            }}
+          >
             No lanes occupied.
-          </div>
+          </Typography>
         )}
-      </div>
+      </Box>
 
       <PhaseHints hints={EXERCISE_HINTS} />
-    </div>
+    </Stack>
   );
 }
 
@@ -176,26 +206,22 @@ function LaneTarget({
   shots: Shot[];
   totalShots: number;
 }) {
-  // Respektera prefers-reduced-motion — visa skotten direkt utan
-  // scale-in-animation om användaren bett om mindre rörelse.
   const prefersReducedMotion = useReducedMotion();
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative w-full max-w-[280px] aspect-square">
+    <Stack sx={{ alignItems: "center" }} spacing={2}>
+      <Box sx={{ position: "relative", width: "100%", maxWidth: 320, aspectRatio: "1 / 1" }}>
         <svg
           viewBox="-50 -50 100 100"
-          className="w-full h-full"
+          style={{ width: "100%", height: "100%" }}
           xmlns="http://www.w3.org/2000/svg"
         >
-          {/* Papptavlan — beige/varm-grå fond med subtila ringar */}
-          <circle cx="0" cy="0" r="48" fill="#1c1c26" stroke="#33334a" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="36" fill="none" stroke="#ffffff" strokeOpacity="0.06" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="25" fill="none" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="14" fill="none" stroke="#ffffff" strokeOpacity="0.14" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="2.5" fill="#ffffff" fillOpacity="0.18" />
-          {/* Center cross-hair */}
-          <line x1="-4" y1="0" x2="4" y2="0" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.3" />
-          <line x1="0" y1="-4" x2="0" y2="4" stroke="#ffffff" strokeOpacity="0.10" strokeWidth="0.3" />
+          <circle cx="0" cy="0" r="48" fill="var(--mui-palette-m3-surfaceContainer)" stroke="var(--mui-palette-m3-outlineVariant)" strokeWidth="0.4" />
+          <circle cx="0" cy="0" r="36" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
+          <circle cx="0" cy="0" r="25" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.4" />
+          <circle cx="0" cy="0" r="14" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.4" />
+          <circle cx="0" cy="0" r="2.5" fill="rgba(255,255,255,0.18)" />
+          <line x1="-4" y1="0" x2="4" y2="0" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
+          <line x1="0" y1="-4" x2="0" y2="4" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
 
           <AnimatePresence>
             {shots.map((shot) => (
@@ -206,39 +232,46 @@ function LaneTarget({
                 transition={{ duration: prefersReducedMotion ? 0 : 0.25, ease: "easeOut" }}
               >
                 {shot.hit ? (
-                  // Träff — solid vit punkt (papp-genomslag)
                   <>
                     <circle cx={shot.x} cy={shot.y} r="2.6" fill="#ffffff" opacity="0.92" />
                     <circle cx={shot.x} cy={shot.y} r="3.6" fill="none" stroke="#ffffff" strokeOpacity="0.20" strokeWidth="0.4" />
                   </>
                 ) : (
-                  // Miss — tunn ring (skott som inte träffade tavlan)
-                  <circle
-                    cx={shot.x}
-                    cy={shot.y}
-                    r="1.8"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeOpacity="0.45"
-                    strokeWidth="0.5"
-                  />
+                  <circle cx={shot.x} cy={shot.y} r="1.8" fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="0.5" />
                 )}
               </motion.g>
             ))}
           </AnimatePresence>
         </svg>
-      </div>
-      <div className="text-center">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+      </Box>
+      <Stack sx={{ alignItems: "center" }}>
+        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
           Lane {laneNumber}
-        </div>
-        <div className="text-base text-white/85 truncate max-w-[220px]">
+        </Typography>
+        <Typography
+          sx={{
+            ...dukTypography.titleLarge,
+            color: "text.primary",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            maxWidth: 240,
+          }}
+        >
           {name ?? "—"}
-        </div>
-        <div className="text-[10px] font-mono text-white/30 mt-1 tabular-nums">
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: 11,
+            fontFamily: '"Roboto Mono", monospace',
+            color: "text.disabled",
+            mt: 0.5,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
           {shots.length} / {totalShots} shots
-        </div>
-      </div>
-    </div>
+        </Typography>
+      </Stack>
+    </Stack>
   );
 }

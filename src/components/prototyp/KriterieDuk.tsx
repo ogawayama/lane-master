@@ -1,33 +1,31 @@
+import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+import {
+  GpsFixed as TargetIcon,
+  AccessTime as TimerIcon,
+  CenterFocusStrong as SpreadIcon,
+} from "@mui/icons-material";
 import { motion } from "framer-motion";
-import { Target, Timer, Crosshair } from "lucide-react";
 import type { ExerciseListItem } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+import { dukTypography, heroCardSx, tvSafeInset } from "@/theme/tv";
 
-// Fjärr-hints för preflight-fasen.
+/**
+ * Helhetsprototyp — KriterieDuk (M3-omskrivning 2026-05-28).
+ *
+ * Duken under preflight-fasen. M3 Featured Card med två-kolumns-layout:
+ * vänster = övningens titel + objective-label, höger = hero-area med
+ * vapen-symbol över gradient (tonal background). Under: tre M3 outlined
+ * Chips för Hits/Time/Spread-kriterierna. M3 ikoner från
+ * @mui/icons-material.
+ *
+ * Designspråk: "biograf" — large display type, generös whitespace,
+ * inget mus-element. Allt drivs av fjärr.
+ */
+
 const PREFLIGHT_HINTS: RemoteKeyHint[] = [
   { keys: ["BACK"], label: "back to check-in" },
   { keys: ["OK"], label: "start exercise", primary: true },
 ];
-
-/**
- * Helhetsprototyp — KriterieDuk (Pass 3).
- *
- * Duken under preflight-fasen. Per
- * [helhetsprototyp/plan.md §5 Pass 3] + [spår 05:s spårkort §Yt-rollerna]
- * + [spår 02 halva B]: kriterieskärmen ÄR Preflight & Play.
- *
- * Tre saker, en vy:
- *   • Briefing  — titel + tränings-typ + foto/symbol-platshållare
- *   • Kriterier — Hits / Time / Spread från [spår 04:s modell]
- *   • Start-CTA — visuell hint om att fjärr-OK startar övningen
- *
- * Read-only på duken (per spår 05:s beslut 2026-05-25:
- * "Add more criteria"-knappen borta). Kriterier sätts i pre-pass
- * ([spår 01](GS-POM/spår/01-relational-system-driven-by-rules)).
- *
- * Designspråk: "biograf" — hero-foton/symboler, stora ytor, lugn.
- * Inget chrome, inget mus-element. Allt drivs av fjärr.
- */
 
 export function KriterieDuk({
   exercise,
@@ -42,83 +40,129 @@ export function KriterieDuk({
 }) {
   if (awaitingExercise || !exercise) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-12 text-white">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">
+      <Stack
+        sx={{ ...tvSafeInset, flex: 1, alignItems: "center", justifyContent: "center" }}
+        spacing={2}
+      >
+        <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
           Preflight
-        </div>
-        <div className="text-5xl font-light mb-4">No exercise queued</div>
-        <div className="text-sm text-white/40 max-w-md">
+        </Typography>
+        <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+          No exercise queued
+        </Typography>
+        <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>
           Return to pre-pass preparation and add an exercise to the list.
-        </div>
-      </div>
+        </Typography>
+      </Stack>
     );
   }
 
-  // Foto-platshållare baserad på vapen — färgad gradient + symbol.
-  // I framtiden ersätts detta med riktiga bilder i public/exercises/.
   const heroGradient = gradientFor(exercise.weapon);
 
   return (
-    <div className="flex-1 flex flex-col text-white">
-      {/* Top — kontext-rad */}
-      <div className="flex items-baseline justify-between px-12 pt-12">
-        <div className="text-[11px] uppercase tracking-[0.4em] text-white/40">
-          Preflight · Exercise {exerciseNumber} of {totalExercises}
-        </div>
-        <div className="text-[11px] uppercase tracking-[0.3em] text-white/30 font-mono">
+    <Stack sx={{ flex: 1 }}>
+      {/* Top context-rad */}
+      <Box sx={{ px: 6, pt: 6, display: "flex", justifyContent: "space-between" }}>
+        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
+          Preflight {totalExercises > 1 ? `· Exercise ${exerciseNumber} of ${totalExercises}` : ""}
+        </Typography>
+        <Typography
+          sx={{
+            ...dukTypography.labelMedium,
+            fontFamily: '"Roboto Mono", monospace',
+            color: "text.secondary",
+          }}
+        >
           {exercise.weapon ?? "—"}
-        </div>
-      </div>
+        </Typography>
+      </Box>
 
-      {/* Hero — titel + visual placeholder */}
-      <div className="flex-1 grid grid-cols-2 gap-12 px-12 py-8">
-        <div className="flex flex-col justify-center">
+      {/* Hero — title + visual */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 6,
+          px: 6,
+          py: 4,
+        }}
+      >
+        <Stack sx={{ justifyContent: "center" }} spacing={3}>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <div className="text-[12px] uppercase tracking-[0.35em] text-white/40 mb-4">
+            <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary", mb: 2 }}>
               Today's objective
-            </div>
-            <h1 className="text-6xl font-light leading-[1.05] tracking-tight">
+            </Typography>
+            <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
               {exercise.title}
-            </h1>
+            </Typography>
           </motion.div>
-        </div>
+        </Stack>
 
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="relative rounded-3xl overflow-hidden"
-          style={{ background: heroGradient }}
+          style={{ display: "flex" }}
         >
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Crosshair className="h-32 w-32 text-white/20" strokeWidth={1} />
-          </div>
-          <div className="absolute bottom-6 left-6 right-6 text-center">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-              Weapon
-            </div>
-            <div className="text-2xl font-light mt-1">{exercise.weapon ?? "—"}</div>
-          </div>
+          <Card
+            sx={{
+              ...heroCardSx,
+              flex: 1,
+              background: heroGradient,
+              position: "relative",
+              minHeight: 0,
+            }}
+          >
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <SpreadIcon sx={{ fontSize: 200, color: "rgba(255,255,255,0.18)" }} />
+            </Box>
+            <Stack
+              sx={{
+                position: "absolute",
+                bottom: 24,
+                left: 24,
+                right: 24,
+                alignItems: "center",
+              }}
+              spacing={0.5}
+            >
+              <Typography sx={{ ...dukTypography.labelMedium, color: "rgba(255,255,255,0.6)" }}>
+                Weapon
+              </Typography>
+              <Typography sx={{ ...dukTypography.headlineSmall, color: "white" }}>
+                {exercise.weapon ?? "—"}
+              </Typography>
+            </Stack>
+          </Card>
         </motion.div>
-      </div>
+      </Box>
 
-      {/* Kriterier */}
-      <div className="px-12 pb-8">
-        <div className="text-[11px] uppercase tracking-[0.3em] text-white/40 mb-4">
+      {/* Pass-criteria */}
+      <Box sx={{ px: 6, pb: 4 }}>
+        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary", mb: 2 }}>
           Pass criteria
-        </div>
-        <div className="grid grid-cols-3 gap-6">
+        </Typography>
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 }}>
           <CriterionCard
-            icon={<Target className="h-5 w-5" />}
+            icon={<TargetIcon sx={{ fontSize: 28 }} />}
             label="Hits"
             value={`≥ ${exercise.hits_threshold ?? "—"}`}
           />
           <CriterionCard
-            icon={<Timer className="h-5 w-5" />}
+            icon={<TimerIcon sx={{ fontSize: 28 }} />}
             label="Time"
             value={
               exercise.time_seconds !== undefined
@@ -127,15 +171,15 @@ export function KriterieDuk({
             }
           />
           <CriterionCard
-            icon={<Crosshair className="h-5 w-5" />}
+            icon={<SpreadIcon sx={{ fontSize: 28 }} />}
             label="Spread"
             value={`≤ ${exercise.spread_threshold ?? "—"} cm`}
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       <PhaseHints hints={PREFLIGHT_HINTS} />
-    </div>
+    </Stack>
   );
 }
 
@@ -149,20 +193,33 @@ function CriterionCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <div className="flex items-center gap-2 text-white/50 mb-2">
+    <Card
+      sx={{
+        bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
+        borderRadius: "20px",
+        p: 3,
+        display: "flex",
+        flexDirection: "column",
+        gap: 1.5,
+      }}
+    >
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", color: "text.secondary" }}>
         {icon}
-        <span className="text-[11px] uppercase tracking-[0.3em]">{label}</span>
-      </div>
-      <div className="text-3xl font-light tabular-nums">{value}</div>
-    </div>
+        <Typography sx={{ ...dukTypography.labelMedium }}>{label}</Typography>
+      </Stack>
+      <Typography sx={{ ...dukTypography.headlineMedium, color: "text.primary" }}>
+        {value}
+      </Typography>
+    </Card>
   );
 }
 
-// Stable gradient per weapon — visual identitet utan riktiga bilder.
+// Stable gradient per weapon — using M3 tertiary tone to feel coherent.
 function gradientFor(weapon?: string): string {
-  if (!weapon) return "linear-gradient(135deg, #1f2937 0%, #0f172a 100%)";
+  if (!weapon) {
+    return "linear-gradient(135deg, var(--mui-palette-m3-surfaceContainerHigh) 0%, var(--mui-palette-m3-surfaceContainer) 100%)";
+  }
   const seed = [...weapon].reduce((a, c) => a + c.charCodeAt(0), 0);
   const hue = seed % 360;
-  return `linear-gradient(135deg, hsl(${hue} 35% 25%) 0%, hsl(${(hue + 40) % 360} 50% 12%) 100%)`;
+  return `linear-gradient(135deg, hsl(${hue} 35% 22%) 0%, hsl(${(hue + 40) % 360} 50% 10%) 100%)`;
 }
