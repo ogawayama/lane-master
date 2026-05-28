@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useLastRemoteEvent, type RemoteEvent } from "@/hooks/useRemoteControl";
 
 /**
@@ -8,9 +9,10 @@ import { useLastRemoteEvent, type RemoteEvent } from "@/hooks/useRemoteControl";
  * så testpersoner ser exakt vad keyboard-fjärren skickade. Per
  * helhetsprototyp/plan.md §4.
  *
- * Detta är NOLL produktivt UI — det är ett test-instrument. Tas bort
- * (eller hidden bakom `?debug=1`) inför riktig användarstudie där vi
- * inte vill att testpersonen ser sin egen knapp blinka.
+ * Detta är NOLL produktivt UI — det är ett test-instrument. Per
+ * [UX-review 2026-05-28]: dolt by default, visas endast med ?debug=1
+ * i URL:en så testpersoner inte distraheras av att se sin egen
+ * knapp blinka.
  */
 
 const LABEL: Record<RemoteEvent, string> = {
@@ -26,10 +28,14 @@ const LABEL: Record<RemoteEvent, string> = {
 const HIGHLIGHT_MS = 600;
 
 export function RemoteOverlay({
-  position = "bottom-right",
+  position = "top-left",
 }: {
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
 }) {
+  // Endast synlig med ?debug=1 — annars dold (per UX-review 2026-05-28).
+  const [searchParams] = useSearchParams();
+  const debug = searchParams.get("debug") === "1";
+
   const last = useLastRemoteEvent();
   const [flashing, setFlashing] = useState<RemoteEvent | null>(null);
 
@@ -39,6 +45,8 @@ export function RemoteOverlay({
     const t = setTimeout(() => setFlashing(null), HIGHLIGHT_MS);
     return () => clearTimeout(t);
   }, [last]);
+
+  if (!debug) return null;
 
   const positionClass = {
     "bottom-right": "bottom-4 right-4",

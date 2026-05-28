@@ -1,6 +1,13 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Crosshair, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Crosshair } from "lucide-react";
 import type { ExerciseListItem } from "@/services/sessionService";
+import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+
+// Fjärr-hints för select-exercise-fasen.
+const SELECT_HINTS: RemoteKeyHint[] = [
+  { keys: ["◀", "▶"], label: "browse" },
+  { keys: ["OK"], label: "start with this exercise", primary: true },
+];
 
 /**
  * Helhetsprototyp — SelectExerciseDuk (iteration 2026-05-26).
@@ -89,18 +96,13 @@ export function SelectExerciseDuk({
         </AnimatePresence>
       </div>
 
-      {/* Thumbnail strip */}
-      <div className="px-12 pb-8">
+      {/* Thumbnail strip — fjärr-hinten lever i den globala PhaseHints nedan */}
+      <div className="px-12 pb-4">
         <div className="flex items-center gap-4 mb-3">
           <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">
             In order
           </div>
           <div className="flex-1 h-px bg-white/10" />
-          <div className="text-[10px] uppercase tracking-[0.3em] text-white/30 flex items-center gap-2">
-            <ChevronLeft className="h-3 w-3" />
-            <ChevronRight className="h-3 w-3" />
-            <span>Navigate · OK to select</span>
-          </div>
         </div>
         <div className="flex gap-3 overflow-hidden">
           {exercises.map((ex, i) => (
@@ -114,6 +116,8 @@ export function SelectExerciseDuk({
           ))}
         </div>
       </div>
+
+      <PhaseHints hints={SELECT_HINTS} />
     </div>
   );
 }
@@ -130,7 +134,7 @@ function SelectCta() {
   return (
     <div
       aria-hidden
-      className="inline-flex items-center gap-3 self-start rounded-full bg-amber-400 text-black px-6 py-3 text-base font-medium shadow-lg shadow-amber-400/20"
+      className="inline-flex items-center gap-3 self-start rounded-full bg-status-warning text-black px-6 py-3 text-base font-medium shadow-lg shadow-status-warning/20"
     >
       <Play className="h-5 w-5 fill-current" />
       <span>Press OK to select</span>

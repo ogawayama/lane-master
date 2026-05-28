@@ -1,6 +1,13 @@
 import { motion } from "framer-motion";
-import { Target, Timer, Crosshair, ChevronRight } from "lucide-react";
+import { Target, Timer, Crosshair } from "lucide-react";
 import type { ExerciseListItem } from "@/services/sessionService";
+import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+
+// Fjärr-hints för preflight-fasen.
+const PREFLIGHT_HINTS: RemoteKeyHint[] = [
+  { keys: ["BACK"], label: "back to check-in" },
+  { keys: ["OK"], label: "start exercise", primary: true },
+];
 
 /**
  * Helhetsprototyp — KriterieDuk (Pass 3).
@@ -127,15 +134,7 @@ export function KriterieDuk({
         </div>
       </div>
 
-      {/* Start-CTA — fjärr-hint */}
-      <div className="px-12 pb-12 flex items-center justify-center gap-3 text-white/60">
-        <span className="text-sm uppercase tracking-[0.3em]">Press</span>
-        <span className="inline-flex items-center justify-center h-9 w-12 rounded border border-white/40 text-sm font-mono">
-          OK
-        </span>
-        <span className="text-sm uppercase tracking-[0.3em]">to start</span>
-        <ChevronRight className="h-4 w-4 opacity-50 ml-2" />
-      </div>
+      <PhaseHints hints={PREFLIGHT_HINTS} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import {
+  createIdleSession,
   resetSession,
   setExerciseList,
   setPhase,
@@ -101,7 +102,9 @@ export default function WizardShell() {
         </p>
       </div>
 
-      {/* Session info */}
+      {/* Session info — visa Create-knapp om ingen session existerar
+          (UX-review 2026-05-28: tidigare visade hooken "Loading…" för
+          alltid när rad saknades, och alla knappar var disabled). */}
       <section className="rounded-lg border border-border bg-card p-5 mb-4">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
           Active session
@@ -114,6 +117,19 @@ export default function WizardShell() {
             <div>exercises: {session.exercise_list.length}</div>
             <div>current_index: {session.current_exercise_index}</div>
             <div>lane_ui_visible: {String(session.lane_ui_visible)}</div>
+          </div>
+        )}
+        {!loading && !session && (
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground">
+              No session for <span className="font-mono text-foreground">{section}</span>. Create one to enable the controls below.
+            </div>
+            <Button
+              size="sm"
+              onClick={() => void createIdleSession(section)}
+            >
+              Create idle session
+            </Button>
           </div>
         )}
       </section>
@@ -153,29 +169,31 @@ export default function WizardShell() {
         </div>
       </section>
 
-      {/* Remote injection — for testing without a keyboard */}
+      {/* Remote injection — for testing without a keyboard. Touch-targets
+          ≥44pt så facilitatorn kan trycka snabbt under stress (UX-review
+          2026-05-28). */}
       <section className="rounded-lg border border-border bg-card p-5 mb-4">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
           Inject remote press (test without keyboard)
         </div>
-        <div className="grid grid-cols-3 gap-2 max-w-xs">
+        <div className="grid grid-cols-3 gap-2 max-w-sm">
           <div />
-          <Button size="sm" variant="outline" onClick={() => pressRemote("up")}>▲</Button>
+          <Button className="h-12" variant="outline" onClick={() => pressRemote("up")}>▲</Button>
           <div />
-          <Button size="sm" variant="outline" onClick={() => pressRemote("left")}>◀</Button>
-          <Button size="sm" variant="default" onClick={() => pressRemote("ok")}>OK</Button>
-          <Button size="sm" variant="outline" onClick={() => pressRemote("right")}>▶</Button>
-          <Button size="sm" variant="outline" onClick={() => pressRemote("back")}>BACK</Button>
-          <Button size="sm" variant="outline" onClick={() => pressRemote("down")}>▼</Button>
-          <Button size="sm" variant="outline" onClick={() => pressRemote("holdOk")}>HOLD</Button>
+          <Button className="h-12" variant="outline" onClick={() => pressRemote("left")}>◀</Button>
+          <Button className="h-12" variant="default" onClick={() => pressRemote("ok")}>OK</Button>
+          <Button className="h-12" variant="outline" onClick={() => pressRemote("right")}>▶</Button>
+          <Button className="h-12 text-xs" variant="outline" onClick={() => pressRemote("back")}>BACK</Button>
+          <Button className="h-12" variant="outline" onClick={() => pressRemote("down")}>▼</Button>
+          <Button className="h-12 text-xs" variant="outline" onClick={() => pressRemote("holdOk")}>HOLD</Button>
         </div>
       </section>
 
       {/* DAR Wizard-of-Oz signaller — Pass 5 */}
-      <section className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-5">
+      <section className="rounded-lg border border-status-warning/30 bg-status-warning/5 p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div className="text-xs uppercase tracking-wider text-amber-500">
+            <div className="text-xs uppercase tracking-wider text-status-warning">
               DAR signals · Wizard-of-Oz (spår 03)
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -183,15 +201,36 @@ export default function WizardShell() {
               exercise phase. Never on the duk.
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!session}
-            onClick={() => session && void clearAllSignals(session.id)}
-            className="text-amber-600 hover:text-amber-700"
-          >
-            Clear all
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!session || lanes.length === 0}
+              onClick={() => {
+                if (!session) return;
+                // Realistisk WoZ-mix: ~1 röd, ~2 gula, resten grön
+                // (matchar typisk gruppsession). Seedat med Math.random
+                // för spontan variation mellan körningar.
+                const shuffled = [...lanes].sort(() => Math.random() - 0.5);
+                const statuses: DarStatus[] = ["red", "yellow", "yellow", "green", "green", "green", "green"];
+                shuffled.forEach((lane, i) => {
+                  const status = statuses[i] ?? "green";
+                  void setSignal(session.id, section, lane, status);
+                });
+              }}
+            >
+              Random scenario
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!session}
+              onClick={() => session && void clearAllSignals(session.id)}
+              className="text-status-warning hover:text-status-warning/80"
+            >
+              Clear all
+            </Button>
+          </div>
         </div>
 
         {lanes.length === 0 ? (

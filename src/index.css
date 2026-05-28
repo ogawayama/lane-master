@@ -44,6 +44,21 @@
     --sidebar-accent-foreground: 0 0% 93%;
     --sidebar-border: 0 0% 14%;
     --sidebar-ring: 203 100% 50%;
+
+    /* ── Helhetsprototyp · semantiska status-tokens ─────────────────
+       Triage-/readiness-färger användes hårdkodat (red-500 / amber-400 /
+       emerald-500) i alla prototyp-vyer. Tokens här gör UNIFORM-
+       landningen till ett färgbyte istället för en komponentrefactor.
+       HSL för att tonas (alpha via hsl(var(--token) / 0.X)). */
+    --status-attention: 0 84% 60%;    /* red-500 ≈ rgb(239 68 68) */
+    --status-warning:   38 92% 50%;   /* amber-400 ≈ rgb(251 191 36) */
+    --status-success:   158 64% 52%;  /* emerald-500 ≈ rgb(16 185 129) */
+
+    /* Prototyp-surfaces på duken (utöver --background/--card som styrs
+       av shadcn). Använd för biograf-stil dark surfaces. */
+    --proto-surface:          0 0% 11%;   /* svagt upphöjt på pure black */
+    --proto-surface-elevated: 0 0% 14%;
+    --proto-border-subtle:    0 0% 100% / 0.08;  /* white/8 */
   }
 
   .light {

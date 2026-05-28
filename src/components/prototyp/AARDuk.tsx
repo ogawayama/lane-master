@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Target, Timer, Crosshair, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -12,6 +12,7 @@ import {
 import type { Shot } from "@/services/shotSimulation";
 import { pickCue } from "@/data/cueLibrary";
 import type { ExerciseListItem, Section } from "@/services/sessionService";
+import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
 
 /**
  * Helhetsprototyp — AARDuk (Pass 6, omdesignad 2026-05-28).
@@ -44,23 +45,39 @@ interface LaneInfo {
   status: string;
 }
 
+// Semantiska tokens — definierade i index.css. Tonas via /N (t.ex. /10).
+// red→attention, yellow→warning, green→success (per spår 03/04 triage).
 const STATUS_TINT: Record<Status, string> = {
-  red: "bg-red-500/12 border-red-500/45 text-red-200",
-  yellow: "bg-amber-400/10 border-amber-400/40 text-amber-100",
-  green: "bg-emerald-500/8 border-emerald-500/25 text-emerald-100",
+  red: "bg-status-attention/12 border-status-attention/45 text-status-attention",
+  yellow: "bg-status-warning/10 border-status-warning/40 text-status-warning",
+  green: "bg-status-success/8 border-status-success/25 text-status-success",
 };
 
 const STATUS_DOT: Record<Status, string> = {
-  red: "bg-red-500",
-  yellow: "bg-amber-400",
-  green: "bg-emerald-500",
+  red: "bg-status-attention",
+  yellow: "bg-status-warning",
+  green: "bg-status-success",
 };
 
+// SVG-stroke kan inte ärva från Tailwind klasser → läs CSS-variabeln
+// direkt med hsl(var(--...)). Hålls i sync med tokens.
 const STATUS_STROKE: Record<Status, string> = {
-  red: "#ef4444",
-  yellow: "#fbbf24",
-  green: "#10b981",
+  red: "hsl(var(--status-attention))",
+  yellow: "hsl(var(--status-warning))",
+  green: "hsl(var(--status-success))",
 };
+
+// Fjärr-hints för AAR-fasen — drivs av PhaseHints.
+const OVERVIEW_HINTS: RemoteKeyHint[] = [
+  { keys: ["◀", "▶"], label: "select trainee" },
+  { keys: ["OK"], label: "zoom in", primary: true },
+  { keys: ["HOLD OK"], label: "next exercise" },
+];
+const ZOOM_HINTS: RemoteKeyHint[] = [
+  { keys: ["◀", "▶"], label: "other trainee" },
+  { keys: ["BACK"], label: "back to overview" },
+  { keys: ["HOLD OK"], label: "next exercise" },
+];
 
 export function AARDuk({
   exercise,
@@ -75,6 +92,7 @@ export function AARDuk({
   /** Zoom-läge — drivs från DukShell via fjärr-OK. */
   zoomed: boolean;
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const [lanes, setLanes] = useState<LaneInfo[]>([]);
 
   useEffect(() => {
@@ -144,10 +162,10 @@ export function AARDuk({
         {zoomed ? (
           <motion.div
             key="zoom"
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
+            exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: "easeOut" }}
             className="flex-1 flex flex-col"
           >
             <ZoomView result={results[safeFocus]} exercise={exercise} />
@@ -155,10 +173,10 @@ export function AARDuk({
         ) : (
           <motion.div
             key="overview"
-            initial={{ opacity: 0 }}
+            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
             className="flex-1 flex flex-col"
           >
             <OverviewGrid
@@ -171,25 +189,7 @@ export function AARDuk({
       </AnimatePresence>
 
       {/* Bottom — remote hints */}
-      <div className="px-12 pb-7 flex items-center justify-center gap-7 text-white/40 text-[10px] uppercase tracking-[0.3em]">
-        {zoomed ? (
-          <>
-            <RemoteHint keys={["◀", "▶"]} label="other trainee" />
-            <Dot />
-            <RemoteHint keys={["BACK"]} label="back to overview" />
-            <Dot />
-            <RemoteHint keys={["HOLD OK"]} label="next exercise" />
-          </>
-        ) : (
-          <>
-            <RemoteHint keys={["◀", "▶"]} label="select trainee" />
-            <Dot />
-            <RemoteHint keys={["OK"]} label="zoom in" />
-            <Dot />
-            <RemoteHint keys={["HOLD OK"]} label="next exercise" />
-          </>
-        )}
-      </div>
+      <PhaseHints hints={zoomed ? ZOOM_HINTS : OVERVIEW_HINTS} />
     </div>
   );
 }
@@ -235,6 +235,7 @@ function LaneCard({
   exercise: ExerciseListItem;
   focused: boolean;
 }) {
+  const prefersReducedMotion = useReducedMotion();
   // Värsta status över alla tre kriterier — bestämmer kortets accent.
   const worst: Status =
     result.reds.length > 0 ? "red" : result.yellows.length > 0 ? "yellow" : "green";
@@ -254,12 +255,12 @@ function LaneCard({
     <motion.div
       layout
       animate={{
-        scale: focused ? 1.02 : 1,
+        scale: focused && !prefersReducedMotion ? 1.04 : 1,
       }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
       className={`relative rounded-2xl border bg-white/[0.02] p-4 flex flex-col gap-3 transition-colors ${
         focused
-          ? "border-white/60 shadow-[0_0_0_1px_rgba(255,255,255,0.4)]"
+          ? "border-status-warning/80 shadow-[0_0_0_2px_hsl(var(--status-warning)/0.35)]"
           : "border-white/8"
       }`}
     >
@@ -305,11 +306,11 @@ function LaneCard({
       {/* Pick-up-line — en rad, för det värsta röda */}
       <div className="min-h-[44px] text-[11px] leading-snug">
         {headlineCue ? (
-          <div className="text-red-200/90 italic">"{headlineCue.cue}"</div>
+          <div className="text-status-attention/90">"{headlineCue.cue}"</div>
         ) : worst === "yellow" ? (
-          <div className="text-amber-100/70 italic">Borderline — worth a follow-up.</div>
+          <div className="text-status-warning/80">Borderline — worth a follow-up.</div>
         ) : (
-          <div className="text-emerald-200/60">✓ On track across all criteria.</div>
+          <div className="text-status-success/70">✓ On track across all criteria.</div>
         )}
       </div>
     </motion.div>
@@ -375,17 +376,22 @@ function ZoomView({
         <div className="mt-8">
           <StatusBadge status={worst} />
           {result.reds.length > 0 && (
-            <div className="mt-2 text-[11px] uppercase tracking-[0.3em] text-red-300/90">
+            <div className="mt-2 text-[11px] uppercase tracking-[0.3em] text-status-attention/90">
               {result.reds.length} priorit{result.reds.length > 1 ? "ies" : "y"} to work on
             </div>
           )}
         </div>
       </div>
 
-      {/* Stor target med hit-pattern */}
+      {/* Stor target med hit-pattern + annoteringar för red criteria */}
       <div className="flex items-center justify-center">
         <div className="w-full max-w-[460px] aspect-square">
-          <TargetSvg shots={result.sequence.shots} worst={worst} size="lg" />
+          <TargetSvg
+            shots={result.sequence.shots}
+            worst={worst}
+            size="lg"
+            annotations={computeAnnotations(result)}
+          />
         </div>
       </div>
 
@@ -496,14 +502,79 @@ function CriterionCard({
 /* Target SVG — renderar skotten från shot-sequence                     */
 /* ──────────────────────────────────────────────────────────────────── */
 
+/**
+ * Pilar & spread-ringar för zoom-läget — porterat från [spår 04 sim.html]
+ * (UX-review 2026-05-28). Två typer:
+ *
+ *  - arrow      För HIT-red: pilar från centrum mot missarnas tyngdpunkt
+ *               med riktningsetikett ("pulls left", "drops low", etc.)
+ *  - spread-rings For SPREAD-red: limit-ring (grön streckad) vs actual-ring
+ *               (red streckad) — visar hur långt utanför tröskeln spridningen är
+ *
+ * Renderas ENDAST i zoom (overview-korten ska vara rena så ögat snabbt
+ * kan svepa över alla skyttar utan visuellt brus).
+ */
+type Annotation =
+  | { type: "arrow"; x1: number; y1: number; x2: number; y2: number; label: string }
+  | { type: "spread-rings"; r_limit: number; r_actual: number };
+
+function computeAnnotations(result: AARResult): Annotation[] {
+  const ann: Annotation[] = [];
+
+  // SPREAD red → ringar. Limit-ringen ligger alltid vid r=25% (det är
+  // hur skalningen i computeResult är definierad: spread_pct=25 motsvarar
+  // exakt threshold-cm). Actual = sequence.spread_pct, klamp så ringen
+  // syns även om den krympt liten.
+  if (result.spread_status === "red") {
+    ann.push({
+      type: "spread-rings",
+      r_limit: 25,
+      r_actual: Math.min(45, Math.max(8, result.sequence.spread_pct)),
+    });
+  }
+
+  // HIT red → pil mot missarnas tyngdpunkt (om det finns minst två
+  // missar att räkna på, annars är riktningen brus).
+  if (result.hit_status === "red") {
+    const misses = result.sequence.shots.filter((s) => !s.hit);
+    if (misses.length >= 2) {
+      const cx = misses.reduce((a, s) => a + s.x, 0) / misses.length;
+      const cy = misses.reduce((a, s) => a + s.y, 0) / misses.length;
+      const mag = Math.sqrt(cx * cx + cy * cy);
+      // Bara om missarna verkligen klustrar (mag > 8% från centrum).
+      // Slumpmässigt spridda missar ska inte få en falsk pil.
+      if (mag > 8) {
+        let label = "";
+        if (Math.abs(cx) > Math.abs(cy)) {
+          label = cx > 0 ? "pulls right" : "pulls left";
+        } else {
+          label = cy > 0 ? "drops low" : "shoots high";
+        }
+        ann.push({
+          type: "arrow",
+          x1: 0,
+          y1: 0,
+          x2: Math.round(cx),
+          y2: Math.round(cy),
+          label,
+        });
+      }
+    }
+  }
+
+  return ann;
+}
+
 function TargetSvg({
   shots,
   worst,
   size,
+  annotations = [],
 }: {
   shots: Shot[];
   worst: Status;
   size: "md" | "lg";
+  annotations?: Annotation[];
 }) {
   const hitRadius = size === "lg" ? 2.4 : 2.2;
   const missRadius = size === "lg" ? 1.6 : 1.5;
@@ -536,6 +607,95 @@ function TargetSvg({
         strokeWidth="0.6"
       />
 
+      {/* Annotations (bara i zoom) — ritas BAKOM skotten så skotten syns över */}
+      {annotations.map((a, i) => {
+        if (a.type === "spread-rings") {
+          return (
+            <g key={`ann-${i}`}>
+              <circle
+                cx="0"
+                cy="0"
+                r={a.r_limit}
+                fill="none"
+                stroke="hsl(var(--status-success))"
+                strokeOpacity="0.7"
+                strokeWidth="0.5"
+                strokeDasharray="2,1.5"
+              />
+              <circle
+                cx="0"
+                cy="0"
+                r={a.r_actual}
+                fill="none"
+                stroke="hsl(var(--status-attention))"
+                strokeOpacity="0.8"
+                strokeWidth="0.6"
+                strokeDasharray="2,1.5"
+              />
+              <text
+                x={a.r_limit + 2}
+                y="-1.5"
+                fill="hsl(var(--status-success))"
+                fontSize="3.2"
+                opacity="0.85"
+                fontFamily="ui-monospace, monospace"
+              >
+                limit
+              </text>
+              <text
+                x={a.r_actual + 2}
+                y="4"
+                fill="hsl(var(--status-attention))"
+                fontSize="3.2"
+                opacity="0.85"
+                fontFamily="ui-monospace, monospace"
+              >
+                actual
+              </text>
+            </g>
+          );
+        }
+        // arrow
+        return (
+          <g key={`ann-${i}`}>
+            <defs>
+              <marker
+                id={`arrowhead-${i}`}
+                markerWidth="5"
+                markerHeight="5"
+                refX="2.5"
+                refY="2.5"
+                orient="auto"
+              >
+                <path d="M0,0 L5,2.5 L0,5 Z" fill={accent} opacity="0.7" />
+              </marker>
+            </defs>
+            <line
+              x1={a.x1}
+              y1={a.y1}
+              x2={a.x2}
+              y2={a.y2}
+              stroke={accent}
+              strokeWidth="0.8"
+              strokeDasharray="2,1.2"
+              opacity="0.55"
+              markerEnd={`url(#arrowhead-${i})`}
+            />
+            <text
+              x={a.x2}
+              y={a.y2 - 3}
+              fill={accent}
+              fontSize="3.2"
+              opacity="0.9"
+              fontFamily="ui-monospace, monospace"
+              textAnchor="middle"
+            >
+              {a.label}
+            </text>
+          </g>
+        );
+      })}
+
       {/* Skott */}
       {shots.map((shot) => (
         <g key={shot.i}>
@@ -564,28 +724,6 @@ function TargetSvg({
 /* ──────────────────────────────────────────────────────────────────── */
 /* Småkomponenter                                                       */
 /* ──────────────────────────────────────────────────────────────────── */
-
-function RemoteHint({ keys, label }: { keys: string[]; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1">
-        {keys.map((k) => (
-          <span
-            key={k}
-            className="inline-flex items-center justify-center h-6 min-w-[24px] px-1.5 rounded border border-white/25 font-mono text-[10px] text-white/60"
-          >
-            {k}
-          </span>
-        ))}
-      </div>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function Dot() {
-  return <span className="text-white/15">·</span>;
-}
 
 function EmptyState({ title, sub }: { title: string; sub: string }) {
   return (

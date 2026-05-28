@@ -36,56 +36,58 @@ export function StartConfirmOverlay({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 16, opacity: 0 }}
         transition={{ duration: 0.25 }}
-        className="max-w-2xl w-full rounded-3xl border border-amber-500/30 bg-zinc-950 p-10 text-white"
+        className="max-w-4xl w-full rounded-3xl border border-status-warning/30 bg-zinc-950 p-12 text-white"
       >
         <div className="flex items-center gap-3 mb-2">
-          <AlertTriangle className="h-6 w-6 text-amber-400" />
-          <span className="text-[11px] uppercase tracking-[0.3em] text-amber-400">
+          <AlertTriangle className="h-7 w-7 text-status-warning" />
+          <span className="text-[12px] uppercase tracking-[0.3em] text-status-warning">
             Confirmation
           </span>
         </div>
-        <h2 className="text-3xl font-light leading-tight mb-6">
+        <h2 className="text-4xl font-light leading-tight mb-8">
           Start with {laneCount - readyCount} lane{laneCount - readyCount === 1 ? "" : "s"} not ready?
         </h2>
 
-        <div className="space-y-2 mb-8">
+        <div className="space-y-2 mb-10">
           {alerts.map((a) => (
             <div
               key={`${a.indicator}-${a.severity}`}
-              className={`flex items-baseline gap-3 rounded-lg border px-4 py-3 ${
+              className={`flex items-baseline gap-3 rounded-lg border px-5 py-3.5 ${
                 a.severity === "critical"
-                  ? "border-red-500/30 bg-red-500/5"
-                  : "border-amber-400/30 bg-amber-400/5"
+                  ? "border-status-attention/30 bg-status-attention/5"
+                  : "border-status-warning/30 bg-status-warning/5"
               }`}
             >
               <span
-                className={`text-[10px] uppercase tracking-[0.3em] shrink-0 ${
-                  a.severity === "critical" ? "text-red-400" : "text-amber-400"
+                className={`text-[11px] uppercase tracking-[0.3em] shrink-0 ${
+                  a.severity === "critical" ? "text-status-attention" : "text-status-warning"
                 }`}
               >
                 {a.severity}
               </span>
-              <span className="text-sm flex-1">{a.label}</span>
-              <span className="text-[11px] text-white/50 font-mono">
+              <span className="text-base flex-1">{a.label}</span>
+              <span className="text-xs text-white/50 font-mono">
                 Lane {a.affectedLanes.join(", ")}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center justify-center gap-8 text-white/60 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center h-7 w-11 rounded border border-white/30 text-[10px] font-mono">
+        {/* Större fjärr-affordances — matchar Bangrid:s NEXT-stil, läsbara
+            på 10 fot. (UX-review 2026-05-28: tidigare hint-rad var inte
+            "duk-storlek".) */}
+        <div className="flex items-center justify-center gap-6 text-white/70">
+          <div className="flex items-center gap-3 rounded-xl border border-white/25 bg-white/[0.03] px-5 py-3">
+            <span className="inline-flex items-center justify-center h-8 w-12 rounded border border-white/40 text-xs font-mono">
               BACK
             </span>
-            <span className="text-xs uppercase tracking-[0.3em]">Cancel</span>
+            <span className="text-sm uppercase tracking-[0.3em]">Cancel</span>
           </div>
-          <span className="text-white/20">·</span>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center h-7 w-11 rounded border border-amber-400/60 text-[10px] font-mono text-amber-300">
+          <div className="flex items-center gap-3 rounded-xl border border-status-warning/50 bg-status-warning/10 px-5 py-3 text-status-warning">
+            <span className="inline-flex items-center justify-center h-8 w-12 rounded border border-status-warning/60 text-xs font-mono">
               OK
             </span>
-            <span className="text-xs uppercase tracking-[0.3em]">Start anyway</span>
+            <span className="text-sm uppercase tracking-[0.3em]">Start anyway</span>
           </div>
         </div>
       </motion.div>

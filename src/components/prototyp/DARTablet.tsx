@@ -28,10 +28,13 @@ type LayoutVariant = "B" | "A" | "C";
 
 const STATUS_RANK: Record<DarStatus, number> = { red: 0, yellow: 1, green: 2 };
 
+// Semantiska tokens — definierade i index.css (status-attention/-warning/
+// -success). Tokens delas med BangridDuk/AARDuk så hela prototypens
+// triage-färgsystem ändras via en token-uppdatering.
 const STATUS_COLOR: Record<DarStatus, { bg: string; ring: string; text: string }> = {
-  red: { bg: "bg-red-500", ring: "ring-red-500/60", text: "text-red-500" },
-  yellow: { bg: "bg-amber-400", ring: "ring-amber-400/60", text: "text-amber-400" },
-  green: { bg: "bg-emerald-500", ring: "ring-emerald-500/40", text: "text-emerald-500" },
+  red: { bg: "bg-status-attention", ring: "ring-status-attention/60", text: "text-status-attention" },
+  yellow: { bg: "bg-status-warning", ring: "ring-status-warning/60", text: "text-status-warning" },
+  green: { bg: "bg-status-success", ring: "ring-status-success/40", text: "text-status-success" },
 };
 
 const STATUS_LABEL: Record<DarStatus, string> = {

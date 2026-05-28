@@ -7,6 +7,9 @@ import {
 } from "@/services/sessionService";
 import { Button } from "@/components/ui/button";
 import { DARTablet } from "@/components/prototyp/DARTablet";
+import { MiniBangridTablet } from "@/components/prototyp/MiniBangridTablet";
+import { MiniAARTablet } from "@/components/prototyp/MiniAARTablet";
+import type { Section as LaneSection } from "@/services/assignmentService";
 
 /**
  * Helhetsprototyp — TabletShell.
@@ -85,7 +88,9 @@ export default function TabletShell() {
         </Link>
       )}
 
-      {/* Waiting hints per phase — instruktören jobbar med fjärren mot duken */}
+      {/* Phase-specifika paneler. Tabletten visar inte BARA "vänta-text"
+          längre — under check-in och aar speglas duken kompakt så
+          instruktören kan följa utan att titta upp (UX-iteration 2026-05-28). */}
       {session && session.phase === "select-exercise" && (
         <WaitingPanel
           title="Pick on the projector"
@@ -93,10 +98,7 @@ export default function TabletShell() {
         />
       )}
       {session && session.phase === "check-in" && (
-        <WaitingPanel
-          title="Check-in in progress"
-          body="Trainees are tapping their RFID at the terminal. The bangrid on the projector fills up live. Press OK on the remote when everyone is in."
-        />
+        <MiniBangridTablet section={section as unknown as LaneSection} />
       )}
       {session && session.phase === "preflight" && (
         <WaitingPanel
@@ -105,9 +107,11 @@ export default function TabletShell() {
         />
       )}
       {session && session.phase === "aar" && (
-        <WaitingPanel
-          title="After action review"
-          body="Drive the AAR on the projector with the remote. Pass 6 will add a mirror of the AAR here."
+        <MiniAARTablet
+          exercise={
+            session.exercise_list[session.current_exercise_index] ?? null
+          }
+          section={section}
         />
       )}
       {session && session.phase === "ended" && (

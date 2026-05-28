@@ -57,6 +57,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Helhetsprototyp semantiska status-tokens — färgkoder för
+        // triage/readiness som lever genom UNIFORM-landningen.
+        // Användning: bg-status-attention, text-status-warning,
+        // border-status-success, etc. Alpha via /N (t.ex.
+        // bg-status-attention/10). Definierade i index.css.
+        "status-attention": "hsl(var(--status-attention))",
+        "status-warning":   "hsl(var(--status-warning))",
+        "status-success":   "hsl(var(--status-success))",
+        "proto-surface":          "hsl(var(--proto-surface))",
+        "proto-surface-elevated": "hsl(var(--proto-surface-elevated))",
       },
       borderRadius: {
         lg: "var(--radius)",

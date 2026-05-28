@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { buildShotSequence, type Shot } from "@/services/shotSimulation";
 import type { ExerciseListItem, Section } from "@/services/sessionService";
+import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+
+// Fjärr-hints för exercise-fasen.
+const EXERCISE_HINTS: RemoteKeyHint[] = [
+  { keys: ["OK"], label: "end early", primary: true },
+];
 
 /**
  * Helhetsprototyp — SimulationDuk (Pass 4, omdesignad 2026-05-28).
@@ -120,7 +126,7 @@ export function SimulationDuk({
       {/* Header — diskret kontext + nedräkning */}
       <div className="grid grid-cols-3 items-baseline px-12 pt-10 pb-6">
         <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.4em] text-white/40">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-status-attention animate-pulse" />
           <span>Live · Exercise running</span>
         </div>
         <div className="text-center text-[11px] uppercase tracking-[0.3em] text-white/40 font-mono truncate">
@@ -154,14 +160,7 @@ export function SimulationDuk({
         )}
       </div>
 
-      {/* Bottom — fjärr-hint */}
-      <div className="px-12 pb-8 flex items-center justify-center gap-2 text-white/30 text-[10px] uppercase tracking-[0.3em]">
-        <span>Press</span>
-        <span className="inline-flex items-center justify-center h-6 w-9 rounded border border-white/30 font-mono text-white/50">
-          OK
-        </span>
-        <span>to end early</span>
-      </div>
+      <PhaseHints hints={EXERCISE_HINTS} />
     </div>
   );
 }
@@ -177,6 +176,9 @@ function LaneTarget({
   shots: Shot[];
   totalShots: number;
 }) {
+  // Respektera prefers-reduced-motion — visa skotten direkt utan
+  // scale-in-animation om användaren bett om mindre rörelse.
+  const prefersReducedMotion = useReducedMotion();
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="relative w-full max-w-[280px] aspect-square">
@@ -199,9 +201,9 @@ function LaneTarget({
             {shots.map((shot) => (
               <motion.g
                 key={shot.i}
-                initial={{ scale: 0, opacity: 0 }}
+                initial={prefersReducedMotion ? { opacity: 1 } : { scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.25, ease: "easeOut" }}
               >
                 {shot.hit ? (
                   // Träff — solid vit punkt (papp-genomslag)

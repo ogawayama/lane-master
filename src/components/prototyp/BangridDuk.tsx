@@ -10,6 +10,8 @@ import {
 } from "@/services/readinessService";
 import { useLastRemoteEvent } from "@/hooks/useRemoteControl";
 import type { ExerciseListItem } from "@/services/sessionService";
+// PhaseHints inte importerad här — NEXT-knappen längst ner ÄR fas-hinten
+// för check-in. Att lägga PhaseHints till skulle bara duplicera.
 
 /**
  * Helhetsprototyp — BangridDuk (Pass 1 + Pass 1.5 + iteration 2026-05-26).
@@ -27,19 +29,21 @@ import type { ExerciseListItem } from "@/services/sessionService";
  * Designspråk: "biograf" — alla ser samma vy, ingen control-room-densitet.
  */
 
-// Lane-status-färger på baren
+// Lane-status-färger via semantiska tokens. Tokens definierade i
+// index.css; UNIFORM-landningen blir ett tokens-byte snarare än en
+// komponent-refactor.
 const BAR_COLOR: Record<ReadinessStatus, string> = {
   na: "bg-white/10",
-  ok: "bg-emerald-500",
-  warning: "bg-amber-400",
-  critical: "bg-red-500",
+  ok: "bg-status-success",
+  warning: "bg-status-warning",
+  critical: "bg-status-attention",
 };
 
 const WEAPON_ICON_COLOR: Record<ReadinessStatus, string> = {
   na: "text-white/30",
-  ok: "text-emerald-400",
-  warning: "text-amber-400",
-  critical: "text-red-500",
+  ok: "text-status-success",
+  warning: "text-status-warning",
+  critical: "text-status-attention",
 };
 
 // Per-kort issue-label — kort, glance:able. Återanvänds även av
@@ -147,15 +151,15 @@ export function BangridDuk({
                 transition={{ duration: 0.2 }}
                 className={`flex items-start gap-3 rounded-lg border px-4 py-3 max-w-[18rem] ${
                   a.severity === "critical"
-                    ? "border-red-500/50 bg-red-500/5"
-                    : "border-amber-400/50 bg-amber-400/5"
+                    ? "border-status-attention/50 bg-status-attention/5"
+                    : "border-status-warning/50 bg-status-warning/5"
                 }`}
               >
                 <div className="pt-0.5 shrink-0">
                   {a.severity === "critical" ? (
-                    <AlertCircle className="h-5 w-5 text-red-500" />
+                    <AlertCircle className="h-5 w-5 text-status-attention" />
                   ) : (
-                    <AlertTriangle className="h-5 w-5 text-amber-400" />
+                    <AlertTriangle className="h-5 w-5 text-status-warning" />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -218,8 +222,10 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
 
   return (
     <div className="flex flex-col items-center">
-      {/* Lane number badge — centered above the card */}
-      <div className="w-12 h-12 rounded-xl bg-amber-400 text-black flex items-center justify-center text-2xl font-bold tabular-nums shadow-lg mb-[-12px] z-10">
+      {/* Lane number badge — centered above the card. Neutral white-on-
+          black (identitet, inte status) så status-färgerna i bar:en och
+          issue-chipsen får tala fritt (UX-review 2026-05-28). */}
+      <div className="w-12 h-12 rounded-xl bg-white text-black flex items-center justify-center text-2xl font-bold tabular-nums shadow-lg mb-[-12px] z-10">
         {lane.lane_number}
       </div>
 
@@ -269,8 +275,8 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
                     transition={{ duration: 0.2 }}
                     className={`w-full flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px] font-medium ${
                       issue.severity === "critical"
-                        ? "bg-red-500/10 text-red-300 border border-red-500/30"
-                        : "bg-amber-400/10 text-amber-200 border border-amber-400/30"
+                        ? "bg-status-attention/10 text-status-attention border border-status-attention/30"
+                        : "bg-status-warning/10 text-status-warning border border-status-warning/30"
                     }`}
                   >
                     {issue.severity === "critical" ? (
@@ -337,8 +343,8 @@ function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean
   const tone = !enabled
     ? "border-white/10 text-white/30 bg-white/[0.02]"
     : allReady
-      ? "border-emerald-500/40 text-emerald-200 bg-emerald-500/5"
-      : "border-amber-400/40 text-amber-200 bg-amber-400/5";
+      ? "border-status-success/40 text-status-success bg-status-success/5"
+      : "border-status-warning/40 text-status-warning bg-status-warning/5";
 
   return (
     <div

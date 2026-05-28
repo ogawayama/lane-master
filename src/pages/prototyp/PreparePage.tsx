@@ -1,7 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, ArrowDown, X, Plus, Check, AlertCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, X, Plus, Check, AlertCircle, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
 import { useWeapons } from "@/hooks/useWeapons";
@@ -25,6 +42,94 @@ const TRAINING_TYPE_RANK: Record<CatalogExercise["trainingType"], number> = {
   advanced: 1,
   combat: 2,
 };
+
+/**
+ * Sorterbar rad i session-plan-listan. Drag-handle (GripVertical) längst
+ * vänster gör listan snabbsorterad på touch och mus; up/down-knapparna
+ * behålls som a11y-fallback för keyboard-only-användare. Touch-targets
+ * 40×40 (≥iOS 44pt minus padding) per UX-review 2026-05-28.
+ */
+function SortableSessionItem({
+  id,
+  item,
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: {
+  id: string;
+  item: ExerciseListItem;
+  index: number;
+  total: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 pl-1"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="h-10 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="text-xs font-mono w-5 text-muted-foreground tabular-nums">
+        {index + 1}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm truncate">{item.title}</div>
+        <div className="text-[10px] text-muted-foreground font-mono">{item.weapon}</div>
+      </div>
+      <Button
+        size="icon"
+        variant="ghost"
+        disabled={index === 0}
+        onClick={onMoveUp}
+        className="h-10 w-10"
+        aria-label="Move up"
+      >
+        <ArrowUp className="h-4 w-4" />
+      </Button>
+      <Button
+        size="icon"
+        variant="ghost"
+        disabled={index === total - 1}
+        onClick={onMoveDown}
+        className="h-10 w-10"
+        aria-label="Move down"
+      >
+        <ArrowDown className="h-4 w-4" />
+      </Button>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={onRemove}
+        className="h-10 w-10 text-muted-foreground hover:text-destructive"
+        aria-label="Remove"
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </li>
+  );
+}
 
 /**
  * En rad i katalogen. motion.li med layout — om en övning byter
@@ -184,6 +289,28 @@ export default function PreparePage() {
     });
   }
 
+  // dnd-kit sensorer — pointer (mus + touch) + keyboard (a11y).
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // Liten distansröskel så ett klick på Add-knapp inte trigger drag.
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setList((cur) => {
+      const oldIndex = cur.findIndex((_, i) => `item-${i}` === active.id);
+      const newIndex = cur.findIndex((_, i) => `item-${i}` === over.id);
+      if (oldIndex < 0 || newIndex < 0) return cur;
+      return arrayMove(cur, oldIndex, newIndex);
+    });
+  }
+
   async function startSession() {
     if (!session || list.length === 0) return;
     await setExerciseList(session.id, list);
@@ -207,7 +334,7 @@ export default function PreparePage() {
         <div className="flex items-baseline justify-between gap-4">
           <h1 className="text-2xl font-semibold">Build today's session</h1>
           <div className="text-sm text-muted-foreground font-mono">
-            {traineeCount === null ? "…" : `${traineeCount} trainees in roster`}
+            Roster · {traineeCount === null ? "…" : `${traineeCount} in pool`}
           </div>
         </div>
         <p className="text-sm text-muted-foreground mt-1">
@@ -283,53 +410,36 @@ export default function PreparePage() {
                   Empty. Add exercises from the catalog.
                 </div>
               ) : (
-                <ol className="space-y-2">
-                  {list.map((item, idx) => (
-                    <li
-                      key={`${item.id}-${idx}`}
-                      className="flex items-center gap-2 rounded-lg border border-border bg-card p-3"
-                    >
-                      <div className="text-xs font-mono w-5 text-muted-foreground">{idx + 1}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm truncate">{item.title}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">
-                          {item.weapon}
-                        </div>
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={idx === 0}
-                        onClick={() => moveAt(idx, -1)}
-                        className="h-7 w-7"
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={idx === list.length - 1}
-                        onClick={() => moveAt(idx, 1)}
-                        className="h-7 w-7"
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeAt(idx)}
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </li>
-                  ))}
-                </ol>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={list.map((_, i) => `item-${i}`)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <ol className="space-y-2">
+                      {list.map((item, idx) => (
+                        <SortableSessionItem
+                          key={`${item.id}-${idx}`}
+                          id={`item-${idx}`}
+                          item={item}
+                          index={idx}
+                          total={list.length}
+                          onMoveUp={() => moveAt(idx, -1)}
+                          onMoveDown={() => moveAt(idx, 1)}
+                          onRemove={() => removeAt(idx)}
+                        />
+                      ))}
+                    </ol>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
 
             <Button
-              className="w-full"
+              className="w-full h-12"
               size="lg"
               disabled={list.length === 0 || !session}
               onClick={() => void startSession()}
@@ -337,8 +447,9 @@ export default function PreparePage() {
               Start session → Pick on the duk
             </Button>
             {session && session.phase !== "idle" && session.phase !== "prepare" && (
-              <div className="text-[11px] text-amber-500 text-center">
-                Active session is in <code>{session.phase}</code>. Starting will reset to check-in.
+              <div className="text-[11px] text-status-warning text-center">
+                A session is already running (phase: {session.phase}). Starting a
+                new one will interrupt it.
               </div>
             )}
           </div>

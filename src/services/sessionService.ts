@@ -141,6 +141,22 @@ export async function toggleLaneUi(
   if (error) console.warn("toggleLaneUi failed:", error.message);
 }
 
+/** Create a fresh idle session for a section. Wizard fallback when there
+ *  is no existing session row — bootstraps the state machine.
+ *  Per UX-review 2026-05-28: tidigare hängde wizard:n i "Loading…" om
+ *  ingen session existerade och alla knappar var disabled. */
+export async function createIdleSession(section: Section): Promise<void> {
+  const { error } = await (sessionsTable() as any).insert({
+    section,
+    phase: "idle",
+    exercise_list: [],
+    current_exercise_index: 0,
+    current_trainee_id: null,
+    lane_ui_visible: false,
+  });
+  if (error) console.warn("createIdleSession failed:", error.message);
+}
+
 /** Reset a session back to idle (wizard panel — "start over"). */
 export async function resetSession(sessionId: string): Promise<void> {
   const { error } = await (sessionsTable() as any)
