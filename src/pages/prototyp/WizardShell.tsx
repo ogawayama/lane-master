@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  Box,
+  Button,
+  Card,
+  Container,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from "@mui/material";
 import { useSession } from "@/hooks/useSession";
 import {
   createIdleSession,
@@ -9,7 +19,6 @@ import {
   type Section,
 } from "@/services/sessionService";
 import { pressRemote } from "@/hooks/useRemoteControl";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   setSignal,
@@ -32,17 +41,11 @@ import {
 import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
 
 /**
- * Helhetsprototyp — WizardShell (Pass 0).
+ * Helhetsprototyp — WizardShell (M3-omskrivning 2026-05-28).
  *
- * Facilitatorns gömda kontrollpanel — driver fejkdata och
- * scenario-events under prototyp-test. Per helhetsprototyp/plan.md §3.
- *
- * I Pass 0 gör panelen tre saker:
- *  1. Reset:a sessionen ("börja om")
- *  2. Pusha demo-övningslista (3 övningar) så Pass 3+ har data att rendera
- *  3. Skicka fjärr-events programmatiskt (för test utan keyboard)
- *
- * Pass 5 utökar panelen med röd/gul/grön per bana för DAR-triage WoZ.
+ * Facilitator backstage-panel. M3 Cards för sektioner, MUI Buttons,
+ * ToggleButtonGroup för DAR/readiness-väljare (M3 segmented button-
+ * stil). Större touch-targets (h: 48px) per UX-review.
  */
 
 const DEMO_EXERCISES = [
@@ -78,8 +81,6 @@ export default function WizardShell() {
   const { session, loading } = useSession(section);
   const { byLane } = useDARSignals(session?.id);
 
-  // Realtime lane state — driver både DAR-panelen (behöver bara lane_number)
-  // och readiness-panelen (behöver weapon/battery/ammo/comms_status).
   const laneSection = section as unknown as LaneSection;
   const [laneRows, setLaneRows] = useState<LaneAssignment[]>([]);
   useEffect(() => {
@@ -91,266 +92,229 @@ export default function WizardShell() {
   const occupiedRows = laneRows.filter((l) => l.status === "occupied");
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-amber-500 mb-1">
-          Wizard · {section.toUpperCase()} · facilitator-only
-        </div>
-        <h1 className="text-2xl font-semibold">Backstage control</h1>
-        <p className="text-sm text-muted-foreground">
-          Inte synlig för test-instruktörer. Driver fejkdata och scenario.
-        </p>
-      </div>
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary", p: 3 }}>
+      <Container maxWidth="md" sx={{ px: 0 }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "warning.main", textTransform: "uppercase", mb: 0.5 }}>
+            Wizard · {section.toUpperCase()} · facilitator-only
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            Backstage control
+          </Typography>
+          <Typography sx={{ fontSize: 14, color: "text.secondary" }}>
+            Inte synlig för test-instruktörer. Driver fejkdata och scenario.
+          </Typography>
+        </Box>
 
-      {/* Session info — visa Create-knapp om ingen session existerar
-          (UX-review 2026-05-28: tidigare visade hooken "Loading…" för
-          alltid när rad saknades, och alla knappar var disabled). */}
-      <section className="rounded-lg border border-border bg-card p-5 mb-4">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-          Active session
-        </div>
-        {loading && <div className="text-sm">Loading…</div>}
-        {!loading && session && (
-          <div className="font-mono text-xs space-y-1 text-muted-foreground">
-            <div>id: {session.id.slice(0, 8)}…</div>
-            <div>phase: <span className="text-foreground">{session.phase}</span></div>
-            <div>exercises: {session.exercise_list.length}</div>
-            <div>current_index: {session.current_exercise_index}</div>
-            <div>lane_ui_visible: {String(session.lane_ui_visible)}</div>
-          </div>
-        )}
-        {!loading && !session && (
-          <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
-              No session for <span className="font-mono text-foreground">{section}</span>. Create one to enable the controls below.
-            </div>
-            <Button
-              size="sm"
-              onClick={() => void createIdleSession(section)}
-            >
-              Create idle session
+        {/* Session info */}
+        <Card sx={{ p: 2.5, mb: 2, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
+          <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase", mb: 1 }}>
+            Active session
+          </Typography>
+          {loading && <Typography sx={{ fontSize: 14 }}>Loading…</Typography>}
+          {!loading && session && (
+            <Stack spacing={0.5} sx={{ fontFamily: '"Roboto Mono", monospace', fontSize: 12, color: "text.secondary" }}>
+              <span>id: {session.id.slice(0, 8)}…</span>
+              <span>phase: <Box component="span" sx={{ color: "text.primary" }}>{session.phase}</Box></span>
+              <span>exercises: {session.exercise_list.length}</span>
+              <span>current_index: {session.current_exercise_index}</span>
+              <span>lane_ui_visible: {String(session.lane_ui_visible)}</span>
+            </Stack>
+          )}
+          {!loading && !session && (
+            <Stack spacing={1.5}>
+              <Typography sx={{ fontSize: 14, color: "text.secondary" }}>
+                No session for <Box component="span" sx={{ fontFamily: '"Roboto Mono", monospace', color: "text.primary" }}>{section}</Box>. Create one to enable the controls below.
+              </Typography>
+              <Button variant="contained" size="small" onClick={() => void createIdleSession(section)}>
+                Create idle session
+              </Button>
+            </Stack>
+          )}
+        </Card>
+
+        {/* Session actions */}
+        <Card sx={{ p: 2.5, mb: 2, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
+          <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase", mb: 1.5 }}>
+            Session actions
+          </Typography>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }} useFlexGap>
+            <Button variant="outlined" size="small" disabled={!session} onClick={() => session && void resetSession(session.id)}>
+              Reset to idle
             </Button>
-          </div>
-        )}
-      </section>
+            <Button variant="outlined" size="small" disabled={!session} onClick={() => session && void setExerciseList(session.id, DEMO_EXERCISES)}>
+              Load demo exercises ({DEMO_EXERCISES.length})
+            </Button>
+            <Button variant="outlined" size="small" disabled={!session} onClick={() => session && void setPhase(session.id, "check-in")}>
+              Jump to check-in
+            </Button>
+          </Stack>
+        </Card>
 
-      {/* Session actions */}
-      <section className="rounded-lg border border-border bg-card p-5 mb-4">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-          Session actions
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!session}
-            onClick={() => session && void resetSession(session.id)}
-          >
-            Reset to idle
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!session}
-            onClick={() =>
-              session && void setExerciseList(session.id, DEMO_EXERCISES)
-            }
-          >
-            Load demo exercises ({DEMO_EXERCISES.length})
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!session}
-            onClick={() => session && void setPhase(session.id, "check-in")}
-          >
-            Jump to check-in
-          </Button>
-        </div>
-      </section>
+        {/* Inject remote — touch-friendly */}
+        <Card sx={{ p: 2.5, mb: 2, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
+          <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase", mb: 1.5 }}>
+            Inject remote press (test without keyboard)
+          </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, maxWidth: 400 }}>
+            <Box />
+            <Button variant="outlined" sx={{ minHeight: 48 }} onClick={() => pressRemote("up")}>▲</Button>
+            <Box />
+            <Button variant="outlined" sx={{ minHeight: 48 }} onClick={() => pressRemote("left")}>◀</Button>
+            <Button variant="contained" sx={{ minHeight: 48 }} onClick={() => pressRemote("ok")}>OK</Button>
+            <Button variant="outlined" sx={{ minHeight: 48 }} onClick={() => pressRemote("right")}>▶</Button>
+            <Button variant="outlined" sx={{ minHeight: 48, fontSize: 12 }} onClick={() => pressRemote("back")}>BACK</Button>
+            <Button variant="outlined" sx={{ minHeight: 48 }} onClick={() => pressRemote("down")}>▼</Button>
+            <Button variant="outlined" sx={{ minHeight: 48, fontSize: 12 }} onClick={() => pressRemote("holdOk")}>HOLD</Button>
+          </Box>
+        </Card>
 
-      {/* Remote injection — for testing without a keyboard. Touch-targets
-          ≥44pt så facilitatorn kan trycka snabbt under stress (UX-review
-          2026-05-28). */}
-      <section className="rounded-lg border border-border bg-card p-5 mb-4">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-          Inject remote press (test without keyboard)
-        </div>
-        <div className="grid grid-cols-3 gap-2 max-w-sm">
-          <div />
-          <Button className="h-12" variant="outline" onClick={() => pressRemote("up")}>▲</Button>
-          <div />
-          <Button className="h-12" variant="outline" onClick={() => pressRemote("left")}>◀</Button>
-          <Button className="h-12" variant="default" onClick={() => pressRemote("ok")}>OK</Button>
-          <Button className="h-12" variant="outline" onClick={() => pressRemote("right")}>▶</Button>
-          <Button className="h-12 text-xs" variant="outline" onClick={() => pressRemote("back")}>BACK</Button>
-          <Button className="h-12" variant="outline" onClick={() => pressRemote("down")}>▼</Button>
-          <Button className="h-12 text-xs" variant="outline" onClick={() => pressRemote("holdOk")}>HOLD</Button>
-        </div>
-      </section>
+        {/* DAR WoZ */}
+        <Card sx={{ p: 2.5, mb: 2, bgcolor: "var(--mui-palette-m3-statusWarningContainer)", opacity: 0.95 }}>
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+            <Box>
+              <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "warning.main", textTransform: "uppercase" }}>
+                DAR signals · Wizard-of-Oz (spår 03)
+              </Typography>
+              <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>
+                Drive triage state per lane. Appears live on /tablet during the exercise phase. Never on the duk.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={!session || lanes.length === 0}
+                onClick={() => {
+                  if (!session) return;
+                  const shuffled = [...lanes].sort(() => Math.random() - 0.5);
+                  const statuses: DarStatus[] = ["red", "yellow", "yellow", "green", "green", "green", "green"];
+                  shuffled.forEach((lane, i) => {
+                    const status = statuses[i] ?? "green";
+                    void setSignal(session.id, section, lane, status);
+                  });
+                }}
+              >
+                Random scenario
+              </Button>
+              <Button
+                variant="text"
+                size="small"
+                disabled={!session}
+                onClick={() => session && void clearAllSignals(session.id)}
+                sx={{ color: "warning.main" }}
+              >
+                Clear all
+              </Button>
+            </Stack>
+          </Stack>
 
-      {/* DAR Wizard-of-Oz signaller — Pass 5 */}
-      <section className="rounded-lg border border-status-warning/30 bg-status-warning/5 p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-status-warning">
-              DAR signals · Wizard-of-Oz (spår 03)
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">
-              Drive triage state per lane. Appears live on /tablet during the
-              exercise phase. Never on the duk.
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!session || lanes.length === 0}
-              onClick={() => {
-                if (!session) return;
-                // Realistisk WoZ-mix: ~1 röd, ~2 gula, resten grön
-                // (matchar typisk gruppsession). Seedat med Math.random
-                // för spontan variation mellan körningar.
-                const shuffled = [...lanes].sort(() => Math.random() - 0.5);
-                const statuses: DarStatus[] = ["red", "yellow", "yellow", "green", "green", "green", "green"];
-                shuffled.forEach((lane, i) => {
-                  const status = statuses[i] ?? "green";
+          {lanes.length === 0 ? (
+            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>No lanes configured for this section.</Typography>
+          ) : (
+            <Stack spacing={1}>
+              {lanes.map((lane) => {
+                const current = byLane.get(lane)?.status;
+                const setStatus = (status: DarStatus) => {
+                  if (!session) return;
                   void setSignal(session.id, section, lane, status);
-                });
-              }}
-            >
-              Random scenario
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={!session}
-              onClick={() => session && void clearAllSignals(session.id)}
-              className="text-status-warning hover:text-status-warning/80"
-            >
-              Clear all
-            </Button>
-          </div>
-        </div>
-
-        {lanes.length === 0 ? (
-          <div className="text-xs text-muted-foreground">No lanes configured for this section.</div>
-        ) : (
-          <div className="space-y-2">
-            {lanes.map((lane) => {
-              const current = byLane.get(lane)?.status;
-              const setStatus = (status: DarStatus) => {
-                if (!session) return;
-                void setSignal(session.id, section, lane, status);
-              };
-              return (
-                <div key={lane} className="flex items-center gap-2">
-                  <div className="text-xs font-mono w-12 text-muted-foreground">
-                    Lane {lane}
-                  </div>
-                  <div className="flex gap-1.5 flex-1">
-                    <SignalBtn
-                      label="green"
-                      active={current === "green"}
-                      onClick={() => setStatus("green")}
-                    />
-                    <SignalBtn
-                      label="yellow"
-                      active={current === "yellow"}
-                      onClick={() => setStatus("yellow")}
-                    />
-                    <SignalBtn
-                      label="red"
-                      active={current === "red"}
-                      onClick={() => setStatus("red")}
-                    />
+                };
+                return (
+                  <Stack key={lane} direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                    <Typography sx={{ width: 48, fontSize: 12, fontFamily: '"Roboto Mono", monospace', color: "text.secondary" }}>
+                      Lane {lane}
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={current ?? null}
+                      exclusive
+                      onChange={(_, v) => v && setStatus(v as DarStatus)}
+                      size="small"
+                      sx={{
+                        flex: 1,
+                        "& .MuiToggleButton-root": {
+                          flex: 1,
+                          borderRadius: "8px !important",
+                          fontSize: 10,
+                          letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                          minHeight: 32,
+                        },
+                      }}
+                    >
+                      <ToggleButton value="green" color="success">green</ToggleButton>
+                      <ToggleButton value="yellow" color="warning">yellow</ToggleButton>
+                      <ToggleButton value="red" color="error">red</ToggleButton>
+                    </ToggleButtonGroup>
                     <Button
-                      size="sm"
-                      variant="ghost"
+                      size="small"
+                      variant="text"
                       disabled={!current || !session}
                       onClick={() => session && void clearSignal(session.id, lane)}
-                      className="text-[10px] h-7 px-2"
+                      sx={{ fontSize: 10, minWidth: 50 }}
                     >
                       clear
                     </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                  </Stack>
+                );
+              })}
+            </Stack>
+          )}
+        </Card>
 
-      {/* Readiness Wizard-of-Oz — Pass 1.5 */}
-      <section className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-5 mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-sky-500">
-              Lane readiness · Wizard-of-Oz (spår 02 halva A)
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">
-              Drive weapon / battery / ammo / comms status per lane.
-              Visible publicly on the duk during check-in. Defaults to OK
-              when a trainee blips in.
-            </div>
-          </div>
-        </div>
+        {/* Readiness WoZ */}
+        <Card sx={{ p: 2.5, bgcolor: "var(--mui-palette-m3-primaryContainer)", opacity: 0.95 }}>
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+            <Box>
+              <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "primary.main", textTransform: "uppercase" }}>
+                Lane readiness · Wizard-of-Oz (spår 02 halva A)
+              </Typography>
+              <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>
+                Drive weapon / battery / ammo / comms status per lane. Visible publicly on the duk during check-in. Defaults to OK when a trainee blips in.
+              </Typography>
+            </Box>
+          </Stack>
 
-        {occupiedRows.length === 0 ? (
-          <div className="text-xs text-muted-foreground">
-            No trainees checked in yet. Statuses only appear once a lane
-            is occupied.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {occupiedRows.map((row) => (
-              <div key={row.lane_number} className="rounded border border-border bg-card p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs">
-                    <span className="font-mono text-muted-foreground">Lane {row.lane_number}</span>{" "}
-                    <span className="text-foreground">· {row.name ?? "—"}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-[10px] text-sky-600 hover:text-sky-700"
-                    onClick={() => void resetLaneToOk(laneSection, row.lane_number)}
-                  >
-                    All OK
-                  </Button>
-                </div>
-                <div className="space-y-1.5">
-                  <ReadinessRow
-                    label="Weapon"
-                    indicator="weapon"
-                    current={(row.weapon_status ?? "na") as ReadinessStatus}
-                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "weapon", s)}
-                  />
-                  <ReadinessRow
-                    label="Battery"
-                    indicator="battery"
-                    current={(row.battery_status ?? "na") as ReadinessStatus}
-                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "battery", s)}
-                  />
-                  <ReadinessRow
-                    label="Ammo"
-                    indicator="ammo"
-                    current={(row.ammo_status ?? "na") as ReadinessStatus}
-                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "ammo", s)}
-                  />
-                  <ReadinessRow
-                    label="Comms"
-                    indicator="comms"
-                    current={(row.comms_status ?? "na") as ReadinessStatus}
-                    onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, "comms", s)}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+          {occupiedRows.length === 0 ? (
+            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+              No trainees checked in yet. Statuses only appear once a lane is occupied.
+            </Typography>
+          ) : (
+            <Stack spacing={1.5}>
+              {occupiedRows.map((row) => (
+                <Card key={row.lane_number} sx={{ p: 1.5, bgcolor: "var(--mui-palette-m3-surfaceContainer)" }}>
+                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                    <Typography sx={{ fontSize: 12 }}>
+                      <Box component="span" sx={{ fontFamily: '"Roboto Mono", monospace', color: "text.secondary" }}>
+                        Lane {row.lane_number}
+                      </Box>{" "}
+                      <Box component="span">· {row.name ?? "—"}</Box>
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="text"
+                      sx={{ fontSize: 10, minHeight: 32, color: "primary.main" }}
+                      onClick={() => void resetLaneToOk(laneSection, row.lane_number)}
+                    >
+                      All OK
+                    </Button>
+                  </Stack>
+                  <Stack spacing={0.75}>
+                    {(["weapon", "battery", "ammo", "comms"] as ReadinessIndicator[]).map((ind) => (
+                      <ReadinessRow
+                        key={ind}
+                        label={ind}
+                        current={(row[`${ind}_status`] ?? "na") as ReadinessStatus}
+                        onSet={(s) => void setLaneIndicator(laneSection, row.lane_number, ind, s)}
+                      />
+                    ))}
+                  </Stack>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </Card>
+      </Container>
+    </Box>
   );
 }
 
@@ -360,68 +324,35 @@ function ReadinessRow({
   onSet,
 }: {
   label: string;
-  indicator: ReadinessIndicator;
   current: ReadinessStatus;
   onSet: (s: ReadinessStatus) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="text-[10px] font-mono w-16 text-muted-foreground uppercase tracking-wider">
+    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+      <Typography sx={{ width: 64, fontSize: 10, fontFamily: '"Roboto Mono", monospace', color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.1em" }}>
         {label}
-      </div>
-      <div className="flex gap-1.5 flex-1">
-        <ReadinessBtn label="ok" active={current === "ok"} onClick={() => onSet("ok")} />
-        <ReadinessBtn label="warning" active={current === "warning"} onClick={() => onSet("warning")} />
-        <ReadinessBtn label="critical" active={current === "critical"} onClick={() => onSet("critical")} />
-      </div>
-    </div>
-  );
-}
-
-function ReadinessBtn({
-  label,
-  active,
-  onClick,
-}: {
-  label: "ok" | "warning" | "critical";
-  active: boolean;
-  onClick: () => void;
-}) {
-  const colorClass = {
-    ok: active ? "bg-emerald-500 text-white" : "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10",
-    warning: active ? "bg-amber-400 text-black" : "border-amber-400/40 text-amber-600 hover:bg-amber-400/10",
-    critical: active ? "bg-red-500 text-white" : "border-red-500/40 text-red-600 hover:bg-red-500/10",
-  }[label];
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 h-7 rounded text-[10px] font-medium uppercase tracking-wider border transition-colors ${colorClass}`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function SignalBtn({
-  label,
-  active,
-  onClick,
-}: {
-  label: DarStatus;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const colorClass = {
-    green: active ? "bg-emerald-500 text-white" : "border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10",
-    yellow: active ? "bg-amber-400 text-black" : "border-amber-400/40 text-amber-600 hover:bg-amber-400/10",
-    red: active ? "bg-red-500 text-white" : "border-red-500/40 text-red-600 hover:bg-red-500/10",
-  }[label];
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 h-7 rounded text-[10px] font-medium uppercase tracking-wider border transition-colors ${colorClass}`}
-    >
-      {label}
-    </button>
+      </Typography>
+      <ToggleButtonGroup
+        value={current === "na" ? null : current}
+        exclusive
+        onChange={(_, v) => v && onSet(v as ReadinessStatus)}
+        size="small"
+        sx={{
+          flex: 1,
+          "& .MuiToggleButton-root": {
+            flex: 1,
+            borderRadius: "8px !important",
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            minHeight: 32,
+          },
+        }}
+      >
+        <ToggleButton value="ok" color="success">ok</ToggleButton>
+        <ToggleButton value="warning" color="warning">warning</ToggleButton>
+        <ToggleButton value="critical" color="error">critical</ToggleButton>
+      </ToggleButtonGroup>
+    </Stack>
   );
 }

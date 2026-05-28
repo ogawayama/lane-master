@@ -1,42 +1,43 @@
 import { useEffect, useState } from "react";
+import {
+  Box,
+  Card,
+  Container,
+  Stack,
+  ToggleButtonGroup,
+  ToggleButton,
+  Typography,
+} from "@mui/material";
+import { ChevronRight } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDARSignals } from "@/hooks/useDARSignals";
 import type { DarSignal, DarStatus } from "@/services/darService";
 import type { Section } from "@/services/sessionService";
 
 /**
- * Helhetsprototyp — DARTablet (Pass 5).
+ * Helhetsprototyp — DARTablet (M3-omskrivning 2026-05-28).
  *
- * Instruktörens privata triage-yta under exercise-fasen. Per
- * [spår 03 spårkort §Idén] finns fyra UI-designspår — vi bygger de
- * tre primära (A/B/C) och låter instruktören växla mellan dem under
- * test:
- *
- *   B  Banlayout: rutnät som speglar banorna, trafikljus per bana
- *   A  Kölogik:   tre kolumner (röd / gul / grön), arbeta uppifrån
- *   C  Fokuskort: ett kritiskt fall i taget, systemet bestämmer
- *
- * Default: B (spatialt intuitiv, låg kognitiv last per Designs not).
- *
- * Designspråk: "kontrollrum" — tät, status-bärande. Visas BARA på
- * instruktörens device, ALDRIG på duken.
+ * Instruktörens privata triage-yta under exercise-fasen. Tre layouter
+ * (B/A/C per spår 03) togglas via M3 segmented button (ToggleButtonGroup).
+ * Lane-tiles som MUI Card med statusContainer-tint + outline-ring per
+ * status. M3 expressive typography för lane numbers.
  */
 
 type LayoutVariant = "B" | "A" | "C";
 
 const STATUS_RANK: Record<DarStatus, number> = { red: 0, yellow: 1, green: 2 };
 
-// Semantiska tokens — definierade i index.css (status-attention/-warning/
-// -success). Tokens delas med BangridDuk/AARDuk så hela prototypens
-// triage-färgsystem ändras via en token-uppdatering.
-const STATUS_COLOR: Record<DarStatus, { bg: string; ring: string; text: string }> = {
-  red: { bg: "bg-status-attention", ring: "ring-status-attention/60", text: "text-status-attention" },
-  yellow: { bg: "bg-status-warning", ring: "ring-status-warning/60", text: "text-status-warning" },
-  green: { bg: "bg-status-success", ring: "ring-status-success/40", text: "text-status-success" },
+const STATUS_BG: Record<DarStatus, string> = {
+  red: "var(--mui-palette-m3-statusAttentionContainer)",
+  yellow: "var(--mui-palette-m3-statusWarningContainer)",
+  green: "var(--mui-palette-m3-statusSuccessContainer)",
 };
-
+const STATUS_FG: Record<DarStatus, string> = {
+  red: "var(--mui-palette-error-main)",
+  yellow: "var(--mui-palette-warning-main)",
+  green: "var(--mui-palette-success-main)",
+};
 const STATUS_LABEL: Record<DarStatus, string> = {
   red: "Needs follow-up",
   yellow: "Needs support",
@@ -59,7 +60,6 @@ export function DARTablet({
   const [variant, setVariant] = useState<LayoutVariant>("B");
   const { byLane, loading } = useDARSignals(sessionId);
 
-  // Read lanes + occupant info from existing lane_assignments-table.
   const [lanes, setLanes] = useState<LaneInfo[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -76,63 +76,52 @@ export function DARTablet({
     };
   }, [section]);
 
-  const merged = lanes.map((l) => ({
-    ...l,
-    signal: byLane.get(l.lane_number) ?? null,
-  }));
+  const merged = lanes.map((l) => ({ ...l, signal: byLane.get(l.lane_number) ?? null }));
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
-      <header className="max-w-4xl mx-auto mb-3 flex items-baseline justify-between">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-            Tablet · {section.toUpperCase()} · DAR triage
-          </div>
-          <div className="text-lg font-semibold mt-0.5">Live signals</div>
-        </div>
-        <LayoutSelector value={variant} onChange={setVariant} />
-      </header>
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary", p: 2 }}>
+      <Container maxWidth="md" sx={{ px: 0 }}>
+        <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between", mb: 2 }}>
+          <Box>
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase" }}>
+              Tablet · {section.toUpperCase()} · DAR triage
+            </Typography>
+            <Typography sx={{ fontSize: 18, fontWeight: 600, mt: 0.25 }}>
+              Live signals
+            </Typography>
+          </Box>
+          <ToggleButtonGroup
+            value={variant}
+            exclusive
+            onChange={(_, v) => v && setVariant(v as LayoutVariant)}
+            size="small"
+            sx={{ "& .MuiToggleButton-root": { borderRadius: "8px !important", px: 2, textTransform: "none" } }}
+          >
+            <ToggleButton value="B">Grid</ToggleButton>
+            <ToggleButton value="A">Queue</ToggleButton>
+            <ToggleButton value="C">Focus</ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
 
-      <div className="max-w-4xl mx-auto">
-        {loading && (
-          <div className="text-sm text-muted-foreground">Connecting…</div>
-        )}
+        {loading && <Typography color="text.secondary">Connecting…</Typography>}
         {!loading && variant === "B" && <LayoutB lanes={merged} />}
         {!loading && variant === "A" && <LayoutA lanes={merged} />}
         {!loading && variant === "C" && <LayoutC lanes={merged} />}
-      </div>
 
-      <div className="max-w-4xl mx-auto mt-6 text-[10px] uppercase tracking-[0.3em] text-muted-foreground text-center">
-        Triage stays on this tablet · not shown on the projector
-      </div>
-    </div>
-  );
-}
-
-function LayoutSelector({
-  value,
-  onChange,
-}: {
-  value: LayoutVariant;
-  onChange: (v: LayoutVariant) => void;
-}) {
-  const options: LayoutVariant[] = ["B", "A", "C"];
-  return (
-    <div className="inline-flex rounded-md border border-border bg-card text-xs">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => onChange(opt)}
-          className={`px-3 py-1.5 transition-colors ${
-            value === opt
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-muted"
-          }`}
+        <Typography
+          sx={{
+            fontSize: 10,
+            letterSpacing: "0.3em",
+            color: "text.secondary",
+            textTransform: "uppercase",
+            textAlign: "center",
+            mt: 4,
+          }}
         >
-          {opt === "B" ? "Grid" : opt === "A" ? "Queue" : "Focus"}
-        </button>
-      ))}
-    </div>
+          Triage stays on this tablet · not shown on the projector
+        </Typography>
+      </Container>
+    </Box>
   );
 }
 
@@ -140,194 +129,205 @@ interface LaneRow extends LaneInfo {
   signal: DarSignal | null;
 }
 
-/** Layout B — grid that mirrors the studio's physical layout. */
 function LayoutB({ lanes }: { lanes: LaneRow[] }) {
   const cols = lanes.length <= 5 ? Math.max(lanes.length, 1) : Math.ceil(lanes.length / 2);
   return (
-    <div
-      className="grid gap-3"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-    >
-      {lanes.map((l) => (
-        <LaneTileB key={l.lane_number} lane={l} />
-      ))}
-    </div>
+    <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      {lanes.map((l) => <LaneTileB key={l.lane_number} lane={l} />)}
+    </Box>
   );
 }
 
 function LaneTileB({ lane }: { lane: LaneRow }) {
   const status = lane.signal?.status;
-  const colors = status ? STATUS_COLOR[status] : null;
   return (
-    <div
-      className={`relative aspect-square rounded-2xl border bg-card p-3 flex flex-col items-center justify-center text-center transition-all ${
-        colors ? `${colors.ring} ring-2` : "border-border"
-      }`}
+    <Card
+      sx={{
+        position: "relative",
+        aspectRatio: "1 / 1",
+        bgcolor: status ? STATUS_BG[status] : "var(--mui-palette-m3-surfaceContainerLow)",
+        outline: status ? "2px solid" : "none",
+        outlineColor: status ? STATUS_FG[status] : "transparent",
+        outlineOffset: "-2px",
+        p: 1.5,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+      }}
     >
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <Typography sx={{ fontSize: 10, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase" }}>
         Lane
-      </div>
-      <div className="text-4xl font-light leading-none tabular-nums mt-0.5">
+      </Typography>
+      <Typography sx={{ fontSize: 32, fontWeight: 300, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
         {lane.lane_number}
-      </div>
-      <div className="text-xs text-muted-foreground mt-1 truncate max-w-full">
+      </Typography>
+      <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {lane.name ?? "—"}
-      </div>
+      </Typography>
       <AnimatePresence>
-        {status && colors && (
+        {status && (
           <motion.div
             key={status}
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.2 }}
-            className={`absolute top-2 right-2 w-3 h-3 rounded-full ${colors.bg}`}
+            style={{ position: "absolute", top: 8, right: 8, width: 12, height: 12, borderRadius: "50%", background: STATUS_FG[status] }}
           />
         )}
       </AnimatePresence>
-    </div>
+    </Card>
   );
 }
 
-/** Layout A — queue, three columns (red / yellow / green). */
 function LayoutA({ lanes }: { lanes: LaneRow[] }) {
-  const buckets: Record<DarStatus | "none", LaneRow[]> = {
-    red: [],
-    yellow: [],
-    green: [],
-    none: [],
-  };
+  const buckets: Record<DarStatus | "none", LaneRow[]> = { red: [], yellow: [], green: [], none: [] };
   for (const l of lanes) {
     const s = l.signal?.status;
     if (!s) buckets.none.push(l);
     else buckets[s].push(l);
   }
-  const order: { key: DarStatus; label: string }[] = [
-    { key: "red", label: STATUS_LABEL.red },
-    { key: "yellow", label: STATUS_LABEL.yellow },
-    { key: "green", label: STATUS_LABEL.green },
-  ];
+  const order: { key: DarStatus }[] = [{ key: "red" }, { key: "yellow" }, { key: "green" }];
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {order.map(({ key, label }) => {
-        const colors = STATUS_COLOR[key];
+    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5 }}>
+      {order.map(({ key }) => {
         const items = buckets[key];
         return (
-          <div key={key} className="rounded-2xl border border-border bg-card p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${colors.bg}`} />
-              <span className={`text-xs uppercase tracking-wider font-medium ${colors.text}`}>
-                {label} ({items.length})
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {items.length === 0 && (
-                <div className="text-[11px] text-muted-foreground">—</div>
-              )}
+          <Card key={key} sx={{ p: 1.5, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: STATUS_FG[key] }} />
+              <Typography sx={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 500, color: STATUS_FG[key] }}>
+                {STATUS_LABEL[key]} ({items.length})
+              </Typography>
+            </Stack>
+            <Stack spacing={0.75}>
+              {items.length === 0 && <Typography sx={{ fontSize: 11, color: "text.secondary" }}>—</Typography>}
               {items.map((l) => (
-                <div key={l.lane_number} className="rounded-lg bg-background/50 px-2 py-1.5">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-base font-mono tabular-nums">{l.lane_number}</span>
-                    <span className="text-xs text-foreground/80 truncate">
-                      {l.name ?? "—"}
-                    </span>
-                  </div>
-                </div>
+                <Box
+                  key={l.lane_number}
+                  sx={{
+                    borderRadius: 1,
+                    bgcolor: "var(--mui-palette-m3-surfaceContainer)",
+                    px: 1,
+                    py: 0.75,
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 1,
+                  }}
+                >
+                  <Typography sx={{ fontSize: 14, fontFamily: '"Roboto Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                    {l.lane_number}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {l.name ?? "—"}
+                  </Typography>
+                </Box>
               ))}
-            </div>
-          </div>
+            </Stack>
+          </Card>
         );
       })}
       {buckets.none.length > 0 && (
-        <div className="col-span-3 text-[11px] text-muted-foreground text-center">
+        <Typography sx={{ gridColumn: "1 / -1", fontSize: 11, color: "text.secondary", textAlign: "center" }}>
           {buckets.none.length} lane(s) without a signal yet
-        </div>
+        </Typography>
       )}
-    </div>
+    </Box>
   );
 }
 
-/** Layout C — single focus card on the highest-priority lane. */
 function LayoutC({ lanes }: { lanes: LaneRow[] }) {
-  // Highest-priority lane: first by status (red < yellow < green), then by recency.
-  const withSignals = lanes.filter((l) => l.signal !== null) as Array<
-    LaneRow & { signal: DarSignal }
-  >;
+  const withSignals = lanes.filter((l) => l.signal !== null) as Array<LaneRow & { signal: DarSignal }>;
   withSignals.sort((a, b) => {
     const sa = STATUS_RANK[a.signal.status];
     const sb = STATUS_RANK[b.signal.status];
     if (sa !== sb) return sa - sb;
     return b.signal.updated_at.localeCompare(a.signal.updated_at);
   });
-
   const focus = withSignals[0];
   const rest = withSignals.slice(1, 4);
 
   if (!focus) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-muted-foreground">
+      <Card sx={{ p: 6, textAlign: "center", color: "text.secondary", border: 1, borderColor: "divider", borderStyle: "dashed", bgcolor: "transparent" }}>
         No signals yet. Waiting…
-      </div>
+      </Card>
     );
   }
 
-  const colors = STATUS_COLOR[focus.signal.status];
   return (
-    <div>
+    <Box>
       <motion.div
         key={`${focus.lane_number}-${focus.signal.status}`}
         initial={{ y: 8, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.25 }}
-        className={`rounded-2xl border ${colors.ring} ring-2 bg-card p-6`}
       >
-        <div className="flex items-center gap-2 mb-2">
-          <span className={`w-3 h-3 rounded-full ${colors.bg}`} />
-          <span className={`text-[11px] uppercase tracking-[0.3em] ${colors.text}`}>
-            {STATUS_LABEL[focus.signal.status]} · highest priority
-          </span>
-        </div>
-        <div className="flex items-baseline gap-3">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Lane
-          </div>
-          <div className="text-7xl font-light leading-none tabular-nums">
-            {focus.lane_number}
-          </div>
-          <div className="text-xl text-foreground/80">{focus.name ?? "—"}</div>
-        </div>
-        {focus.signal.reason && (
-          <div className="mt-4 text-sm text-foreground/70 italic">
-            {focus.signal.reason}
-          </div>
-        )}
+        <Card
+          sx={{
+            p: 3,
+            bgcolor: STATUS_BG[focus.signal.status],
+            outline: "2px solid",
+            outlineColor: STATUS_FG[focus.signal.status],
+            outlineOffset: "-2px",
+          }}
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+            <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: STATUS_FG[focus.signal.status] }} />
+            <Typography sx={{ fontSize: 11, letterSpacing: "0.3em", color: STATUS_FG[focus.signal.status], textTransform: "uppercase" }}>
+              {STATUS_LABEL[focus.signal.status]} · highest priority
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline" }}>
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase" }}>
+              Lane
+            </Typography>
+            <Typography sx={{ fontSize: 64, fontWeight: 300, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+              {focus.lane_number}
+            </Typography>
+            <Typography sx={{ fontSize: 20, color: "text.primary" }}>{focus.name ?? "—"}</Typography>
+          </Stack>
+          {focus.signal.reason && (
+            <Typography sx={{ mt: 2, fontSize: 14, color: "text.primary", fontStyle: "italic" }}>
+              {focus.signal.reason}
+            </Typography>
+          )}
+        </Card>
       </motion.div>
 
       {rest.length > 0 && (
-        <div className="mt-4">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">
+        <Box sx={{ mt: 2 }}>
+          <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase", mb: 1 }}>
             Next
-          </div>
-          <div className="space-y-1.5">
-            {rest.map((l) => {
-              const c = STATUS_COLOR[l.signal.status];
-              return (
-                <div
-                  key={l.lane_number}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
-                >
-                  <span className={`w-2.5 h-2.5 rounded-full ${c.bg}`} />
-                  <span className="text-lg font-mono tabular-nums w-8">{l.lane_number}</span>
-                  <span className="text-sm text-foreground/80 truncate flex-1">
-                    {l.name ?? "—"}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          </Typography>
+          <Stack spacing={0.75}>
+            {rest.map((l) => (
+              <Card
+                key={l.lane_number}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                  px: 1.5,
+                  py: 1,
+                  bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
+                }}
+              >
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: STATUS_FG[l.signal.status] }} />
+                <Typography sx={{ width: 32, fontSize: 18, fontFamily: '"Roboto Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                  {l.lane_number}
+                </Typography>
+                <Typography sx={{ fontSize: 14, color: "text.primary", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {l.name ?? "—"}
+                </Typography>
+                <ChevronRight sx={{ fontSize: 18, color: "text.secondary" }} />
+              </Card>
+            ))}
+          </Stack>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }

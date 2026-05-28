@@ -1,32 +1,34 @@
 import { Link, useSearchParams } from "react-router-dom";
+import {
+  AppBar,
+  Box,
+  Button,
+  Card,
+  Container,
+  Stack,
+  Toolbar,
+  Typography,
+  ToggleButtonGroup,
+  ToggleButton,
+  Collapse,
+} from "@mui/material";
+import { useState } from "react";
 import { useSession } from "@/hooks/useSession";
 import {
   setPhase,
   type Section,
   type SessionPhase,
 } from "@/services/sessionService";
-import { Button } from "@/components/ui/button";
 import { DARTablet } from "@/components/prototyp/DARTablet";
 import { MiniBangridTablet } from "@/components/prototyp/MiniBangridTablet";
 import { MiniAARTablet } from "@/components/prototyp/MiniAARTablet";
 import type { Section as LaneSection } from "@/services/assignmentService";
 
 /**
- * Helhetsprototyp — TabletShell.
+ * Helhetsprototyp — TabletShell (M3-omskrivning 2026-05-28).
  *
- * Instruktörens privata yta — "kontrollrum"-språk per
- * helhetsprototyp/plan.md §3. Phase-switchar nu, speglar /duk:s mönster:
- *
- *   idle/prepare → "Build session"-CTA + phase-debug-panel
- *   check-in     → väntar (check-in körs på terminal + duk)
- *   preflight    → väntar (instruktören driver med fjärr)
- *   exercise     → DARTablet (Pass 5 — DAR triage)
- *   aar          → väntar (instruktör driver AAR med fjärr; Pass 6
- *                  kan ev lägga mirror-vy här)
- *
- * Phase-debug-panelen behålls längst ned — felsökningsverktyg.
- *
- * Section kan väljas via ?section=idt (default idt).
+ * M3 AppBar för shell-chrome. Phase-medveten med mini-mirrors per fas.
+ * MUI ToggleButtonGroup för debug-phase-controls (M3 segmented button).
  */
 
 const PHASES: SessionPhase[] = [
@@ -43,16 +45,16 @@ export default function TabletShell() {
   const [searchParams] = useSearchParams();
   const section = (searchParams.get("section") ?? "idt") as Section;
   const { session, loading } = useSession(section);
+  const [debugOpen, setDebugOpen] = useState(false);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Connecting…
-      </div>
+      <Stack sx={{ minHeight: "100vh", alignItems: "center", justifyContent: "center" }}>
+        <Typography color="text.secondary">Connecting…</Typography>
+      </Stack>
     );
   }
 
-  // Exercise-fasen tar över hela tabletten — det är arbetsytan.
   if (session && session.phase === "exercise") {
     return <DARTablet sessionId={session.id} section={section} />;
   }
@@ -61,104 +63,160 @@ export default function TabletShell() {
     !session || session.phase === "idle" || session.phase === "prepare";
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 max-w-2xl mx-auto">
-      <div className="mb-6">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-1">
-          Tablet · {section.toUpperCase()}
-        </div>
-        <h1 className="text-2xl font-semibold">Instructor control</h1>
-        <p className="text-sm text-muted-foreground">
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary" }}>
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          bgcolor: "var(--mui-palette-m3-surfaceContainer)",
+          color: "text.primary",
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Toolbar>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase" }}>
+              Tablet · {section.toUpperCase()}
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Instructor control
+            </Typography>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      <Container maxWidth="md" sx={{ py: 3 }}>
+        <Typography color="text.secondary" sx={{ mb: 3, fontSize: 14 }}>
           Phase-aware. Real surfaces appear during their phase; phase-controls
           below for debugging.
-        </p>
-      </div>
+        </Typography>
 
-      {showPrepareCta && (
-        <Link
-          to={`/tablet/prepare?section=${section}`}
-          className="block mb-4 rounded-lg border-2 border-primary/40 bg-primary/5 p-5 hover:bg-primary/10 transition-colors"
-        >
-          <div className="text-[10px] uppercase tracking-[0.3em] text-primary mb-1">
-            Pre-pass · spår 01
-          </div>
-          <div className="font-medium text-lg">Build today's session →</div>
-          <div className="text-sm text-muted-foreground mt-1">
-            Pick exercises in order before trainees arrive.
-          </div>
-        </Link>
-      )}
+        {showPrepareCta && (
+          <Card
+            component={Link}
+            to={`/tablet/prepare?section=${section}`}
+            sx={{
+              display: "block",
+              p: 2.5,
+              mb: 3,
+              border: 2,
+              borderColor: "primary.main",
+              bgcolor: "var(--mui-palette-m3-primaryContainer)",
+              color: "var(--mui-palette-m3-onPrimaryContainer)",
+              textDecoration: "none",
+              transition: "filter 150ms",
+              "&:hover": { filter: "brightness(1.1)" },
+            }}
+          >
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "primary.main", textTransform: "uppercase", mb: 0.5 }}>
+              Pre-pass · spår 01
+            </Typography>
+            <Typography sx={{ fontSize: 18, fontWeight: 500 }}>
+              Build today's session →
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 0.5 }}>
+              Pick exercises in order before trainees arrive.
+            </Typography>
+          </Card>
+        )}
 
-      {/* Phase-specifika paneler. Tabletten visar inte BARA "vänta-text"
-          längre — under check-in och aar speglas duken kompakt så
-          instruktören kan följa utan att titta upp (UX-iteration 2026-05-28). */}
-      {session && session.phase === "select-exercise" && (
-        <WaitingPanel
-          title="Pick on the projector"
-          body="The exercise carousel is showing on the projector. Use ◀ ▶ to navigate and OK to select the starting exercise."
-        />
-      )}
-      {session && session.phase === "check-in" && (
-        <MiniBangridTablet section={section as unknown as LaneSection} />
-      )}
-      {session && session.phase === "preflight" && (
-        <WaitingPanel
-          title="Briefing on the screen"
-          body="The criteria screen is showing on the projector. Press OK on the remote to start the exercise."
-        />
-      )}
-      {session && session.phase === "aar" && (
-        <MiniAARTablet
-          exercise={
-            session.exercise_list[session.current_exercise_index] ?? null
-          }
-          section={section}
-        />
-      )}
-      {session && session.phase === "ended" && (
-        <WaitingPanel
-          title="Session ended"
-          body="All exercises done. Reset from /wizard to start over."
-        />
-      )}
+        {/* Phase-specifika paneler */}
+        {session && session.phase === "select-exercise" && (
+          <WaitingPanel
+            title="Pick on the projector"
+            body="The exercise carousel is showing on the projector. Use ◀ ▶ to navigate and OK to select the starting exercise."
+          />
+        )}
+        {session && session.phase === "check-in" && (
+          <MiniBangridTablet section={section as unknown as LaneSection} />
+        )}
+        {session && session.phase === "preflight" && (
+          <WaitingPanel
+            title="Briefing on the screen"
+            body="The criteria screen is showing on the projector. Press OK on the remote to start the exercise."
+          />
+        )}
+        {session && session.phase === "aar" && (
+          <MiniAARTablet
+            exercise={session.exercise_list[session.current_exercise_index] ?? null}
+            section={section}
+          />
+        )}
+        {session && session.phase === "ended" && (
+          <WaitingPanel
+            title="Session ended"
+            body="All exercises done. Reset from /wizard to start over."
+          />
+        )}
 
-      <details className="mt-6">
-        <summary className="text-xs uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground">
-          Debug · phase controls
-        </summary>
-        <div className="mt-3 rounded-lg border border-border bg-card p-5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Current phase
-          </div>
-          <div className="text-2xl font-mono mb-4">
-            {session?.phase ?? "no session"}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {PHASES.map((p) => (
-              <Button
-                key={p}
-                variant={session?.phase === p ? "default" : "outline"}
-                size="sm"
-                disabled={!session}
-                onClick={() => session && void setPhase(session.id, p)}
+        {/* Debug-panel — M3 segmented button-stil */}
+        <Box sx={{ mt: 4 }}>
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => setDebugOpen((v) => !v)}
+            sx={{
+              fontSize: 11,
+              letterSpacing: "0.15em",
+              color: "text.secondary",
+              textTransform: "uppercase",
+            }}
+          >
+            {debugOpen ? "▾" : "▸"} Debug · phase controls
+          </Button>
+          <Collapse in={debugOpen}>
+            <Card sx={{ p: 2.5, mt: 1, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
+              <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase", mb: 1 }}>
+                Current phase
+              </Typography>
+              <Typography sx={{ fontSize: 22, fontFamily: '"Roboto Mono", monospace', mb: 2 }}>
+                {session?.phase ?? "no session"}
+              </Typography>
+              <ToggleButtonGroup
+                value={session?.phase}
+                exclusive
+                onChange={(_, val) => {
+                  if (val && session) void setPhase(session.id, val as SessionPhase);
+                }}
+                size="small"
+                sx={{ flexWrap: "wrap", gap: 0.5 }}
               >
-                {p}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </details>
-    </div>
+                {PHASES.map((p) => (
+                  <ToggleButton
+                    key={p}
+                    value={p}
+                    disabled={!session}
+                    sx={{
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: "10px !important",
+                      textTransform: "none",
+                      fontSize: 12,
+                      px: 1.5,
+                      py: 0.5,
+                    }}
+                  >
+                    {p}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Card>
+          </Collapse>
+        </Box>
+      </Container>
+    </Box>
   );
 }
 
 function WaitingPanel({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground mb-2">
+    <Card sx={{ p: 2.5, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
+      <Typography sx={{ fontSize: 11, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase", mb: 1 }}>
         On the projector now
-      </div>
-      <div className="text-xl font-semibold mb-1">{title}</div>
-      <p className="text-sm text-muted-foreground">{body}</p>
-    </div>
+      </Typography>
+      <Typography sx={{ fontSize: 20, fontWeight: 600, mb: 0.5 }}>{title}</Typography>
+      <Typography sx={{ fontSize: 14, color: "text.secondary" }}>{body}</Typography>
+    </Card>
   );
 }

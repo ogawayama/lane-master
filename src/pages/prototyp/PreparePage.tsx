@@ -1,7 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, ArrowDown, X, Plus, Check, AlertCircle, GripVertical } from "lucide-react";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  Chip,
+  Container,
+  IconButton,
+  Stack,
+  Typography,
+} from "@mui/material";
+import {
+  ArrowUpward,
+  ArrowDownward,
+  Close,
+  Add,
+  Check,
+  WarningAmber,
+  DragIndicator,
+} from "@mui/icons-material";
 import {
   DndContext,
   closestCenter,
@@ -19,7 +38,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
 import { useWeapons } from "@/hooks/useWeapons";
 import {
@@ -35,20 +53,23 @@ import {
 } from "@/data/exerciseCatalog";
 import { listAll } from "@/services/userHubService";
 
-// Sortordning för trainingType inom ready-gruppen — matchar
-// [spår 01 §Förvald nästa övning]: stigande svårighetsgrad.
+/**
+ * Helhetsprototyp — PreparePage (M3-omskrivning 2026-05-28).
+ *
+ * Spår 01 — pre-pass preparation. MUI:
+ *  - Catalog som Cards med outline/filled-tonal variants beroende på
+ *    ready-status
+ *  - Session plan med dnd-kit sortable (behåller) + IconButton för
+ *    a11y-fallback
+ *  - M3 FilledButton för start-CTA
+ */
+
 const TRAINING_TYPE_RANK: Record<CatalogExercise["trainingType"], number> = {
   basic: 0,
   advanced: 1,
   combat: 2,
 };
 
-/**
- * Sorterbar rad i session-plan-listan. Drag-handle (GripVertical) längst
- * vänster gör listan snabbsorterad på touch och mus; up/down-knapparna
- * behålls som a11y-fallback för keyboard-only-användare. Touch-targets
- * 40×40 (≥iOS 44pt minus padding) per UX-review 2026-05-28.
- */
 function SortableSessionItem({
   id,
   item,
@@ -69,77 +90,66 @@ function SortableSessionItem({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-    zIndex: isDragging ? 10 : undefined,
-  };
-
   return (
-    <li
+    <Box
       ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 pl-1"
+      sx={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 10 : undefined,
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        borderRadius: 2,
+        border: 1,
+        borderColor: "divider",
+        bgcolor: "var(--mui-palette-m3-surfaceContainer)",
+        p: 1,
+        pl: 0.5,
+      }}
     >
-      <button
-        type="button"
+      <IconButton
         {...attributes}
         {...listeners}
-        className="h-10 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none"
+        size="small"
         aria-label="Drag to reorder"
+        sx={{ width: 28, height: 40, cursor: "grab", "&:active": { cursor: "grabbing" }, touchAction: "none" }}
       >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <div className="text-xs font-mono w-5 text-muted-foreground tabular-nums">
+        <DragIndicator fontSize="small" sx={{ color: "text.secondary" }} />
+      </IconButton>
+      <Typography
+        sx={{
+          width: 24,
+          fontSize: 12,
+          fontFamily: '"Roboto Mono", monospace',
+          color: "text.secondary",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
         {index + 1}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm truncate">{item.title}</div>
-        <div className="text-[10px] text-muted-foreground font-mono">{item.weapon}</div>
-      </div>
-      <Button
-        size="icon"
-        variant="ghost"
-        disabled={index === 0}
-        onClick={onMoveUp}
-        className="h-10 w-10"
-        aria-label="Move up"
-      >
-        <ArrowUp className="h-4 w-4" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        disabled={index === total - 1}
-        onClick={onMoveDown}
-        className="h-10 w-10"
-        aria-label="Move down"
-      >
-        <ArrowDown className="h-4 w-4" />
-      </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={onRemove}
-        className="h-10 w-10 text-muted-foreground hover:text-destructive"
-        aria-label="Remove"
-      >
-        <X className="h-4 w-4" />
-      </Button>
-    </li>
+      </Typography>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.title}
+        </Typography>
+        <Typography sx={{ fontSize: 10, color: "text.secondary", fontFamily: '"Roboto Mono", monospace' }}>
+          {item.weapon}
+        </Typography>
+      </Box>
+      <IconButton size="small" disabled={index === 0} onClick={onMoveUp} aria-label="Move up" sx={{ width: 40, height: 40 }}>
+        <ArrowUpward fontSize="small" />
+      </IconButton>
+      <IconButton size="small" disabled={index === total - 1} onClick={onMoveDown} aria-label="Move down" sx={{ width: 40, height: 40 }}>
+        <ArrowDownward fontSize="small" />
+      </IconButton>
+      <IconButton size="small" onClick={onRemove} aria-label="Remove" sx={{ width: 40, height: 40, color: "text.secondary", "&:hover": { color: "error.main" } }}>
+        <Close fontSize="small" />
+      </IconButton>
+    </Box>
   );
 }
 
-/**
- * En rad i katalogen. motion.li med layout — om en övning byter
- * grupp (vapen flippas live), glider raden mellan grupperna
- * istället för att snappa.
- *
- * Add-knappen är ENDAST disabled när övningen redan är tillagd
- * — inte när vapnet saknas. Det är medveten override per
- * [spår 01 §Samlad position varv 2]: "Medveten override behövs."
- */
 function CatalogRow({
   ex,
   ok,
@@ -160,62 +170,54 @@ function CatalogRow({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ layout: { duration: 0.35, ease: "easeOut" }, opacity: { duration: 0.2 } }}
-      className={`group rounded-lg border p-3 transition-colors ${
-        ok ? "border-border bg-card" : "border-border/50 bg-card/50"
-      }`}
+      style={{ listStyle: "none" }}
     >
-      <div className="flex items-start gap-3">
-        <div className={`flex-1 ${ok ? "" : "opacity-50"}`}>
-          <div className="flex items-baseline gap-2">
-            <span className="font-medium">{ex.title}</span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {ex.trainingType}
-            </span>
-          </div>
-          <div className="text-xs text-muted-foreground mt-0.5">{ex.description}</div>
-          <div className="flex flex-wrap gap-3 mt-2 text-[11px] text-muted-foreground">
-            <span>Hits ≥ {ex.hits_threshold}</span>
-            <span>Time ≤ {ex.time_seconds}s</span>
-            <span>Spread ≤ {ex.spread_threshold}</span>
-            <span className="font-mono">{ex.weaponTypes.join(" / ")}</span>
-          </div>
-          {!ok && reason && (
-            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-amber-500">
-              <AlertCircle className="h-3 w-3" />
-              {reason}
-            </div>
-          )}
-        </div>
-        <Button
-          size="sm"
-          variant={already ? "secondary" : "outline"}
-          disabled={already}
-          onClick={onAdd}
-          className="shrink-0"
-        >
-          {already ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {already ? "Added" : "Add"}
-        </Button>
-      </div>
+      <Card
+        sx={{
+          p: 1.5,
+          bgcolor: ok ? "var(--mui-palette-m3-surfaceContainerLow)" : "var(--mui-palette-m3-surfaceContainerLowest)",
+          border: 1,
+          borderColor: ok ? "divider" : "rgba(255,255,255,0.05)",
+        }}
+      >
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+          <Box sx={{ flex: 1, opacity: ok ? 1 : 0.5 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 500 }}>{ex.title}</Typography>
+              <Typography sx={{ fontSize: 10, letterSpacing: "0.1em", color: "text.secondary", textTransform: "uppercase" }}>
+                {ex.trainingType}
+              </Typography>
+            </Stack>
+            <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.25 }}>{ex.description}</Typography>
+            <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", mt: 1, fontSize: 11, color: "text.secondary" }} useFlexGap>
+              <span>Hits ≥ {ex.hits_threshold}</span>
+              <span>Time ≤ {ex.time_seconds}s</span>
+              <span>Spread ≤ {ex.spread_threshold}</span>
+              <span style={{ fontFamily: '"Roboto Mono", monospace' }}>{ex.weaponTypes.join(" / ")}</span>
+            </Stack>
+            {!ok && reason && (
+              <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mt: 1, color: "warning.main" }}>
+                <WarningAmber sx={{ fontSize: 14 }} />
+                <Typography sx={{ fontSize: 11 }}>{reason}</Typography>
+              </Stack>
+            )}
+          </Box>
+          <Button
+            variant={already ? "contained" : "outlined"}
+            color={already ? "secondary" : "primary"}
+            size="small"
+            disabled={already}
+            onClick={onAdd}
+            startIcon={already ? <Check /> : <Add />}
+            sx={{ minHeight: 36, flexShrink: 0 }}
+          >
+            {already ? "Added" : "Add"}
+          </Button>
+        </Stack>
+      </Card>
     </motion.li>
   );
 }
-
-/**
- * Helhetsprototyp — PreparePage (Pass 2).
- *
- * Spår 01 — pre-pass preparation vid skrivbordet. Instruktören:
- *  1. Ser hur många skyttar finns i registret (User Hub-info)
- *  2. Bläddrar bland tillgängliga övningar
- *  3. Bygger en ordnad lista (lägg till, flytta upp/ner, ta bort)
- *  4. Startar sessionen → setExerciseList + setPhase('check-in')
- *
- * Filtering-principen från spår 01: övningar vars vapen *inte* är ready
- * gråas ut + visar "varför inte" — men kan fortfarande klickas (medveten
- * override per [spår 01 §Samlad position varv 2]).
- *
- * Designspråk: "kontrollrum" — tätt, status-bärande. Ej för duken.
- */
 
 export default function PreparePage() {
   const [searchParams] = useSearchParams();
@@ -224,9 +226,7 @@ export default function PreparePage() {
   const { session, loading } = useSession(section);
   const { availableTypes, loading: weaponsLoading } = useWeapons();
 
-  // Lokal lista i ordning. Synkad till session.exercise_list när vi sparar.
   const [list, setList] = useState<ExerciseListItem[]>([]);
-  // Initiera från sessionen (om instruktören är mitt i en redigering)
   useEffect(() => {
     if (session && session.exercise_list.length > 0 && list.length === 0) {
       setList(session.exercise_list);
@@ -240,10 +240,6 @@ export default function PreparePage() {
 
   const inList = useMemo(() => new Set(list.map((e) => e.id)), [list]);
 
-  // Split catalog: ready (weapons available) first, sorted by training-type
-  // ascending. Not-ready last, in insertion order. Per [spår 01 varv 2]:
-  // motorn symmetrisk, gränssnittet vägledande. Den första i ready-gruppen
-  // är samtidigt spår 01:s "förvald nästa övning" — faller ut gratis.
   const { readyExercises, notReadyExercises } = useMemo(() => {
     const ready: { ex: CatalogExercise; reason?: string }[] = [];
     const notReady: { ex: CatalogExercise; reason?: string }[] = [];
@@ -255,7 +251,6 @@ export default function PreparePage() {
     ready.sort((a, b) => {
       const t = TRAINING_TYPE_RANK[a.ex.trainingType] - TRAINING_TYPE_RANK[b.ex.trainingType];
       if (t !== 0) return t;
-      // Stabilt på catalog-ordning vid samma trainingType.
       return EXERCISE_CATALOG.indexOf(a.ex) - EXERCISE_CATALOG.indexOf(b.ex);
     });
     return { readyExercises: ready, notReadyExercises: notReady };
@@ -289,15 +284,9 @@ export default function PreparePage() {
     });
   }
 
-  // dnd-kit sensorer — pointer (mus + touch) + keyboard (a11y).
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      // Liten distansröskel så ett klick på Add-knapp inte trigger drag.
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   function handleDragEnd(event: DragEndEvent) {
@@ -314,147 +303,156 @@ export default function PreparePage() {
   async function startSession() {
     if (!session || list.length === 0) return;
     await setExerciseList(session.id, list);
-    // Gå till select-exercise (Chromecast picker på duken) istället för
-    // direkt check-in — instruktören väljer startövning från duken med
-    // fjärren. Per user-beslut 2026-05-26.
     await setPhase(session.id, "select-exercise");
     navigate(`/tablet?section=${section}`);
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading session…</div>;
+    return (
+      <Stack sx={{ minHeight: "100vh", alignItems: "center", justifyContent: "center" }}>
+        <Typography color="text.secondary">Loading session…</Typography>
+      </Stack>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
-      <header className="max-w-6xl mx-auto mb-6">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-1">
-          Tablet · {section.toUpperCase()} · Pre-pass preparation
-        </div>
-        <div className="flex items-baseline justify-between gap-4">
-          <h1 className="text-2xl font-semibold">Build today's session</h1>
-          <div className="text-sm text-muted-foreground font-mono">
-            Roster · {traineeCount === null ? "…" : `${traineeCount} in pool`}
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          Pick exercises in the order you want to run them. Weapons that aren't ready in the studio are dimmed — you can override.
-        </p>
-      </header>
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary", p: 3 }}>
+      <Container maxWidth="xl" sx={{ px: 0 }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase", mb: 0.5 }}>
+            Tablet · {section.toUpperCase()} · Pre-pass preparation
+          </Typography>
+          <Stack direction="row" spacing={2} sx={{ alignItems: "baseline", justifyContent: "space-between" }}>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              Build today's session
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: "text.secondary", fontFamily: '"Roboto Mono", monospace' }}>
+              Roster · {traineeCount === null ? "…" : `${traineeCount} in pool`}
+            </Typography>
+          </Stack>
+          <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 0.5 }}>
+            Pick exercises in the order you want to run them. Weapons that aren't ready in the studio are dimmed — you can override.
+          </Typography>
+        </Box>
 
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_440px] gap-6">
-        {/* Catalog */}
-        <section>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Exercise catalog
-          </div>
-          <ul className="space-y-2">
-            <AnimatePresence>
-              {readyExercises.map(({ ex }) => (
-                <CatalogRow
-                  key={ex.id}
-                  ex={ex}
-                  ok
-                  reason={undefined}
-                  already={inList.has(ex.id)}
-                  onAdd={() => addExercise(ex)}
-                />
-              ))}
-            </AnimatePresence>
-          </ul>
+        <Box sx={{ display: "grid", gridTemplateColumns: { md: "1fr 440px" }, gap: 3 }}>
+          {/* Catalog */}
+          <Box>
+            <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase", mb: 1 }}>
+              Exercise catalog
+            </Typography>
+            <Stack component="ul" spacing={1} sx={{ p: 0, m: 0 }}>
+              <AnimatePresence>
+                {readyExercises.map(({ ex }) => (
+                  <CatalogRow
+                    key={ex.id}
+                    ex={ex}
+                    ok
+                    reason={undefined}
+                    already={inList.has(ex.id)}
+                    onAdd={() => addExercise(ex)}
+                  />
+                ))}
+              </AnimatePresence>
+            </Stack>
 
-          {notReadyExercises.length > 0 && (
-            <>
-              <motion.div
-                layout
-                className="flex items-center gap-3 mt-6 mb-3"
-              >
-                <div className="flex-1 h-px bg-border" />
-                <div className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 flex items-center gap-1.5">
-                  <AlertCircle className="h-3 w-3" />
-                  Not currently available · weapons need to be ready first
-                </div>
-                <div className="flex-1 h-px bg-border" />
-              </motion.div>
-              <ul className="space-y-2">
-                <AnimatePresence>
-                  {notReadyExercises.map(({ ex, reason }) => (
-                    <CatalogRow
-                      key={ex.id}
-                      ex={ex}
-                      ok={false}
-                      reason={reason}
-                      already={inList.has(ex.id)}
-                      onAdd={() => addExercise(ex)}
-                    />
-                  ))}
-                </AnimatePresence>
-              </ul>
-            </>
-          )}
-
-          {weaponsLoading && (
-            <div className="text-xs text-muted-foreground mt-2">Reading weapon status…</div>
-          )}
-        </section>
-
-        {/* Ordered list */}
-        <aside>
-          <div className="sticky top-6 space-y-4">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                Session plan ({list.length})
-              </div>
-              {list.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  Empty. Add exercises from the catalog.
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={list.map((_, i) => `item-${i}`)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <ol className="space-y-2">
-                      {list.map((item, idx) => (
-                        <SortableSessionItem
-                          key={`${item.id}-${idx}`}
-                          id={`item-${idx}`}
-                          item={item}
-                          index={idx}
-                          total={list.length}
-                          onMoveUp={() => moveAt(idx, -1)}
-                          onMoveDown={() => moveAt(idx, 1)}
-                          onRemove={() => removeAt(idx)}
-                        />
-                      ))}
-                    </ol>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </div>
-
-            <Button
-              className="w-full h-12"
-              size="lg"
-              disabled={list.length === 0 || !session}
-              onClick={() => void startSession()}
-            >
-              Start session → Pick on the duk
-            </Button>
-            {session && session.phase !== "idle" && session.phase !== "prepare" && (
-              <div className="text-[11px] text-status-warning text-center">
-                A session is already running (phase: {session.phase}). Starting a
-                new one will interrupt it.
-              </div>
+            {notReadyExercises.length > 0 && (
+              <>
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mt: 3, mb: 1.5 }} component={motion.div} layout>
+                  <Box sx={{ flex: 1, height: 1, bgcolor: "divider" }} />
+                  <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: "warning.main", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    <WarningAmber sx={{ fontSize: 12 }} />
+                    <span>Not currently available · weapons need to be ready first</span>
+                  </Stack>
+                  <Box sx={{ flex: 1, height: 1, bgcolor: "divider" }} />
+                </Stack>
+                <Stack component="ul" spacing={1} sx={{ p: 0, m: 0 }}>
+                  <AnimatePresence>
+                    {notReadyExercises.map(({ ex, reason }) => (
+                      <CatalogRow
+                        key={ex.id}
+                        ex={ex}
+                        ok={false}
+                        reason={reason}
+                        already={inList.has(ex.id)}
+                        onAdd={() => addExercise(ex)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </Stack>
+              </>
             )}
-          </div>
-        </aside>
-      </div>
-    </div>
+
+            {weaponsLoading && (
+              <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 1 }}>
+                Reading weapon status…
+              </Typography>
+            )}
+          </Box>
+
+          {/* Ordered list */}
+          <Box>
+            <Box sx={{ position: "sticky", top: 24, display: "flex", flexDirection: "column", gap: 2 }}>
+              <Box>
+                <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase", mb: 1 }}>
+                  Session plan ({list.length})
+                </Typography>
+                {list.length === 0 ? (
+                  <Box
+                    sx={{
+                      borderRadius: 2,
+                      border: 1,
+                      borderStyle: "dashed",
+                      borderColor: "divider",
+                      p: 3,
+                      textAlign: "center",
+                      fontSize: 14,
+                      color: "text.secondary",
+                    }}
+                  >
+                    Empty. Add exercises from the catalog.
+                  </Box>
+                ) : (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={list.map((_, i) => `item-${i}`)} strategy={verticalListSortingStrategy}>
+                      <Stack spacing={1}>
+                        {list.map((item, idx) => (
+                          <SortableSessionItem
+                            key={`${item.id}-${idx}`}
+                            id={`item-${idx}`}
+                            item={item}
+                            index={idx}
+                            total={list.length}
+                            onMoveUp={() => moveAt(idx, -1)}
+                            onMoveDown={() => moveAt(idx, 1)}
+                            onRemove={() => removeAt(idx)}
+                          />
+                        ))}
+                      </Stack>
+                    </SortableContext>
+                  </DndContext>
+                )}
+              </Box>
+
+              <Button
+                variant="contained"
+                fullWidth
+                size="large"
+                disabled={list.length === 0 || !session}
+                onClick={() => void startSession()}
+                sx={{ minHeight: 48 }}
+              >
+                Start session → Pick on the duk
+              </Button>
+              {session && session.phase !== "idle" && session.phase !== "prepare" && (
+                <Alert severity="warning" sx={{ fontSize: 11 }}>
+                  A session is already running (phase: {session.phase}). Starting a new one will interrupt it.
+                </Alert>
+              )}
+            </Box>
+          </Box>
+        </Box>
+      </Container>
+    </Box>
   );
 }

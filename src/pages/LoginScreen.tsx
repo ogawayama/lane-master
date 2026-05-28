@@ -1,8 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, AlertTriangle, CheckCircle2, RotateCcw, Settings } from "lucide-react";
+import {
+  Box,
+  Button,
+  Card,
+  Stack,
+  Typography,
+} from "@mui/material";
+import {
+  Shield,
+  WarningAmber,
+  CheckCircle,
+} from "@mui/icons-material";
 import rfidReaderImg from "@/assets/rfid-reader.png";
-import { Button } from "@/components/ui/button";
 import { RegistrationForm } from "@/components/RegistrationForm";
 import { RFIDSimulator } from "@/components/RFIDSimulator";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
@@ -14,29 +24,33 @@ import {
   resetAllAssignments,
   type AssignmentResult,
   type Section,
-  type User } from
-"@/services/assignmentService";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger } from
-"@/components/ui/alert-dialog";
+  type User,
+} from "@/services/assignmentService";
+
+/**
+ * LoginScreen — M3-omskrivning 2026-05-28.
+ *
+ * RFID check-in-terminal. M3-stil med:
+ *  - Shield ikon + Display-typ för "Scan Your RFID Tag"
+ *  - MUI Cards för success/error/register states (M3 tonal containers)
+ *  - MUI Button för confirm
+ *  - RegistrationForm/RFIDSimulator/ConnectionStatus ärvs orörda (de
+ *    är egna komponenter och håller sin egen interna stil)
+ */
 
 type ScreenState = "idle" | "loading" | "success" | "error" | "register";
 
 interface LoginScreenProps {
   heading?: string;
-  themeHsl?: string; // e.g. "203 100% 50%"
+  themeHsl?: string;
   section?: Section;
 }
 
-export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, section = "idt" }: LoginScreenProps = {}) {
+export default function LoginScreen({
+  heading = "GUNNERY & SKILLS",
+  themeHsl,
+  section = "idt",
+}: LoginScreenProps = {}) {
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<AssignmentResult | null>(null);
@@ -53,7 +67,6 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
-  // Countdown for success state
   useEffect(() => {
     if (state !== "success") return;
     setCountdown(10);
@@ -70,7 +83,6 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
     return () => clearInterval(interval);
   }, [state, dismissSuccess]);
 
-  // Keep input focused
   const focusInput = useCallback(() => {
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
@@ -87,26 +99,19 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
     setState("loading");
     setIsLoading(true);
     setMessage("");
-
     try {
       const user = await lookupUserByRfid(rfid.trim());
-
       if (user) {
         const result: AssignmentResult = await assignLaneAndWeapon(user, section);
         setResult(result);
         setState(result.success ? "success" : "error");
         setMessage(result.message);
-        // Auto-clear handled by countdown effect when state === "success"
         if (!result.success) {
           setTimeout(() => {
-            setState("idle");
-            setMessage("");
-            setResult(null);
-            focusInput();
+            setState("idle"); setMessage(""); setResult(null); focusInput();
           }, 6000);
         }
       } else {
-        // Unknown RFID — show registration
         setPendingRfid(rfid.trim());
         setState("register");
         setMessage("RFID not registered. Register RFID tag.");
@@ -134,7 +139,7 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
       setState(result.success ? "success" : "error");
       setMessage(result.message);
       if (!result.success) {
-        setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+        setTimeout(() => { setState("idle"); setMessage(""); setResult(null); focusInput(); }, 6000);
       }
     } catch (err) {
       setState("error");
@@ -159,7 +164,7 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
       setState(result.success ? "success" : "error");
       setMessage(result.message);
       if (!result.success) {
-        setTimeout(() => {setState("idle");setMessage("");setResult(null);focusInput();}, 6000);
+        setTimeout(() => { setState("idle"); setMessage(""); setResult(null); focusInput(); }, 6000);
       }
     } catch (err) {
       setState("error");
@@ -171,34 +176,14 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
   };
 
   const handleCancelRegistration = () => {
-    setState("idle");
-    setMessage("");
-    setPendingRfid("");
-    focusInput();
-  };
-
-  const handleReset = async () => {
-    setIsLoading(true);
-    try {
-      await resetAllAssignments(section);
-      setState("idle");
-      setMessage("");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-      focusInput();
-    }
+    setState("idle"); setMessage(""); setPendingRfid(""); focusInput();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       const val = (e.target as HTMLInputElement).value;
       (e.target as HTMLInputElement).value = "";
-      if (state === "success") {
-        dismissSuccess();
-        return;
-      }
+      if (state === "success") { dismissSuccess(); return; }
       handleScan(val);
     }
   };
@@ -208,150 +193,230 @@ export default function LoginScreen({ heading = "THE ECOSYSTEM", themeHsl, secti
     : undefined;
 
   return (
-    <div
-      className="relative flex min-h-screen flex-col items-center justify-center p-8"
+    <Box
+      sx={{
+        position: "relative",
+        minHeight: "100vh",
+        bgcolor: "background.default",
+        color: "text.primary",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        p: 4,
+      }}
       style={themeStyle}
-      onClick={() => state !== "register" && focusInput()}>
-      {/* Header */}
-      <div className="absolute top-6 left-8 flex items-center gap-3">
-        <Shield className="h-8 w-8 text-primary" />
-        <span className="font-bold tracking-wide text-primary text-4xl font-sans">
+      onClick={() => state !== "register" && focusInput()}
+    >
+      <Stack direction="row" spacing={1.5} sx={{ position: "absolute", top: 24, left: 32, alignItems: "center" }}>
+        <Shield sx={{ color: "primary.main", fontSize: 32 }} />
+        <Typography sx={{ fontWeight: 700, color: "primary.main", fontSize: 32, letterSpacing: "0.05em" }}>
           {heading}
-        </span>
-      </div>
-      <div className="absolute top-6 right-8 flex items-center gap-4">
+        </Typography>
+      </Stack>
+      <Box sx={{ position: "absolute", top: 24, right: 32 }}>
         <ConnectionStatus />
-      </div>
+      </Box>
 
       {/* Hidden RFID input */}
       <input
         ref={inputRef}
         type="text"
-        className="absolute opacity-0 pointer-events-none"
+        style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
         onKeyDown={handleKeyDown}
         tabIndex={0}
-        autoFocus />
-      
+        autoFocus
+      />
 
-      {/* Main content */}
-      <div className="flex flex-col items-center gap-8 w-full max-w-2xl">
-        <motion.h1
+      <Stack spacing={4} sx={{ alignItems: "center", width: "100%", maxWidth: 720 }}>
+        <Typography
+          component={motion.h1}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-5xl md:text-6xl font-bold text-foreground tracking-tight text-center">
-          
-          Scan Your <span className="text-primary">RFID Tag</span>
-        </motion.h1>
+          sx={{
+            fontSize: { xs: 40, md: 56 },
+            fontWeight: 600,
+            letterSpacing: "-0.5px",
+            textAlign: "center",
+          }}
+        >
+          Scan Your{" "}
+          <Box component="span" sx={{ color: "primary.main" }}>
+            RFID Tag
+          </Box>
+        </Typography>
 
-        {state === "idle" &&
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center gap-4">
-          
-            <div className="flex items-center justify-center">
-              <motion.img
-                src={rfidReaderImg}
-                alt="RFID Reader"
-                className="h-32 w-auto"
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-              />
-            </div>
-            <p className="text-lg text-muted-foreground">Place your tag near the reader</p>
-          </motion.div>
-        }
+        {state === "idle" && (
+          <Stack
+            component={motion.div}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            spacing={2}
+            sx={{ alignItems: "center" }}
+          >
+            <motion.img
+              src={rfidReaderImg}
+              alt="RFID Reader"
+              style={{ height: 128, width: "auto" }}
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            />
+            <Typography sx={{ fontSize: 18, color: "text.secondary" }}>
+              Place your tag near the reader
+            </Typography>
+          </Stack>
+        )}
 
-        {state === "loading" &&
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4">
-            <div className="h-16 w-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-            <p className="text-lg text-muted-foreground">Processing...</p>
-          </motion.div>
-        }
+        {state === "loading" && (
+          <Stack
+            component={motion.div}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            spacing={2}
+            sx={{ alignItems: "center" }}
+          >
+            <Box
+              sx={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                border: "4px solid",
+                borderColor: "primary.main",
+                borderTopColor: "transparent",
+                animation: "spin 1s linear infinite",
+                "@keyframes spin": { to: { transform: "rotate(360deg)" } },
+              }}
+            />
+            <Typography sx={{ fontSize: 18, color: "text.secondary" }}>Processing...</Typography>
+          </Stack>
+        )}
 
         <AnimatePresence mode="wait">
-          {state === "success" &&
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="flex flex-col items-center gap-6 rounded-2xl border border-accent/40 bg-accent/5 p-8 w-full text-center">
-            
+          {state === "success" && (
+            <Card
+              key="success"
+              component={motion.div}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              sx={{
+                width: "100%",
+                p: 4,
+                bgcolor: "var(--mui-palette-m3-primaryContainer)",
+                border: 1,
+                borderColor: "primary.main",
+                textAlign: "center",
+              }}
+            >
               {result?.success && result.lane && result.weapon ? (
-                <div className="flex flex-col items-center gap-6 w-full">
-                  <h2 className="text-5xl md:text-6xl font-bold text-foreground tracking-tight">
-                    Welcome <span className="text-primary">{result.user?.name}</span>
-                  </h2>
-                  <p className="text-xl text-muted-foreground">
+                <Stack spacing={3} sx={{ alignItems: "center" }}>
+                  <Typography sx={{ fontSize: { xs: 36, md: 48 }, fontWeight: 600 }}>
+                    Welcome{" "}
+                    <Box component="span" sx={{ color: "primary.main" }}>
+                      {result.user?.name}
+                    </Box>
+                  </Typography>
+                  <Typography sx={{ fontSize: 20, color: "text.secondary" }}>
                     Pick up your {section === "live_fire" ? "tablet" : "weapon"} and proceed to your lane
-                  </p>
-                  <div className="flex flex-col gap-3 w-full">
-                    <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">
-                      <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">{section === "live_fire" ? "Tablet" : "Weapon"}</span>
-                      <span className="text-3xl font-bold font-mono text-primary">{result.weapon.weapon_name}</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-card/60 px-6 py-4">
-                      <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Lane</span>
-                      <span className="text-3xl font-bold font-mono text-primary">{result.lane}</span>
-                    </div>
-                  </div>
-                  <Button
-                    size="lg"
-                    onClick={dismissSuccess}
-                    className="w-full text-lg font-semibold h-14"
-                  >
+                  </Typography>
+                  <Stack spacing={1.5} sx={{ width: "100%" }}>
+                    <ResultRow label={section === "live_fire" ? "Tablet" : "Weapon"} value={result.weapon.weapon_name} />
+                    <ResultRow label="Lane" value={String(result.lane)} />
+                  </Stack>
+                  <Button variant="contained" size="large" onClick={dismissSuccess} fullWidth sx={{ minHeight: 56, fontSize: 18, fontWeight: 600 }}>
                     Confirm
                   </Button>
-                  <p className="text-sm text-muted-foreground">
-                    Closing in {countdown}s
-                  </p>
-                </div>
+                  <Typography sx={{ fontSize: 12, color: "text.secondary" }}>Closing in {countdown}s</Typography>
+                </Stack>
               ) : (
-                <>
-                  <CheckCircle2 className="h-16 w-16 text-accent" />
-                  <p className="text-2xl font-bold text-foreground">{message}</p>
-                </>
+                <Stack spacing={2} sx={{ alignItems: "center" }}>
+                  <CheckCircle sx={{ fontSize: 64, color: "primary.main" }} />
+                  <Typography sx={{ fontSize: 24, fontWeight: 600 }}>{message}</Typography>
+                </Stack>
               )}
-            </motion.div>
-          }
+            </Card>
+          )}
 
-          {state === "error" &&
-          <motion.div
-            key="error"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="flex flex-col items-center gap-4 rounded-2xl border border-destructive/40 bg-destructive/5 p-8 w-full text-center">
-            
-              <AlertTriangle className="h-16 w-16 text-destructive" />
-              <p className="text-2xl font-bold text-foreground">{message}</p>
-            </motion.div>
-          }
+          {state === "error" && (
+            <Card
+              key="error"
+              component={motion.div}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              sx={{
+                width: "100%",
+                p: 4,
+                bgcolor: "var(--mui-palette-m3-errorContainer)",
+                border: 1,
+                borderColor: "error.main",
+                textAlign: "center",
+              }}
+            >
+              <Stack spacing={2} sx={{ alignItems: "center" }}>
+                <WarningAmber sx={{ fontSize: 64, color: "error.main" }} />
+                <Typography sx={{ fontSize: 24, fontWeight: 600 }}>{message}</Typography>
+              </Stack>
+            </Card>
+          )}
 
-          {state === "register" &&
-          <motion.div
-            key="register"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="flex flex-col items-center gap-4 rounded-2xl border border-primary/30 bg-card p-8 w-full">
-            
-              <AlertTriangle className="h-10 w-10 text-primary" />
-              <p className="text-lg text-primary font-semibold">{message}</p>
-              <RegistrationForm
-              rfid={pendingRfid}
-              onRegister={handleRegister}
-              onLink={handleLink}
-              onCancel={handleCancelRegistration}
-              isLoading={isLoading} />
-            
-            </motion.div>
-          }
+          {state === "register" && (
+            <Card
+              key="register"
+              component={motion.div}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              sx={{
+                width: "100%",
+                p: 4,
+                bgcolor: "var(--mui-palette-m3-surfaceContainerHigh)",
+                border: 1,
+                borderColor: "primary.main",
+              }}
+            >
+              <Stack spacing={2} sx={{ alignItems: "center" }}>
+                <WarningAmber sx={{ fontSize: 40, color: "primary.main" }} />
+                <Typography sx={{ fontSize: 18, color: "primary.main", fontWeight: 600 }}>{message}</Typography>
+                <RegistrationForm
+                  rfid={pendingRfid}
+                  onRegister={handleRegister}
+                  onLink={handleLink}
+                  onCancel={handleCancelRegistration}
+                  isLoading={isLoading}
+                />
+              </Stack>
+            </Card>
+          )}
         </AnimatePresence>
-      </div>
+      </Stack>
 
       <RFIDSimulator onSimulate={handleScan} />
-    </div>);
+    </Box>
+  );
+}
 
+function ResultRow({ label, value }: { label: string; value: string }) {
+  return (
+    <Stack
+      direction="row"
+      sx={{
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderRadius: 2,
+        border: 1,
+        borderColor: "primary.main",
+        bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
+        px: 3,
+        py: 2,
+      }}
+    >
+      <Typography sx={{ fontSize: 12, fontWeight: 500, color: "text.secondary", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: 28, fontWeight: 700, fontFamily: '"Roboto Mono", monospace', color: "primary.main" }}>
+        {value}
+      </Typography>
+    </Stack>
+  );
 }

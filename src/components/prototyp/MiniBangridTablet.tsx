@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Box, Card, Stack, Typography } from "@mui/material";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   fetchAllLanes,
@@ -12,40 +13,24 @@ import {
 } from "@/services/readinessService";
 
 /**
- * Helhetsprototyp — MiniBangridTablet (UX-iteration 2026-05-28).
- *
- * Mini-version av BangridDuk som speglas på instruktörens tablet under
- * check-in-fasen. Per UX-review: tabletten ska *visa* vad som händer på
- * duken så instruktören inte behöver titta upp.
- *
- * Skillnader mot BangridDuk:
- *   • Kompakt: 5–10 banor på iPad-bredd utan att skrolla
- *   • Bara lane + name + status-färg (readiness-detaljer ligger
- *     fortfarande på duken — tabletten visar bara helhetstillståndet)
- *   • READ-ONLY: tabletten driver INTE check-in-flödet, fjärren gör det
- *
- * Designspråk: "kontrollrum" — tät, status-bärande.
+ * Helhetsprototyp — MiniBangridTablet (M3-omskrivning 2026-05-28).
+ * Read-only mirror på tabletten under check-in. M3-tokens + Cards.
  */
 
-interface MiniBangridProps {
-  section: LaneSection;
-}
-
-const STATUS_TINT: Record<ReadinessStatus, string> = {
-  na: "border-border bg-card",
-  ok: "border-status-success/40 bg-status-success/5",
-  warning: "border-status-warning/50 bg-status-warning/8",
-  critical: "border-status-attention/50 bg-status-attention/8",
+const STATUS_BG: Record<ReadinessStatus, string> = {
+  na: "var(--mui-palette-m3-surfaceContainerLow)",
+  ok: "var(--mui-palette-m3-statusSuccessContainer)",
+  warning: "var(--mui-palette-m3-statusWarningContainer)",
+  critical: "var(--mui-palette-m3-statusAttentionContainer)",
+};
+const STATUS_FG: Record<ReadinessStatus, string> = {
+  na: "var(--mui-palette-divider)",
+  ok: "var(--mui-palette-success-main)",
+  warning: "var(--mui-palette-warning-main)",
+  critical: "var(--mui-palette-error-main)",
 };
 
-const STATUS_DOT: Record<ReadinessStatus, string> = {
-  na: "bg-white/15",
-  ok: "bg-status-success",
-  warning: "bg-status-warning",
-  critical: "bg-status-attention",
-};
-
-export function MiniBangridTablet({ section }: MiniBangridProps) {
+export function MiniBangridTablet({ section }: { section: LaneSection }) {
   const [lanes, setLanes] = useState<LaneAssignment[]>([]);
   useEffect(() => {
     void fetchAllLanes(section).then(setLanes);
@@ -57,22 +42,17 @@ export function MiniBangridTablet({ section }: MiniBangridProps) {
   const total = lanes.length;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-baseline justify-between mb-3">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+    <Card sx={{ p: 2, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
+      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "baseline", mb: 1.5 }}>
+        <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase" }}>
           On the projector now · Check-in
-        </div>
-        <div className="text-sm font-mono tabular-nums">
+        </Typography>
+        <Typography sx={{ fontSize: 14, fontFamily: '"Roboto Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
           {occupied} / {total}
-        </div>
-      </div>
+        </Typography>
+      </Stack>
 
-      <div
-        className="grid gap-2"
-        style={{
-          gridTemplateColumns: `repeat(${Math.min(total, 5)}, minmax(0, 1fr))`,
-        }}
-      >
+      <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: `repeat(${Math.min(total, 5)}, minmax(0, 1fr))` }}>
         <AnimatePresence>
           {lanes.map((lane) => {
             const readiness: ReadinessStatus =
@@ -93,30 +73,47 @@ export function MiniBangridTablet({ section }: MiniBangridProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.2 }}
-                className={`relative rounded-lg border px-2.5 py-3 ${STATUS_TINT[readiness]}`}
               >
-                <div className="flex items-start justify-between gap-1">
-                  <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
-                    L{lane.lane_number}
-                  </span>
-                  <span className={`w-2 h-2 rounded-full ${STATUS_DOT[readiness]}`} />
-                </div>
-                <div
-                  className={`mt-1 text-xs font-medium truncate ${
-                    occupiedHere ? "text-foreground" : "text-muted-foreground/40"
-                  }`}
+                <Card
+                  sx={{
+                    bgcolor: STATUS_BG[readiness],
+                    outline: readiness !== "na" ? "1.5px solid" : "1px solid",
+                    outlineColor: readiness !== "na" ? STATUS_FG[readiness] : "var(--mui-palette-divider)",
+                    outlineOffset: "-1px",
+                    px: 1.25,
+                    py: 1.5,
+                    position: "relative",
+                  }}
                 >
-                  {occupiedHere ? lane.name : "—"}
-                </div>
+                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Typography sx={{ fontSize: 10, fontFamily: '"Roboto Mono", monospace', color: "text.secondary" }}>
+                      L{lane.lane_number}
+                    </Typography>
+                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: STATUS_FG[readiness] }} />
+                  </Stack>
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: occupiedHere ? "text.primary" : "text.disabled",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {occupiedHere ? lane.name : "—"}
+                  </Typography>
+                </Card>
               </motion.div>
             );
           })}
         </AnimatePresence>
-      </div>
+      </Box>
 
-      <div className="mt-3 text-[10px] text-muted-foreground text-center">
+      <Typography sx={{ mt: 1.5, fontSize: 10, color: "text.secondary", textAlign: "center" }}>
         Mirrors the duk · drive with the remote
-      </div>
-    </div>
+      </Typography>
+    </Card>
   );
 }
