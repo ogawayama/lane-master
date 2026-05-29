@@ -128,10 +128,8 @@ export function SimulationDuk({
           />
           <Typography
             sx={{
-              fontSize: { xs: 11, md: 13, xl: 14 },
+              ...dukTypography.labelLarge,
               letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              fontWeight: 500,
               color: "text.secondary",
             }}
           >
@@ -140,10 +138,8 @@ export function SimulationDuk({
         </Stack>
         <Typography
           sx={{
-            fontSize: { xs: 11, md: 13, xl: 14 },
+            ...dukTypography.labelLarge,
             letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            fontWeight: 500,
             color: "text.secondary",
             textAlign: "center",
             overflow: "hidden",
@@ -153,33 +149,42 @@ export function SimulationDuk({
         >
           {exercise.title}
         </Typography>
-        <Typography
-          sx={{
-            fontSize: { xs: 18, md: 24, xl: 28 },
-            fontWeight: 500,
-            color: "text.primary",
-            textAlign: "right",
-            fontFamily: '"Roboto Mono", monospace',
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {mm}:{ss}
-        </Typography>
+        {/* Timern flyttad till center-stage (hero) nedan — håller balansen i 3-col-gridet */}
+        <Box />
       </Box>
 
-      {/* Lane targets row — responsiv padding + gap */}
-      <Box
-        sx={{
-          flex: 1,
-          px: { xs: "16px", md: "24px", xl: "32px" },
-          pb: { xs: 2, md: 3, xl: 4 },
-          display: "grid",
-          alignItems: "end",
-          gap: { xs: 1.5, md: 2, xl: 3 },
-          gridTemplateColumns: `repeat(${Math.max(1, sequences.length)}, minmax(0, 1fr))`,
-          minHeight: 0,
-        }}
-      >
+      {/* Center stage — timer-hero fyller tomrummet, banorna förankrade nederst */}
+      <Stack sx={{ flex: 1, minHeight: 0 }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 0,
+          }}
+        >
+          <Typography
+            sx={{
+              ...dukTypography.timerHero,
+              color: remainingMs <= 10000 ? "error.main" : "text.primary",
+              transition: "color 300ms ease",
+            }}
+          >
+            {mm}:{ss}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            px: { xs: "16px", md: "24px", xl: "32px" },
+            pb: { xs: 2, md: 3, xl: 4 },
+            display: "grid",
+            alignItems: "end",
+            gap: { xs: 1.5, md: 2, xl: 3 },
+            gridTemplateColumns: `repeat(${Math.max(1, sequences.length)}, minmax(0, 1fr))`,
+            minHeight: 0,
+          }}
+        >
         {sequences.map((lane) => (
           <LaneTarget
             key={lane.lane_number}
@@ -201,7 +206,8 @@ export function SimulationDuk({
             No lanes occupied.
           </Typography>
         )}
-      </Box>
+        </Box>
+      </Stack>
 
       <PhaseHints hints={EXERCISE_HINTS} />
     </Stack>
@@ -273,10 +279,8 @@ function LaneTarget({
       <Stack sx={{ alignItems: "center" }}>
         <Typography
           sx={{
-            fontSize: { xs: 10, md: 12, xl: 14 },
+            ...dukTypography.labelLarge,
             letterSpacing: "0.3em",
-            textTransform: "uppercase",
-            fontWeight: 500,
             color: "text.secondary",
           }}
         >
@@ -284,24 +288,22 @@ function LaneTarget({
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: 14, md: 18, xl: 22 },
+            ...dukTypography.headlineSmall,
             fontWeight: 500,
             color: "text.primary",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            maxWidth: { xs: 160, md: 200, xl: 240 },
+            maxWidth: { xs: 160, md: 220, xl: 280 },
           }}
         >
           {name ?? "—"}
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: 10, md: 11 },
-            fontFamily: '"Roboto Mono", monospace',
-            color: "text.disabled",
+            ...dukTypography.labelMono,
+            color: "text.secondary",
             mt: 0.5,
-            fontVariantNumeric: "tabular-nums",
           }}
         >
           {shots.length} / {totalShots} shots

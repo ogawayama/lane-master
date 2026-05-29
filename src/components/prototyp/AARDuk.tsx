@@ -168,10 +168,8 @@ export function AARDuk({
       >
         <Typography
           sx={{
-            fontSize: { xs: 11, md: 13, xl: 14 },
+            ...dukTypography.labelLarge,
             letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            fontWeight: 500,
             color: "text.secondary",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -182,12 +180,8 @@ export function AARDuk({
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: 11, md: 13, xl: 14 },
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            fontWeight: 500,
+            ...dukTypography.labelMono,
             color: "text.secondary",
-            fontFamily: '"Roboto Mono", monospace',
             flexShrink: 0,
           }}
         >
@@ -282,10 +276,8 @@ function Hero({
           />
           <Typography
             sx={{
-              fontSize: { xs: 12, md: 14, xl: 16 },
+              ...dukTypography.labelLarge,
               letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              fontWeight: 500,
               color: "text.secondary",
             }}
           >
@@ -309,7 +301,7 @@ function Hero({
         {/* Weapon — Body Large */}
         <Typography
           sx={{
-            fontSize: { xs: 14, md: 16, xl: 20 },
+            ...dukTypography.bodyLarge,
             color: "text.secondary",
           }}
         >
@@ -333,10 +325,8 @@ function Hero({
           >
             <Typography
               sx={{
-                fontSize: { xs: 10, md: 12, xl: 14 },
+                ...dukTypography.labelMedium,
                 letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                fontWeight: 500,
                 color: STATUS_COLOR[cue.severity],
                 mb: { xs: 1, md: 1.5 },
               }}
@@ -467,10 +457,8 @@ function Metric({
         {icon}
         <Typography
           sx={{
-            fontSize: { xs: 10, md: 12, xl: 14 },
+            ...dukTypography.labelMedium,
             letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            fontWeight: 500,
           }}
         >
           {label}
@@ -489,9 +477,8 @@ function Metric({
       </Typography>
       <Typography
         sx={{
-          fontSize: { xs: 10, md: 11, xl: 12 },
+          ...dukTypography.labelMono,
           color: "text.secondary",
-          fontFamily: '"Roboto Mono", monospace',
         }}
       >
         {threshold}
@@ -577,10 +564,9 @@ function LaneChip({ result, focused }: { result: AARResult; focused: boolean }) 
           />
           <Typography
             sx={{
-              fontSize: { xs: 9, md: 10, xl: 11 },
+              ...dukTypography.labelMedium,
               letterSpacing: "0.15em",
               color: "text.secondary",
-              textTransform: "uppercase",
             }}
           >
             Lane {result.lane}
@@ -588,8 +574,7 @@ function LaneChip({ result, focused }: { result: AARResult; focused: boolean }) 
         </Stack>
         <Typography
           sx={{
-            fontSize: { xs: 13, md: 14, xl: 16 },
-            fontWeight: 500,
+            ...dukTypography.titleMedium,
             color: focused ? "text.primary" : "text.secondary",
             overflow: "hidden",
             textOverflow: "ellipsis",

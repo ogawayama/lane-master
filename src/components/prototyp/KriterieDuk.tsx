@@ -7,6 +7,7 @@ import {
 import { motion } from "framer-motion";
 import type { ExerciseListItem } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
+import { dukTypography } from "@/theme/tv";
 
 /**
  * KriterieDuk — M3 Content Details layout (redesign 2026-05-28).
@@ -91,10 +92,8 @@ export function KriterieDuk({
       >
         <Typography
           sx={{
-            fontSize: { xs: 11, md: 13, xl: 14 },
+            ...dukTypography.labelLarge,
             letterSpacing: "0.3em",
-            textTransform: "uppercase",
-            fontWeight: 500,
             color: "text.secondary",
           }}
         >
@@ -102,8 +101,7 @@ export function KriterieDuk({
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: 11, md: 13, xl: 14 },
-            fontFamily: '"Roboto Mono", monospace',
+            ...dukTypography.labelMono,
             color: "text.secondary",
             flexShrink: 0,
           }}
@@ -133,10 +131,8 @@ export function KriterieDuk({
           >
             <Typography
               sx={{
-                fontSize: { xs: 11, md: 13, xl: 14 },
+                ...dukTypography.labelLarge,
                 letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                fontWeight: 500,
                 color: "text.secondary",
                 mb: { xs: 1.5, md: 2 },
               }}
@@ -145,9 +141,7 @@ export function KriterieDuk({
             </Typography>
             <Typography
               sx={{
-                fontSize: { xs: 32, md: 48, lg: 60, xl: 72 },
-                fontWeight: 400,
-                lineHeight: 1.05,
+                ...dukTypography.displayMedium,
                 letterSpacing: "-1px",
                 color: "text.primary",
               }}
@@ -204,10 +198,7 @@ export function KriterieDuk({
             >
               <Typography
                 sx={{
-                  fontSize: { xs: 10, md: 12 },
-                  letterSpacing: "0.3em",
-                  textTransform: "uppercase",
-                  fontWeight: 500,
+                  ...dukTypography.labelMedium,
                   color: "rgba(255,255,255,0.7)",
                 }}
               >
@@ -215,7 +206,7 @@ export function KriterieDuk({
               </Typography>
               <Typography
                 sx={{
-                  fontSize: { xs: 18, md: 24, xl: 32 },
+                  ...dukTypography.headlineSmall,
                   fontWeight: 500,
                   color: "#ffffff",
                 }}
@@ -231,10 +222,8 @@ export function KriterieDuk({
       <Box sx={{ px: { xs: "24px", md: "36px", xl: "48px" }, pb: { xs: 2, md: 3 } }}>
         <Typography
           sx={{
-            fontSize: { xs: 11, md: 13 },
+            ...dukTypography.labelLarge,
             letterSpacing: "0.3em",
-            textTransform: "uppercase",
-            fontWeight: 500,
             color: "text.secondary",
             mb: { xs: 1, md: 1.5 },
           }}
@@ -284,10 +273,8 @@ function CriterionChip({
           <Typography
             component="span"
             sx={{
-              fontSize: { xs: 10, md: 12 },
+              ...dukTypography.labelMedium,
               letterSpacing: "0.25em",
-              textTransform: "uppercase",
-              fontWeight: 500,
               color: "text.secondary",
             }}
           >
@@ -296,8 +283,7 @@ function CriterionChip({
           <Typography
             component="span"
             sx={{
-              fontSize: { xs: 14, md: 16 },
-              fontWeight: 500,
+              ...dukTypography.titleMedium,
               color: "text.primary",
               fontVariantNumeric: "tabular-nums",
             }}

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -35,6 +35,14 @@ const AppShell = () => {
   return null;
 };
 
+// Theme-toggle visas bara på root (/) och facilitator-panelen (/wizard).
+// På duk/tablet/check-in är den oönskad chrome på en projektor-yta.
+const ConditionalThemeToggle = () => {
+  const { pathname } = useLocation();
+  const show = pathname === "/" || pathname === "/wizard";
+  return show ? <ThemeToggle /> : null;
+};
+
 const App = () => (
   <ThemeProvider theme={m3Theme} defaultMode="dark" modeStorageKey="lanemaster-color-scheme">
     <CssBaseline enableColorScheme />
@@ -44,7 +52,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AppShell />
-          <ThemeToggle />
+          <ConditionalThemeToggle />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/idt" element={<LoginScreen />} />

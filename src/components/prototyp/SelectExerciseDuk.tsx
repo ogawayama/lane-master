@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ExerciseListItem } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
 import { tvFocus, m3Duration } from "@/theme/m3State";
+import { dukTypography } from "@/theme/tv";
 
 /**
  * SelectExerciseDuk — M3 Hero Carousel (redesign 2026-05-28).
@@ -88,10 +89,8 @@ export function SelectExerciseDuk({
       >
         <Typography
           sx={{
-            fontSize: { xs: 11, md: 13, xl: 14 },
+            ...dukTypography.labelLarge,
             letterSpacing: "0.3em",
-            textTransform: "uppercase",
-            fontWeight: 500,
             color: "text.secondary",
           }}
         >
@@ -148,10 +147,8 @@ export function SelectExerciseDuk({
               >
                 <Typography
                   sx={{
-                    fontSize: { xs: 11, md: 13, xl: 14 },
+                    ...dukTypography.labelLarge,
                     letterSpacing: "0.3em",
-                    textTransform: "uppercase",
-                    fontWeight: 500,
                     color: "rgba(255,255,255,0.7)",
                   }}
                 >
@@ -159,10 +156,7 @@ export function SelectExerciseDuk({
                 </Typography>
                 <Typography
                   sx={{
-                    fontSize: { xs: 28, md: 44, lg: 56, xl: 72 },
-                    fontWeight: 400,
-                    lineHeight: 1.05,
-                    letterSpacing: "-0.5px",
+                    ...dukTypography.displayMedium,
                     color: "#ffffff",
                   }}
                 >
@@ -255,8 +249,8 @@ function HeroChip({ children }: { children: React.ReactNode }) {
         bgcolor: "rgba(255,255,255,0.12)",
         color: "rgba(255,255,255,0.92)",
         fontFamily: '"Roboto Mono", monospace',
-        fontSize: { xs: 11, md: 13 },
-        height: { xs: 28, md: 32 },
+        fontSize: "clamp(12px, 1vw, 17px)",
+        height: { xs: 30, md: 36 },
         borderRadius: "8px",
         border: "1px solid rgba(255,255,255,0.18)",
         "& .MuiChip-label": { px: { xs: 1.25, md: 1.5 } },
@@ -280,7 +274,7 @@ function SelectCta() {
         py: { xs: 1, md: 1.5 },
         borderRadius: "9999px",
         boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-        fontSize: { xs: 13, md: 15 },
+        fontSize: "clamp(14px, 1.1vw, 20px)",
         fontWeight: 500,
         letterSpacing: "0.05em",
         textTransform: "uppercase",

@@ -16,6 +16,7 @@ import {
 } from "@/services/readinessService";
 import { useLastRemoteEvent } from "@/hooks/useRemoteControl";
 import type { ExerciseListItem } from "@/services/sessionService";
+import { dukTypography } from "@/theme/tv";
 
 /**
  * BangridDuk — M3 Grid layout-template (redesign 2026-05-28).
@@ -140,10 +141,8 @@ export function BangridDuk({
           <Stack direction="row" spacing={2} sx={{ alignItems: "baseline" }}>
             <Typography
               sx={{
-                fontSize: { xs: 11, md: 13 },
+                ...dukTypography.labelLarge,
                 letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                fontWeight: 500,
                 color: "text.secondary",
               }}
             >
@@ -152,8 +151,7 @@ export function BangridDuk({
             {totalCount > 0 && (
               <Typography
                 sx={{
-                  fontSize: { xs: 11, md: 13 },
-                  fontFamily: '"Roboto Mono", monospace',
+                  ...dukTypography.labelMono,
                   color: "text.secondary",
                 }}
               >
@@ -165,10 +163,7 @@ export function BangridDuk({
             <>
               <Typography
                 sx={{
-                  fontSize: { xs: 28, md: 44, lg: 56, xl: 64 },
-                  fontWeight: 400,
-                  lineHeight: 1.05,
-                  letterSpacing: "-0.5px",
+                  ...dukTypography.displayMedium,
                   color: "text.primary",
                 }}
               >
@@ -176,7 +171,7 @@ export function BangridDuk({
               </Typography>
               <Typography
                 sx={{
-                  fontSize: { xs: 13, md: 15, xl: 18 },
+                  ...dukTypography.bodyLarge,
                   color: "text.secondary",
                   maxWidth: 720,
                 }}
@@ -187,9 +182,7 @@ export function BangridDuk({
           ) : (
             <Typography
               sx={{
-                fontSize: { xs: 28, md: 44, lg: 56, xl: 64 },
-                fontWeight: 400,
-                lineHeight: 1.05,
+                ...dukTypography.displayMedium,
                 color: "text.primary",
               }}
             >
@@ -240,15 +233,14 @@ export function BangridDuk({
                     <WarningIcon sx={{ color: "warning.main", fontSize: { xs: 18, md: 22 }, mt: "2px" }} />
                   )}
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: { xs: 12, md: 14 }, fontWeight: 500 }}>
+                    <Typography sx={{ ...dukTypography.titleMedium, fontWeight: 600 }}>
                       {a.label}
                     </Typography>
                     <Typography
                       sx={{
-                        fontSize: 11,
+                        ...dukTypography.labelMono,
                         color: "text.secondary",
                         mt: 0.25,
-                        fontFamily: '"Roboto Mono", monospace',
                       }}
                     >
                       Lane {a.affectedLanes.join(", Lane ")}
@@ -308,7 +300,7 @@ export function BangridDuk({
       >
         <Typography
           sx={{
-            fontSize: { xs: 12, md: 14 },
+            ...dukTypography.bodyMedium,
             color: "text.secondary",
             order: { xs: 2, sm: 1 },
           }}
@@ -390,7 +382,7 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
         <Stack sx={{ alignItems: "center", textAlign: "center", flex: 1 }} spacing={0.5}>
           <Typography
             sx={{
-              fontSize: { xs: 14, md: 17, xl: 20 },
+              ...dukTypography.headlineSmall,
               fontWeight: 500,
               color: occupied ? "text.primary" : "text.disabled",
               overflow: "hidden",
@@ -401,7 +393,7 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
           >
             {occupied ? lane.name : "—"}
           </Typography>
-          <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+          <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
             {occupied ? "Rank" : "Empty"}
           </Typography>
 
@@ -538,8 +530,7 @@ function WeaponRow({
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography
           sx={{
-            fontSize: 14,
-            fontWeight: 500,
+            ...dukTypography.titleMedium,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -550,7 +541,7 @@ function WeaponRow({
         {weaponType && (
           <Typography
             sx={{
-              fontSize: 10,
+              ...dukTypography.bodyMedium,
               color: "text.secondary",
               overflow: "hidden",
               textOverflow: "ellipsis",
