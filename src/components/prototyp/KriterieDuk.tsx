@@ -7,19 +7,18 @@ import {
 import { motion } from "framer-motion";
 import type { ExerciseListItem } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
-import { dukTypography, heroCardSx, tvSafeInset } from "@/theme/tv";
 
 /**
- * Helhetsprototyp — KriterieDuk (M3-omskrivning 2026-05-28).
+ * KriterieDuk — M3 Content Details layout (redesign 2026-05-28).
  *
- * Duken under preflight-fasen. M3 Featured Card med två-kolumns-layout:
- * vänster = övningens titel + objective-label, höger = hero-area med
- * vapen-symbol över gradient (tonal background). Under: tre M3 outlined
- * Chips för Hits/Time/Spread-kriterierna. M3 ikoner från
- * @mui/icons-material.
- *
- * Designspråk: "biograf" — large display type, generös whitespace,
- * inget mus-element. Allt drivs av fjärr.
+ * Canonical M3 TV Content Details: information + primary visual + actions.
+ *  - Vänster: hero text (objective + title) som Display + Body
+ *  - Höger: primary visual (gradient + symbol) som hero image
+ *  - Under: M3 Assist Chips för Hits/Time/Spread (canonical M3 component
+ *    för "smutsig labelled-värde", inte cards)
+ *  - Theme-aware: gradient anpassar sig till dark/light via HSL
+ *  - Responsiv: 2-col grid på md+, stackad 1-col på xs/sm
+ *  - M3 type roles: Display för titel, Label för section-headers
  */
 
 const PREFLIGHT_HINTS: RemoteKeyHint[] = [
@@ -41,81 +40,139 @@ export function KriterieDuk({
   if (awaitingExercise || !exercise) {
     return (
       <Stack
-        sx={{ ...tvSafeInset, flex: 1, alignItems: "center", justifyContent: "center" }}
+        sx={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          px: { xs: 3, md: 6 },
+        }}
         spacing={2}
       >
-        <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
+        <Typography
+          sx={{
+            fontSize: { xs: 11, md: 13 },
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            color: "text.secondary",
+          }}
+        >
           Preflight
         </Typography>
-        <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+        <Typography
+          sx={{
+            fontSize: { xs: 36, md: 48, xl: 64 },
+            fontWeight: 400,
+            color: "text.primary",
+          }}
+        >
           No exercise queued
         </Typography>
-        <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>
+        <Typography sx={{ fontSize: 14, color: "text.secondary", maxWidth: 480 }}>
           Return to pre-pass preparation and add an exercise to the list.
         </Typography>
       </Stack>
     );
   }
 
-  const heroGradient = gradientFor(exercise.weapon);
-
   return (
     <Stack sx={{ flex: 1 }}>
-      {/* Top context-rad */}
-      <Box sx={{ px: 6, pt: 6, display: "flex", justifyContent: "space-between" }}>
-        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
-          Preflight {totalExercises > 1 ? `· Exercise ${exerciseNumber} of ${totalExercises}` : ""}
+      {/* Top context — Label Medium */}
+      <Stack
+        direction="row"
+        spacing={2}
+        sx={{
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          px: { xs: "24px", md: "36px", xl: "48px" },
+          pt: { xs: "16px", md: "24px", xl: "32px" },
+          pb: { xs: "8px", md: "12px" },
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: { xs: 11, md: 13, xl: 14 },
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            fontWeight: 500,
+            color: "text.secondary",
+          }}
+        >
+          Preflight{totalExercises > 1 ? ` · Exercise ${exerciseNumber} of ${totalExercises}` : ""}
         </Typography>
         <Typography
           sx={{
-            ...dukTypography.labelMedium,
+            fontSize: { xs: 11, md: 13, xl: 14 },
             fontFamily: '"Roboto Mono", monospace',
             color: "text.secondary",
+            flexShrink: 0,
           }}
         >
           {exercise.weapon ?? "—"}
         </Typography>
-      </Box>
+      </Stack>
 
-      {/* Hero — title + visual */}
+      {/* Content Details — vänster text, höger visual */}
       <Box
         sx={{
           flex: 1,
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 6,
-          px: 6,
-          py: 4,
+          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+          gap: { xs: 3, md: 5, xl: 6 },
+          px: { xs: "24px", md: "36px", xl: "48px" },
+          py: { xs: "8px", md: "16px" },
+          minHeight: 0,
         }}
       >
-        <Stack sx={{ justifyContent: "center" }} spacing={3}>
+        {/* LEFT — objective text */}
+        <Stack sx={{ justifyContent: "center", minHeight: 0 }} spacing={{ xs: 2, md: 3 }}>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            transition={{ duration: 0.5, ease: [0.2, 0, 0, 1] }}
           >
-            <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary", mb: 2 }}>
+            <Typography
+              sx={{
+                fontSize: { xs: 11, md: 13, xl: 14 },
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                fontWeight: 500,
+                color: "text.secondary",
+                mb: { xs: 1.5, md: 2 },
+              }}
+            >
               Today's objective
             </Typography>
-            <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+            <Typography
+              sx={{
+                fontSize: { xs: 32, md: 48, lg: 60, xl: 72 },
+                fontWeight: 400,
+                lineHeight: 1.05,
+                letterSpacing: "-1px",
+                color: "text.primary",
+              }}
+            >
               {exercise.title}
             </Typography>
           </motion.div>
         </Stack>
 
+        {/* RIGHT — primary visual (gradient + symbol) */}
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          style={{ display: "flex" }}
+          transition={{ duration: 0.6, ease: [0.2, 0, 0, 1] }}
+          style={{ display: "flex", minHeight: 0 }}
         >
           <Card
             sx={{
-              ...heroCardSx,
               flex: 1,
-              background: heroGradient,
+              minHeight: { xs: 180, md: 280 },
+              borderRadius: { xs: "20px", md: "28px" },
+              overflow: "hidden",
               position: "relative",
-              minHeight: 0,
+              background: gradientFor(exercise.weapon),
+              boxShadow: "none",
             }}
           >
             <Box
@@ -127,22 +184,42 @@ export function KriterieDuk({
                 justifyContent: "center",
               }}
             >
-              <SpreadIcon sx={{ fontSize: 200, color: "rgba(255,255,255,0.18)" }} />
+              <SpreadIcon
+                sx={{
+                  fontSize: { xs: 140, md: 200, xl: 260 },
+                  color: "rgba(255,255,255,0.20)",
+                  strokeWidth: 0.5,
+                }}
+              />
             </Box>
             <Stack
               sx={{
                 position: "absolute",
-                bottom: 24,
-                left: 24,
-                right: 24,
+                bottom: { xs: 16, md: 24 },
+                left: { xs: 16, md: 24 },
+                right: { xs: 16, md: 24 },
                 alignItems: "center",
               }}
               spacing={0.5}
             >
-              <Typography sx={{ ...dukTypography.labelMedium, color: "rgba(255,255,255,0.6)" }}>
+              <Typography
+                sx={{
+                  fontSize: { xs: 10, md: 12 },
+                  letterSpacing: "0.3em",
+                  textTransform: "uppercase",
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.7)",
+                }}
+              >
                 Weapon
               </Typography>
-              <Typography sx={{ ...dukTypography.headlineSmall, color: "white" }}>
+              <Typography
+                sx={{
+                  fontSize: { xs: 18, md: 24, xl: 32 },
+                  fontWeight: 500,
+                  color: "#ffffff",
+                }}
+              >
                 {exercise.weapon ?? "—"}
               </Typography>
             </Stack>
@@ -150,32 +227,39 @@ export function KriterieDuk({
         </motion.div>
       </Box>
 
-      {/* Pass-criteria */}
-      <Box sx={{ px: 6, pb: 4 }}>
-        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary", mb: 2 }}>
+      {/* M3 Assist Chips — canonical för labelled value */}
+      <Box sx={{ px: { xs: "24px", md: "36px", xl: "48px" }, pb: { xs: 2, md: 3 } }}>
+        <Typography
+          sx={{
+            fontSize: { xs: 11, md: 13 },
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            fontWeight: 500,
+            color: "text.secondary",
+            mb: { xs: 1, md: 1.5 },
+          }}
+        >
           Pass criteria
         </Typography>
-        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3 }}>
-          <CriterionCard
-            icon={<TargetIcon sx={{ fontSize: 28 }} />}
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+          <CriterionChip
+            icon={<TargetIcon sx={{ fontSize: 18 }} />}
             label="Hits"
             value={`≥ ${exercise.hits_threshold ?? "—"}`}
           />
-          <CriterionCard
-            icon={<TimerIcon sx={{ fontSize: 28 }} />}
+          <CriterionChip
+            icon={<TimerIcon sx={{ fontSize: 18 }} />}
             label="Time"
             value={
-              exercise.time_seconds !== undefined
-                ? `≤ ${exercise.time_seconds}s`
-                : "—"
+              exercise.time_seconds !== undefined ? `≤ ${exercise.time_seconds}s` : "—"
             }
           />
-          <CriterionCard
-            icon={<SpreadIcon sx={{ fontSize: 28 }} />}
+          <CriterionChip
+            icon={<SpreadIcon sx={{ fontSize: 18 }} />}
             label="Spread"
             value={`≤ ${exercise.spread_threshold ?? "—"} cm`}
           />
-        </Box>
+        </Stack>
       </Box>
 
       <PhaseHints hints={PREFLIGHT_HINTS} />
@@ -183,7 +267,7 @@ export function KriterieDuk({
   );
 }
 
-function CriterionCard({
+function CriterionChip({
   icon,
   label,
   value,
@@ -193,33 +277,56 @@ function CriterionCard({
   value: string;
 }) {
   return (
-    <Card
+    <Chip
+      icon={icon as React.ReactElement}
+      label={
+        <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+          <Typography
+            component="span"
+            sx={{
+              fontSize: { xs: 10, md: 12 },
+              letterSpacing: "0.25em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+              color: "text.secondary",
+            }}
+          >
+            {label}
+          </Typography>
+          <Typography
+            component="span"
+            sx={{
+              fontSize: { xs: 14, md: 16 },
+              fontWeight: 500,
+              color: "text.primary",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {value}
+          </Typography>
+        </Stack>
+      }
       sx={{
+        height: { xs: 36, md: 40 },
+        borderRadius: "10px",
         bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
-        borderRadius: "20px",
-        p: 3,
-        display: "flex",
-        flexDirection: "column",
-        gap: 1.5,
+        border: 1,
+        borderColor: "divider",
+        px: 0.5,
+        "& .MuiChip-icon": { color: "text.secondary", ml: 1 },
+        "& .MuiChip-label": { px: 1.5 },
       }}
-    >
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", color: "text.secondary" }}>
-        {icon}
-        <Typography sx={{ ...dukTypography.labelMedium }}>{label}</Typography>
-      </Stack>
-      <Typography sx={{ ...dukTypography.headlineMedium, color: "text.primary" }}>
-        {value}
-      </Typography>
-    </Card>
+    />
   );
 }
 
-// Stable gradient per weapon — using M3 tertiary tone to feel coherent.
+// Stable gradient per weapon — funkar i båda themes via HSL med moderate
+// saturation/lightness som ger god kontrast oavsett scheme.
 function gradientFor(weapon?: string): string {
   if (!weapon) {
-    return "linear-gradient(135deg, var(--mui-palette-m3-surfaceContainerHigh) 0%, var(--mui-palette-m3-surfaceContainer) 100%)";
+    return "linear-gradient(135deg, hsl(200 25% 25%) 0%, hsl(220 30% 15%) 100%)";
   }
   const seed = [...weapon].reduce((a, c) => a + c.charCodeAt(0), 0);
   const hue = seed % 360;
-  return `linear-gradient(135deg, hsl(${hue} 35% 22%) 0%, hsl(${(hue + 40) % 360} 50% 10%) 100%)`;
+  return `linear-gradient(135deg, hsl(${hue} 45% 30%) 0%, hsl(${(hue + 40) % 360} 55% 18%) 100%)`;
 }

@@ -1,27 +1,24 @@
 import { Box, Card, Chip, Stack, Typography } from "@mui/material";
 import { PlayArrow, CenterFocusStrong } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ExerciseListItem } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
-import {
-  carouselItemSx,
-  dukTypography,
-  focusRing,
-  heroCardSx,
-  tvSafeInset,
-} from "@/theme/tv";
+import { tvFocus, m3Duration } from "@/theme/m3State";
 
 /**
- * Helhetsprototyp — SelectExerciseDuk (M3-omskrivning 2026-05-28).
+ * SelectExerciseDuk — M3 Hero Carousel (redesign 2026-05-28).
  *
- * Implementerar Google TV:s Featured Carousel-pattern (per
- * developer.android.com/design/ui/tv § Components):
- *   • Hero-area med stort kort för aktuell highlight
- *   • Thumbnail-strip nedanför med focus-rings på vald
- *   • D-pad-driven ◀ ▶ för bläddring
+ * Canonical M3 TV Featured/Hero Carousel-pattern:
+ *  - Full-width hero med en featured item åt gången
+ *  - ◀▶ paginerar — emphasized cross-fade animation
+ *  - Page indicators längst ner (M3 small dots/lines)
+ *  - Theme-aware via currentColor + M3-tokens (funkar i båda lägen)
+ *  - Responsiv: hero skalar, page indicators wrap vid behov
  *
- * Använder M3-tokens från CssVarsProvider + dukTypography för 10-foot
- * läsbarhet. Featured Carousel-shape (28px corner radius) per spec.
+ * Skillnad mot tidigare implementation:
+ *  - Tidigare: hero-kort + thumbnail-strip (mer av en Compilation)
+ *  - Nu: enbart hero + dot-indicators (renaste Hero Carousel)
+ *  - Cleaner, mer focused på den aktiva övningen
  */
 
 const SELECT_HINTS: RemoteKeyHint[] = [
@@ -36,19 +33,40 @@ export function SelectExerciseDuk({
   exercises: ExerciseListItem[];
   selectedIndex: number;
 }) {
+  const prefersReducedMotion = useReducedMotion();
+
   if (exercises.length === 0) {
     return (
       <Stack
-        sx={{ ...tvSafeInset, flex: 1, alignItems: "center", justifyContent: "center" }}
+        sx={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          px: { xs: 3, md: 6 },
+        }}
         spacing={2}
       >
-        <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
+        <Typography
+          sx={{
+            fontSize: { xs: 10, md: 12 },
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            color: "text.secondary",
+          }}
+        >
           Today's session
         </Typography>
-        <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+        <Typography
+          sx={{
+            fontSize: { xs: 36, md: 48, xl: 64 },
+            fontWeight: 400,
+            color: "text.primary",
+            textAlign: "center",
+          }}
+        >
           No exercises planned
         </Typography>
-        <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>
+        <Typography sx={{ fontSize: 14, color: "text.secondary", textAlign: "center" }}>
           Open /tablet/prepare to add exercises before starting.
         </Typography>
       </Stack>
@@ -60,62 +78,104 @@ export function SelectExerciseDuk({
 
   return (
     <Stack sx={{ flex: 1 }}>
-      <Box sx={{ px: 6, pt: 6 }}>
-        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
+      {/* Top context — Label Medium */}
+      <Box
+        sx={{
+          px: { xs: "24px", md: "36px", xl: "48px" },
+          pt: { xs: "16px", md: "24px", xl: "32px" },
+          pb: { xs: "8px", md: "12px" },
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: { xs: 11, md: 13, xl: 14 },
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            fontWeight: 500,
+            color: "text.secondary",
+          }}
+        >
           Today's session · {exercises.length} exercise{exercises.length === 1 ? "" : "s"}
         </Typography>
       </Box>
 
-      {/* Hero — Featured Carousel-stil per Android TV Compose */}
-      <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", px: 6, py: 3 }}>
+      {/* HERO — full-width Featured Carousel item */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          px: { xs: "16px", md: "32px", xl: "48px" },
+          py: { xs: 1, md: 2 },
+          minHeight: 0,
+        }}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={current.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            style={{ width: "100%", maxWidth: 1280 }}
+            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.97 }}
+            transition={{
+              duration: prefersReducedMotion ? 0 : m3Duration.medium3 / 1000,
+              ease: [0.2, 0, 0, 1],
+            }}
+            style={{ width: "100%", maxWidth: 1400 }}
           >
             <Card
               sx={{
-                ...heroCardSx,
-                aspectRatio: "16 / 7",
-                background: gradientFor(current.weapon),
-                display: "flex",
                 position: "relative",
+                aspectRatio: { xs: "16 / 9", md: "16 / 8", xl: "16 / 7" },
+                borderRadius: { xs: "20px", md: "28px" },
+                overflow: "hidden",
+                bgcolor: "var(--mui-palette-m3-surfaceContainerHigh)",
+                boxShadow: "none",
+                background: gradientFor(current.weapon),
               }}
             >
-              {/* Left: text content */}
+              {/* Left content panel — text + chips + CTA */}
               <Stack
                 sx={{
                   position: "relative",
                   zIndex: 1,
                   justifyContent: "center",
-                  p: 6,
-                  maxWidth: "55%",
+                  height: "100%",
+                  p: { xs: 3, md: 5, xl: 7 },
+                  maxWidth: { xs: "100%", md: "60%" },
                 }}
-                spacing={3}
+                spacing={{ xs: 2, md: 3 }}
               >
                 <Typography
                   sx={{
-                    ...dukTypography.labelMedium,
-                    color: "rgba(255,255,255,0.65)",
+                    fontSize: { xs: 11, md: 13, xl: 14 },
+                    letterSpacing: "0.3em",
+                    textTransform: "uppercase",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.7)",
                   }}
                 >
-                  {safeIndex === 0
-                    ? "First up"
-                    : `Exercise ${safeIndex + 1} of ${exercises.length}`}
+                  {safeIndex === 0 ? "First up" : `Exercise ${safeIndex + 1} of ${exercises.length}`}
                 </Typography>
                 <Typography
                   sx={{
-                    ...dukTypography.displayMedium,
-                    color: "white",
+                    fontSize: { xs: 28, md: 44, lg: 56, xl: 72 },
+                    fontWeight: 400,
+                    lineHeight: 1.05,
+                    letterSpacing: "-0.5px",
+                    color: "#ffffff",
                   }}
                 >
                   {current.title}
                 </Typography>
-                <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
+
+                {/* M3 Chips for criteria */}
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  useFlexGap
+                  sx={{ flexWrap: "wrap", gap: { xs: 0.75, md: 1 } }}
+                >
                   {current.weapon && <HeroChip>{current.weapon}</HeroChip>}
                   {current.hits_threshold !== undefined && (
                     <HeroChip>Hits ≥ {current.hits_threshold}</HeroChip>
@@ -127,20 +187,22 @@ export function SelectExerciseDuk({
                     <HeroChip>Spread ≤ {current.spread_threshold} cm</HeroChip>
                   )}
                 </Stack>
+
                 <SelectCta />
               </Stack>
 
-              {/* Right: visual placeholder (gradient + symbol) */}
+              {/* Right visual area — gradient bleed + symbol */}
               <Box
                 sx={{
                   position: "absolute",
                   right: 0,
                   top: 0,
                   bottom: 0,
-                  width: "55%",
+                  width: { xs: "30%", md: "45%" },
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  pointerEvents: "none",
                 }}
               >
                 <Box
@@ -148,11 +210,15 @@ export function SelectExerciseDuk({
                     position: "absolute",
                     inset: 0,
                     background:
-                      "linear-gradient(to left, transparent, transparent, rgba(0,0,0,0.4))",
+                      "linear-gradient(to left, transparent, transparent 30%, rgba(0,0,0,0.5))",
                   }}
                 />
                 <CenterFocusStrong
-                  sx={{ fontSize: 260, color: "rgba(255,255,255,0.15)", strokeWidth: 0.5 }}
+                  sx={{
+                    fontSize: { xs: 120, md: 200, xl: 280 },
+                    color: "rgba(255,255,255,0.16)",
+                    strokeWidth: 0.5,
+                  }}
                 />
               </Box>
             </Card>
@@ -160,25 +226,20 @@ export function SelectExerciseDuk({
         </AnimatePresence>
       </Box>
 
-      {/* Thumbnail-strip */}
-      <Box sx={{ px: 6, pb: 2 }}>
-        <Stack direction="row" spacing={3} sx={{ alignItems: "center", mb: 2 }}>
-          <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
-            In order
-          </Typography>
-          <Box sx={{ flex: 1, height: 1, bgcolor: "divider" }} />
-        </Stack>
-        <Stack direction="row" spacing={2} sx={{ overflow: "hidden" }}>
-          {exercises.map((ex, i) => (
-            <Thumbnail
-              key={`${ex.id}-${i}`}
-              exercise={ex}
-              index={i}
-              selected={i === safeIndex}
-              total={exercises.length}
-            />
-          ))}
-        </Stack>
+      {/* M3 page indicators — pill-formade, focused = primary färg + bredd */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          gap: { xs: 0.75, md: 1 },
+          px: 2,
+          py: { xs: 1, md: 1.5 },
+          flexWrap: "wrap",
+        }}
+      >
+        {exercises.map((_, i) => (
+          <PageIndicator key={i} active={i === safeIndex} />
+        ))}
       </Box>
 
       <PhaseHints hints={SELECT_HINTS} />
@@ -190,15 +251,15 @@ function HeroChip({ children }: { children: React.ReactNode }) {
   return (
     <Chip
       label={children}
-      variant="outlined"
       sx={{
-        bgcolor: "rgba(255,255,255,0.08)",
-        borderColor: "rgba(255,255,255,0.25)",
-        color: "rgba(255,255,255,0.85)",
+        bgcolor: "rgba(255,255,255,0.12)",
+        color: "rgba(255,255,255,0.92)",
         fontFamily: '"Roboto Mono", monospace',
-        fontSize: "14px",
-        height: 32,
-        borderRadius: "16px",
+        fontSize: { xs: 11, md: 13 },
+        height: { xs: 28, md: 32 },
+        borderRadius: "8px",
+        border: "1px solid rgba(255,255,255,0.18)",
+        "& .MuiChip-label": { px: { xs: 1.25, md: 1.5 } },
       }}
     />
   );
@@ -213,121 +274,46 @@ function SelectCta() {
         alignSelf: "flex-start",
         alignItems: "center",
         gap: 1.5,
-        bgcolor: "primary.main",
-        color: "primary.contrastText",
-        px: 4,
-        py: 1.5,
+        bgcolor: "#ffffff",
+        color: "#000000",
+        px: { xs: 2.5, md: 3.5 },
+        py: { xs: 1, md: 1.5 },
         borderRadius: "9999px",
-        boxShadow: 4,
-        ...dukTypography.labelLarge,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+        fontSize: { xs: 13, md: 15 },
+        fontWeight: 500,
+        letterSpacing: "0.05em",
+        textTransform: "uppercase",
       }}
     >
-      <PlayArrow sx={{ fontSize: 24 }} />
+      <PlayArrow sx={{ fontSize: { xs: 18, md: 22 } }} />
       Press OK to select
     </Box>
   );
 }
 
-function Thumbnail({
-  exercise,
-  index,
-  selected,
-  total,
-}: {
-  exercise: ExerciseListItem;
-  index: number;
-  selected: boolean;
-  total: number;
-}) {
-  const width = total <= 3 ? 320 : total <= 5 ? 240 : 200;
+function PageIndicator({ active }: { active: boolean }) {
   return (
-    <motion.div
-      layout
-      style={{
-        width,
-        flexShrink: 0,
-        aspectRatio: "16 / 9",
-        opacity: selected ? 1 : 0.5,
-        scale: selected ? 1.04 : 1,
+    <Box
+      sx={{
+        ...tvFocus(false), // ingen tv-focus per dot — selected hanteras via storlek/färg
+        height: 6,
+        width: active ? 28 : 6,
+        borderRadius: "999px",
+        bgcolor: active ? "primary.main" : "text.disabled",
+        opacity: active ? 1 : 0.4,
+        transition: "all 240ms cubic-bezier(0.2, 0, 0, 1)",
       }}
-    >
-      <Card
-        sx={{
-          borderRadius: "20px",
-          overflow: "hidden",
-          outline: selected ? "3px solid" : "none",
-          outlineColor: "primary.main",
-          outlineOffset: "4px",
-          height: "100%",
-          background: gradientFor(exercise.weapon),
-          position: "relative",
-          transition: "all 200ms cubic-bezier(0.2, 0, 0, 1)",
-        }}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <CenterFocusStrong
-            sx={{
-              fontSize: 56,
-              color: selected ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.15)",
-            }}
-          />
-        </Box>
-        <Typography
-          sx={{
-            position: "absolute",
-            top: 8,
-            left: 10,
-            fontFamily: '"Roboto Mono", monospace',
-            fontSize: 11,
-            color: "rgba(255,255,255,0.6)",
-            textTransform: "uppercase",
-            letterSpacing: 1,
-          }}
-        >
-          {String(index + 1).padStart(2, "0")}
-        </Typography>
-        <Box
-          sx={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            p: 1.5,
-            background:
-              "linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.3), transparent)",
-          }}
-        >
-          <Typography
-            sx={{
-              color: "white",
-              fontSize: 13,
-              fontWeight: 500,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {exercise.title}
-          </Typography>
-        </Box>
-      </Card>
-    </motion.div>
+    />
   );
 }
 
+// Stabil gradient per vapen — väl-skalig i båda themes via HSL.
 function gradientFor(weapon?: string): string {
   if (!weapon) {
-    return "linear-gradient(135deg, var(--mui-palette-m3-surfaceContainerHigh) 0%, var(--mui-palette-m3-surfaceContainer) 100%)";
+    return "linear-gradient(135deg, hsl(200 25% 25%) 0%, hsl(220 30% 15%) 100%)";
   }
   const seed = [...weapon].reduce((a, c) => a + c.charCodeAt(0), 0);
   const hue = seed % 360;
-  return `linear-gradient(135deg, hsl(${hue} 35% 22%) 0%, hsl(${(hue + 40) % 360} 50% 10%) 100%)`;
+  return `linear-gradient(135deg, hsl(${hue} 45% 30%) 0%, hsl(${(hue + 40) % 360} 55% 18%) 100%)`;
 }

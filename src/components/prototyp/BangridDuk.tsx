@@ -4,10 +4,9 @@ import {
   Error as ErrorIcon,
   Warning as WarningIcon,
   CheckCircle as CheckIcon,
-  ChevronRight,
   PlayArrow,
 } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { LaneAssignment, Section } from "@/services/assignmentService";
 import {
   aggregateLaneStatus,
@@ -17,25 +16,38 @@ import {
 } from "@/services/readinessService";
 import { useLastRemoteEvent } from "@/hooks/useRemoteControl";
 import type { ExerciseListItem } from "@/services/sessionService";
-import { dukTypography, tvSafeInset } from "@/theme/tv";
 
 /**
- * Helhetsprototyp — BangridDuk (M3-omskrivning 2026-05-28).
+ * BangridDuk — M3 Grid layout-template (redesign 2026-05-28).
  *
- * Duken under check-in-fasen. M3-stil med:
- *   • Lane-cards via MUI Card med tonal surface
- *   • Lane-number badge i M3 neutral (vit över black, inte amber)
- *   • Status-bar längst ner per kort, M3 statusToken-färger
- *   • Issue-chips som M3 outlined Chips med Error/Warning ikoner
- *   • Top-right alerts som filled M3 Cards med statusContainer-tint
- *   • NEXT-knapp som M3 FilledTonalButton-stil (read-only affordance)
+ * Canonical M3 TV Grid-pattern: lika-stora cards arrangerade i grid,
+ * varje card = en självständig content-unit. Per Android TV-spec.
+ *
+ * Designprinciper applicerade:
+ *  - M3 Filled Card per lane (surfaceContainerLow base, tonal lift)
+ *  - State layer overlay för status (statusContainer-tint vid non-ok)
+ *  - Lane-nummer-badge: NEUTRAL (vit, inte amber) så status får tala
+ *  - Status-bar längst ner per card = enda alltid-synliga status-cue
+ *  - Issue-chips bara vid icke-ok (progressive disclosure)
+ *  - Top-right alerts = M3 outlined cards med statusContainer-tint
+ *  - NEXT-knapp = M3 FilledTonalButton-stil affordance (read-only,
+ *    knappen syns men klickas inte — fjärr-OK gör action:en)
+ *  - Theme-aware via M3-tokens överallt (funkar i dark + light)
+ *  - Responsiv grid: 2-5 col baserat på antal banor + viewport
  */
 
-const STATUS_COLOR: Record<ReadinessStatus, string> = {
+const STATUS_BAR_COLOR: Record<ReadinessStatus, string> = {
   na: "transparent",
   ok: "var(--mui-palette-success-main)",
   warning: "var(--mui-palette-warning-main)",
   critical: "var(--mui-palette-error-main)",
+};
+
+const STATUS_CONTAINER: Record<ReadinessStatus, string> = {
+  na: "transparent",
+  ok: "transparent", // grön ok = ingen tint, bara baren
+  warning: "var(--mui-palette-m3-statusWarningContainer)",
+  critical: "var(--mui-palette-m3-errorContainer)",
 };
 
 const ISSUE_LABEL: Record<
@@ -90,30 +102,57 @@ export function BangridDuk({
 
   const occupiedCount = lanes.filter((l) => l.status === "occupied").length;
   const totalCount = lanes.length;
-  const cols = totalCount <= 5 ? Math.max(totalCount, 1) : Math.ceil(totalCount / 2);
-
   const someOneCheckedIn = occupiedCount > 0;
   const allReady = someOneCheckedIn && alerts.length === 0;
   const nonReadyCount =
     alerts.length === 0 ? 0 : new Set(alerts.flatMap((a) => a.affectedLanes)).size;
 
+  // Grid columns: 1 på xs, 2 på sm, scale upp baserat på antal banor.
+  // M3 Grid säger lika-stora celler — vi väljer antal kolumner så cards
+  // får rimlig storlek vid varje breakpoint.
+  const cols = (total: number) => ({
+    xs: 1,
+    sm: 2,
+    md: Math.min(total, 3),
+    lg: Math.min(total, 4),
+    xl: Math.min(total, 5),
+  });
+
   return (
-    <Stack sx={{ ...tvSafeInset, flex: 1 }}>
-      {/* Header — exercise context (left) + system alerts (right) */}
+    <Stack
+      sx={{
+        flex: 1,
+        px: { xs: "24px", md: "36px", xl: "48px" },
+        py: { xs: "16px", md: "24px", xl: "32px" },
+      }}
+    >
+      {/* Header — exercise context + readiness alerts */}
       <Stack
-        direction="row"
-        spacing={4}
-        sx={{ alignItems: "flex-start", justifyContent: "space-between", mb: 5 }}
+        direction={{ xs: "column", md: "row" }}
+        spacing={{ xs: 2, md: 4 }}
+        sx={{
+          alignItems: { xs: "flex-start", md: "flex-start" },
+          justifyContent: "space-between",
+          mb: { xs: 3, md: 4 },
+        }}
       >
-        <Stack sx={{ flex: 1, minWidth: 0 }} spacing={1.5}>
-          <Stack direction="row" spacing={2}>
-            <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
+        <Stack sx={{ flex: 1, minWidth: 0 }} spacing={1}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: "baseline" }}>
+            <Typography
+              sx={{
+                fontSize: { xs: 11, md: 13 },
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                fontWeight: 500,
+                color: "text.secondary",
+              }}
+            >
               Check-in · {section.replace("_", " ").toUpperCase()}
             </Typography>
             {totalCount > 0 && (
               <Typography
                 sx={{
-                  ...dukTypography.labelMedium,
+                  fontSize: { xs: 11, md: 13 },
                   fontFamily: '"Roboto Mono", monospace',
                   color: "text.secondary",
                 }}
@@ -124,22 +163,52 @@ export function BangridDuk({
           </Stack>
           {exercise ? (
             <>
-              <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+              <Typography
+                sx={{
+                  fontSize: { xs: 28, md: 44, lg: 56, xl: 64 },
+                  fontWeight: 400,
+                  lineHeight: 1.05,
+                  letterSpacing: "-0.5px",
+                  color: "text.primary",
+                }}
+              >
                 {exercise.title}
               </Typography>
-              <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary", maxWidth: 720 }}>
+              <Typography
+                sx={{
+                  fontSize: { xs: 13, md: 15, xl: 18 },
+                  color: "text.secondary",
+                  maxWidth: 720,
+                }}
+              >
                 Trainees check in · weapons warm up · review status before start
               </Typography>
             </>
           ) : (
-            <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+            <Typography
+              sx={{
+                fontSize: { xs: 28, md: 44, lg: 56, xl: 64 },
+                fontWeight: 400,
+                lineHeight: 1.05,
+                color: "text.primary",
+              }}
+            >
               Waiting for check-in
             </Typography>
           )}
         </Stack>
 
-        {/* Top-right alerts — M3 filled cards with statusContainer-tint */}
-        <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", justifyContent: "flex-end", maxWidth: "55%" }} useFlexGap>
+        {/* Alerts area — M3 outlined cards med statusContainer-tint */}
+        <Stack
+          direction="row"
+          spacing={1.5}
+          useFlexGap
+          sx={{
+            flexWrap: "wrap",
+            justifyContent: { xs: "flex-start", md: "flex-end" },
+            maxWidth: { xs: "100%", md: "50%" },
+          }}
+        >
           <AnimatePresence>
             {alerts.map((a) => (
               <motion.div
@@ -151,30 +220,37 @@ export function BangridDuk({
               >
                 <Card
                   sx={{
-                    px: 2.5,
-                    py: 1.5,
+                    px: { xs: 1.5, md: 2.5 },
+                    py: { xs: 1, md: 1.5 },
                     bgcolor:
                       a.severity === "critical"
                         ? "var(--mui-palette-m3-errorContainer)"
                         : "var(--mui-palette-m3-statusWarningContainer)",
-                    color:
-                      a.severity === "critical"
-                        ? "var(--mui-palette-m3-onErrorContainer)"
-                        : "var(--mui-palette-text-primary)",
+                    color: "text.primary",
                     maxWidth: 280,
                     display: "flex",
                     gap: 1.5,
                     alignItems: "flex-start",
+                    boxShadow: "none",
                   }}
                 >
                   {a.severity === "critical" ? (
-                    <ErrorIcon sx={{ color: "error.main", fontSize: 24, mt: "2px" }} />
+                    <ErrorIcon sx={{ color: "error.main", fontSize: { xs: 18, md: 22 }, mt: "2px" }} />
                   ) : (
-                    <WarningIcon sx={{ color: "warning.main", fontSize: 24, mt: "2px" }} />
+                    <WarningIcon sx={{ color: "warning.main", fontSize: { xs: 18, md: 22 }, mt: "2px" }} />
                   )}
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontSize: 14, fontWeight: 500 }}>{a.label}</Typography>
-                    <Typography sx={{ fontSize: 11, opacity: 0.7, mt: 0.25 }}>
+                    <Typography sx={{ fontSize: { xs: 12, md: 14 }, fontWeight: 500 }}>
+                      {a.label}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        color: "text.secondary",
+                        mt: 0.25,
+                        fontFamily: '"Roboto Mono", monospace',
+                      }}
+                    >
                       Lane {a.affectedLanes.join(", Lane ")}
                     </Typography>
                   </Box>
@@ -185,19 +261,32 @@ export function BangridDuk({
         </Stack>
       </Stack>
 
-      {/* Lane grid */}
+      {/* M3 Grid — lika-stora lane-cards */}
       <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Box
           sx={{
             display: "grid",
-            gap: 3,
-            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gap: { xs: 2, md: 2.5, xl: 3 },
+            gridTemplateColumns: {
+              xs: `repeat(${cols(totalCount).xs}, minmax(0, 1fr))`,
+              sm: `repeat(${cols(totalCount).sm}, minmax(0, 1fr))`,
+              md: `repeat(${cols(totalCount).md}, minmax(0, 1fr))`,
+              lg: `repeat(${cols(totalCount).lg}, minmax(0, 1fr))`,
+              xl: `repeat(${cols(totalCount).xl}, minmax(0, 1fr))`,
+            },
             width: "100%",
             maxWidth: 1600,
           }}
         >
           {lanes.length === 0 && (
-            <Typography sx={{ ...dukTypography.bodyLarge, gridColumn: "1 / -1", textAlign: "center", color: "text.secondary" }}>
+            <Typography
+              sx={{
+                gridColumn: "1 / -1",
+                textAlign: "center",
+                color: "text.disabled",
+                fontSize: { xs: 14, md: 18 },
+              }}
+            >
               No lanes configured for this section yet.
             </Typography>
           )}
@@ -208,8 +297,22 @@ export function BangridDuk({
       </Box>
 
       {/* Bottom action row */}
-      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mt: 4, px: 1 }}>
-        <Typography sx={{ ...dukTypography.bodyMedium, color: "text.secondary" }}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={{ xs: 2, sm: 0 }}
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", sm: "center" },
+          mt: { xs: 3, md: 4 },
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: { xs: 12, md: 14 },
+            color: "text.secondary",
+            order: { xs: 2, sm: 1 },
+          }}
+        >
           {!someOneCheckedIn
             ? "Tap your RFID on the check-in tablet to take a lane."
             : !allReady
@@ -223,6 +326,7 @@ export function BangridDuk({
 }
 
 function LaneTile({ lane }: { lane: LaneAssignment }) {
+  const prefersReducedMotion = useReducedMotion();
   const occupied = lane.status === "occupied";
   const readiness: ReadinessStatus = occupied
     ? aggregateLaneStatus({
@@ -234,24 +338,26 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
     : "na";
 
   const issues = occupied ? allIssues(lane) : [];
+  const hasIssues = issues.length > 0;
 
   return (
     <Stack sx={{ alignItems: "center" }}>
-      {/* Lane number badge — neutral white-on-black (identity, not status) */}
+      {/* Lane number badge — neutral (vit over textPrimary inverted),
+          inte status-färgad. Identitet, inte status. */}
       <Box
         sx={{
-          width: 56,
-          height: 56,
+          width: { xs: 44, md: 52, xl: 56 },
+          height: { xs: 44, md: 52, xl: 56 },
           borderRadius: "16px",
-          bgcolor: "common.white",
-          color: "common.black",
+          bgcolor: "text.primary",
+          color: "background.default",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          ...dukTypography.headlineSmall,
-          fontWeight: 700,
+          fontSize: { xs: 20, md: 26, xl: 28 },
+          fontWeight: 600,
           fontVariantNumeric: "tabular-nums",
-          boxShadow: 4,
+          boxShadow: 3,
           mb: -1.5,
           zIndex: 10,
         }}
@@ -259,25 +365,33 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
         {lane.lane_number}
       </Box>
 
-      {/* Lane card */}
+      {/* M3 Filled Card — surfaceContainerLow base, status-tinted vid non-ok */}
       <Card
         component={motion.div}
         layout
+        animate={
+          prefersReducedMotion ? undefined : { scale: hasIssues ? 1.0 : 1.0 }
+        }
         sx={{
           width: "100%",
-          minHeight: 280,
-          bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
-          pt: 4,
-          px: 2.5,
-          pb: 2.5,
+          minHeight: { xs: 200, md: 240, xl: 280 },
+          bgcolor: hasIssues
+            ? STATUS_CONTAINER[readiness]
+            : "var(--mui-palette-m3-surfaceContainerLow)",
+          pt: { xs: 3, md: 4 },
+          px: { xs: 1.5, md: 2.5 },
+          pb: { xs: 1.5, md: 2.5 },
           display: "flex",
           flexDirection: "column",
+          boxShadow: "none",
+          transition: "background-color 240ms cubic-bezier(0.2, 0, 0, 1)",
         }}
       >
         <Stack sx={{ alignItems: "center", textAlign: "center", flex: 1 }} spacing={0.5}>
           <Typography
             sx={{
-              ...dukTypography.titleMedium,
+              fontSize: { xs: 14, md: 17, xl: 20 },
+              fontWeight: 500,
               color: occupied ? "text.primary" : "text.disabled",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -291,20 +405,23 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
             {occupied ? "Rank" : "Empty"}
           </Typography>
 
-          {/* Status bar */}
+          {/* Status bar — den enda alltid-synliga status-cue:n */}
           <Box
             sx={{
-              mt: 2.5,
+              mt: { xs: 2, md: 2.5 },
               height: 6,
               width: "100%",
               borderRadius: "999px",
-              bgcolor: STATUS_COLOR[readiness] === "transparent" ? "rgba(255,255,255,0.1)" : STATUS_COLOR[readiness],
+              bgcolor:
+                readiness === "na"
+                  ? "var(--mui-palette-divider)"
+                  : STATUS_BAR_COLOR[readiness],
               transition: "background-color 500ms",
             }}
           />
 
-          {/* Weapon row */}
-          <Box sx={{ width: "100%", pt: 2.5, mt: "auto" }}>
+          {/* Weapon row — alltid synlig vid occupied */}
+          <Box sx={{ width: "100%", pt: { xs: 2, md: 2.5 }, mt: "auto" }}>
             {occupied ? (
               <WeaponRow
                 weaponName={lane.weapon_name ?? "—"}
@@ -317,11 +434,12 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
                   borderRadius: 1.5,
                   border: 1,
                   borderColor: "divider",
-                  bgcolor: "var(--mui-palette-m3-surfaceContainer)",
+                  bgcolor: "transparent",
                   px: 1.5,
                   py: 1,
                   fontSize: 11,
                   color: "text.disabled",
+                  textAlign: "left",
                 }}
               >
                 Waiting for assignment
@@ -329,7 +447,7 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
             )}
           </Box>
 
-          {/* Issue chips */}
+          {/* Issue chips — progressive disclosure, bara vid non-ok */}
           {issues.length > 0 && (
             <Stack sx={{ mt: 1, width: "100%" }} spacing={0.75}>
               <AnimatePresence>
@@ -344,31 +462,26 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
                     <Chip
                       icon={
                         issue.severity === "critical" ? (
-                          <ErrorIcon sx={{ fontSize: "16px !important" }} />
+                          <ErrorIcon sx={{ fontSize: "14px !important" }} />
                         ) : (
-                          <WarningIcon sx={{ fontSize: "16px !important" }} />
+                          <WarningIcon sx={{ fontSize: "14px !important" }} />
                         )
                       }
                       label={ISSUE_LABEL[issue.indicator][issue.severity]}
                       size="small"
                       sx={{
                         width: "100%",
-                        height: 28,
+                        height: 26,
                         borderRadius: "8px",
                         fontSize: 11,
                         fontWeight: 500,
-                        bgcolor:
-                          issue.severity === "critical"
-                            ? "var(--mui-palette-m3-errorContainer)"
-                            : "var(--mui-palette-m3-statusWarningContainer)",
+                        bgcolor: "transparent",
+                        border: 1,
+                        borderColor:
+                          issue.severity === "critical" ? "error.main" : "warning.main",
                         color:
-                          issue.severity === "critical"
-                            ? "var(--mui-palette-error-main)"
-                            : "var(--mui-palette-warning-main)",
-                        "& .MuiChip-icon": {
-                          color: "inherit",
-                          ml: 0.5,
-                        },
+                          issue.severity === "critical" ? "error.main" : "warning.main",
+                        "& .MuiChip-icon": { color: "inherit", ml: 0.5 },
                       }}
                     />
                   </motion.div>
@@ -415,7 +528,7 @@ function WeaponRow({
         borderRadius: 1.5,
         border: 1,
         borderColor: "divider",
-        bgcolor: "var(--mui-palette-m3-surfaceContainer)",
+        bgcolor: "transparent",
         px: 1.5,
         py: 1,
         textAlign: "left",
@@ -453,8 +566,8 @@ function WeaponRow({
 }
 
 /**
- * NEXT-knapp som affordans för fjärr-OK. Visuell M3 FilledTonalButton-stil
- * men INTE klickbar (duken har inga mus-element). Pulse på fjärr-OK.
+ * NEXT-knapp som M3 FilledTonalButton-stil affordance.
+ * Inte klickbar (duken har inga mus-element). Pulse på fjärr-OK.
  */
 function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean }) {
   const last = useLastRemoteEvent();
@@ -468,47 +581,62 @@ function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean
   }, [last, enabled]);
 
   const tone = !enabled
-    ? { bg: "var(--mui-palette-m3-surfaceContainerLow)", fg: "text.disabled", border: "transparent" }
+    ? {
+        bg: "var(--mui-palette-m3-surfaceContainerLow)",
+        fg: "text.disabled",
+        border: "divider",
+      }
     : allReady
       ? {
           bg: "var(--mui-palette-m3-statusSuccessContainer)",
-          fg: "var(--mui-palette-success-main)",
-          border: "var(--mui-palette-success-main)",
+          fg: "success.main",
+          border: "success.main",
         }
       : {
           bg: "var(--mui-palette-m3-statusWarningContainer)",
-          fg: "var(--mui-palette-warning-main)",
-          border: "var(--mui-palette-warning-main)",
+          fg: "warning.main",
+          border: "warning.main",
         };
 
   return (
     <Box
       aria-hidden
       sx={{
+        order: { xs: 1, sm: 2 },
         display: "flex",
         alignItems: "center",
-        gap: 2,
-        borderRadius: "16px",
+        gap: 1.5,
+        borderRadius: "20px",
         border: 1,
         borderColor: tone.border,
         bgcolor: tone.bg,
-        px: 3,
-        py: 1.5,
+        px: { xs: 2.5, md: 3.5 },
+        py: { xs: 1.5, md: 2 },
         userSelect: "none",
+        alignSelf: { xs: "flex-end", sm: "auto" },
         transition: "all 200ms",
         transform: flash ? "scale(1.03)" : "scale(1)",
-        filter: flash ? "brightness(1.25)" : "none",
+        filter: flash ? "brightness(1.2)" : "none",
         color: tone.fg,
       }}
     >
-      <PlayArrow sx={{ fontSize: 24 }} />
+      <PlayArrow sx={{ fontSize: { xs: 20, md: 24 } }} />
       <Stack sx={{ alignItems: "flex-start" }}>
-        <Typography sx={{ ...dukTypography.titleLarge, color: tone.fg }}>Next</Typography>
-        <Typography sx={{ ...dukTypography.labelMedium, color: tone.fg, opacity: 0.7 }}>
+        <Typography sx={{ fontSize: { xs: 14, md: 18 }, fontWeight: 500, color: tone.fg }}>
+          Next
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: { xs: 9, md: 10 },
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            color: tone.fg,
+            opacity: 0.7,
+          }}
+        >
           Press OK on remote
         </Typography>
       </Stack>
-      <ChevronRight sx={{ fontSize: 18, opacity: 0.6, ml: 0.5 }} />
     </Box>
   );
 }

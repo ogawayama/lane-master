@@ -101,22 +101,22 @@ export function SimulationDuk({
 
   return (
     <Stack sx={{ flex: 1 }}>
-      {/* Header — Live + title + timer */}
+      {/* Header — Live + title + timer (responsiv padding) */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr 1fr",
           alignItems: "baseline",
-          px: 6,
-          pt: 5,
-          pb: 3,
+          px: { xs: "24px", md: "36px", xl: "48px" },
+          pt: { xs: "16px", md: "24px", xl: "32px" },
+          pb: { xs: "8px", md: "16px", xl: "24px" },
         }}
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
           <Box
             sx={{
-              width: 10,
-              height: 10,
+              width: { xs: 8, md: 10 },
+              height: { xs: 8, md: 10 },
               borderRadius: "50%",
               bgcolor: "error.main",
               animation: "pulse 1.4s ease-in-out infinite",
@@ -126,13 +126,24 @@ export function SimulationDuk({
               },
             }}
           />
-          <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
+          <Typography
+            sx={{
+              fontSize: { xs: 11, md: 13, xl: 14 },
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+              color: "text.secondary",
+            }}
+          >
             Live · Exercise running
           </Typography>
         </Stack>
         <Typography
           sx={{
-            ...dukTypography.labelMedium,
+            fontSize: { xs: 11, md: 13, xl: 14 },
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            fontWeight: 500,
             color: "text.secondary",
             textAlign: "center",
             overflow: "hidden",
@@ -144,7 +155,8 @@ export function SimulationDuk({
         </Typography>
         <Typography
           sx={{
-            ...dukTypography.titleLarge,
+            fontSize: { xs: 18, md: 24, xl: 28 },
+            fontWeight: 500,
             color: "text.primary",
             textAlign: "right",
             fontFamily: '"Roboto Mono", monospace',
@@ -155,16 +167,17 @@ export function SimulationDuk({
         </Typography>
       </Box>
 
-      {/* Lane targets row */}
+      {/* Lane targets row — responsiv padding + gap */}
       <Box
         sx={{
           flex: 1,
-          px: 4,
-          pb: 4,
+          px: { xs: "16px", md: "24px", xl: "32px" },
+          pb: { xs: 2, md: 3, xl: 4 },
           display: "grid",
           alignItems: "end",
-          gap: 3,
+          gap: { xs: 1.5, md: 2, xl: 3 },
           gridTemplateColumns: `repeat(${Math.max(1, sequences.length)}, minmax(0, 1fr))`,
+          minHeight: 0,
         }}
       >
         {sequences.map((lane) => (
@@ -208,20 +221,33 @@ function LaneTarget({
 }) {
   const prefersReducedMotion = useReducedMotion();
   return (
-    <Stack sx={{ alignItems: "center" }} spacing={2}>
-      <Box sx={{ position: "relative", width: "100%", maxWidth: 320, aspectRatio: "1 / 1" }}>
+    <Stack sx={{ alignItems: "center" }} spacing={{ xs: 1, md: 2 }}>
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          maxWidth: { xs: 200, md: 260, xl: 320 },
+          aspectRatio: "1 / 1",
+        }}
+      >
         <svg
           viewBox="-50 -50 100 100"
-          style={{ width: "100%", height: "100%" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            // Theme-aware: SVG ärver text-primary via currentColor.
+            // Funkar i både dark + light utan hardcoded färger.
+            color: "var(--mui-palette-text-primary)",
+          }}
           xmlns="http://www.w3.org/2000/svg"
         >
           <circle cx="0" cy="0" r="48" fill="var(--mui-palette-m3-surfaceContainer)" stroke="var(--mui-palette-m3-outlineVariant)" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="36" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="25" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="14" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.4" />
-          <circle cx="0" cy="0" r="2.5" fill="rgba(255,255,255,0.18)" />
-          <line x1="-4" y1="0" x2="4" y2="0" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
-          <line x1="0" y1="-4" x2="0" y2="4" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
+          <circle cx="0" cy="0" r="36" fill="none" stroke="currentColor" strokeOpacity="0.06" strokeWidth="0.4" />
+          <circle cx="0" cy="0" r="25" fill="none" stroke="currentColor" strokeOpacity="0.10" strokeWidth="0.4" />
+          <circle cx="0" cy="0" r="14" fill="none" stroke="currentColor" strokeOpacity="0.14" strokeWidth="0.4" />
+          <circle cx="0" cy="0" r="2.5" fill="currentColor" fillOpacity="0.20" />
+          <line x1="-4" y1="0" x2="4" y2="0" stroke="currentColor" strokeOpacity="0.10" strokeWidth="0.3" />
+          <line x1="0" y1="-4" x2="0" y2="4" stroke="currentColor" strokeOpacity="0.10" strokeWidth="0.3" />
 
           <AnimatePresence>
             {shots.map((shot) => (
@@ -233,11 +259,11 @@ function LaneTarget({
               >
                 {shot.hit ? (
                   <>
-                    <circle cx={shot.x} cy={shot.y} r="2.6" fill="#ffffff" opacity="0.92" />
-                    <circle cx={shot.x} cy={shot.y} r="3.6" fill="none" stroke="#ffffff" strokeOpacity="0.20" strokeWidth="0.4" />
+                    <circle cx={shot.x} cy={shot.y} r="2.6" fill="currentColor" fillOpacity="0.95" />
+                    <circle cx={shot.x} cy={shot.y} r="3.6" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="0.4" />
                   </>
                 ) : (
-                  <circle cx={shot.x} cy={shot.y} r="1.8" fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="0.5" />
+                  <circle cx={shot.x} cy={shot.y} r="1.8" fill="none" stroke="currentColor" strokeOpacity="0.55" strokeWidth="0.6" />
                 )}
               </motion.g>
             ))}
@@ -245,24 +271,33 @@ function LaneTarget({
         </svg>
       </Box>
       <Stack sx={{ alignItems: "center" }}>
-        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
+        <Typography
+          sx={{
+            fontSize: { xs: 10, md: 12, xl: 14 },
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            fontWeight: 500,
+            color: "text.secondary",
+          }}
+        >
           Lane {laneNumber}
         </Typography>
         <Typography
           sx={{
-            ...dukTypography.titleLarge,
+            fontSize: { xs: 14, md: 18, xl: 22 },
+            fontWeight: 500,
             color: "text.primary",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            maxWidth: 240,
+            maxWidth: { xs: 160, md: 200, xl: 240 },
           }}
         >
           {name ?? "—"}
         </Typography>
         <Typography
           sx={{
-            fontSize: 11,
+            fontSize: { xs: 10, md: 11 },
             fontFamily: '"Roboto Mono", monospace',
             color: "text.disabled",
             mt: 0.5,
