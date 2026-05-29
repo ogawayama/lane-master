@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { CssVarsProvider } from "@mui/material/styles";
+import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -36,7 +36,7 @@ const AppShell = () => {
 };
 
 const App = () => (
-  <CssVarsProvider theme={m3Theme} defaultMode="dark" modeStorageKey="lanemaster-color-scheme">
+  <ThemeProvider theme={m3Theme} defaultMode="dark" modeStorageKey="lanemaster-color-scheme">
     <CssBaseline enableColorScheme />
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -69,7 +69,7 @@ const App = () => (
       </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
-  </CssVarsProvider>
+  </ThemeProvider>
 );
 
 export default App;

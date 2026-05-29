@@ -20,6 +20,25 @@
   </head>
 
   <body>
+    <!-- Color scheme initializer — sätter data-mui-color-scheme INNAN
+         React mountar, så MUI:s CSS-variabler matchar rätt scheme från
+         första pixel. Förhindrar FOUC (flash of unstyled content) som
+         annars uppstår eftersom CssVarsProvider:s defaultMode bara sätter
+         storage-värdet, inte attributet. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('lanemaster-color-scheme');
+          var scheme = stored === 'light' ? 'light' : 'dark'; // default dark
+          document.documentElement.setAttribute('data-mui-color-scheme', scheme);
+          if (scheme === 'light') {
+            document.documentElement.classList.add('light');
+          }
+        } catch (e) {
+          document.documentElement.setAttribute('data-mui-color-scheme', 'dark');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

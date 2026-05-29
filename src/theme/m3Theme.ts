@@ -1,4 +1,4 @@
-import { extendTheme } from "@mui/material/styles";
+import { createTheme } from "@mui/material/styles";
 import { buildM3Scheme, type M3Scheme } from "./m3Palette";
 
 /**
@@ -17,9 +17,14 @@ import { buildM3Scheme, type M3Scheme } from "./m3Palette";
 const darkScheme = buildM3Scheme(undefined, "dark");
 const lightScheme = buildM3Scheme(undefined, "light");
 
-function paletteFromScheme(s: M3Scheme) {
+function paletteFromScheme(s: M3Scheme, mode: "light" | "dark") {
   return {
-    mode: undefined as never, // mode bestäms av colorSchemes-nyckeln
+    // Mode MÅSTE deklareras explicit per scheme — annars vet inte MUI:s
+    // CssVarsProvider hur den ska växla mellan light/dark via setMode().
+    // (Tidigare antagande att "colorSchemes-nyckeln bestämmer mode" var
+    // fel — orsakade att toggle bara ändrade html.light-klassen men
+    // inte MUI:s --mui-palette-* CSS-variabler.)
+    mode,
     primary: {
       main: s.primary,
       contrastText: s.onPrimary,
@@ -73,11 +78,18 @@ function paletteFromScheme(s: M3Scheme) {
   } as const;
 }
 
-export const m3Theme = extendTheme({
-  // Inget defaultColorScheme — vi sätter via prop på CssVarsProvider
+export const m3Theme = createTheme({
+  // cssVariables med colorSchemeSelector='data-mui-color-scheme' säger
+  // åt MUI att generera CSS med attribut-selektorn istället för media-
+  // query. Utan detta wrappar MUI dark scheme i @media (prefers-color-
+  // scheme: dark) — vilket gör att setMode/setAttribute inte fungerar
+  // (det aktiveras bara av browser settings).
+  cssVariables: {
+    colorSchemeSelector: "data-mui-color-scheme",
+  },
   colorSchemes: {
-    dark: { palette: paletteFromScheme(darkScheme) as never },
-    light: { palette: paletteFromScheme(lightScheme) as never },
+    dark: { palette: paletteFromScheme(darkScheme, "dark") as never },
+    light: { palette: paletteFromScheme(lightScheme, "light") as never },
   },
   // M3 corner radius scale (none, xs, sm, md, lg, xl, full)
   shape: {

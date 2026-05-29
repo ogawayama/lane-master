@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Box, Card, Chip, Stack, Typography } from "@mui/material";
-import {
-  GpsFixed as TargetIcon,
-  AccessTime as TimerIcon,
-  CenterFocusStrong as SpreadIcon,
-} from "@mui/icons-material";
+import { GpsFixed, AccessTime, CenterFocusStrong } from "@mui/icons-material";
 import { supabase } from "@/integrations/supabase/client";
 import {
   computeResult,
@@ -18,23 +14,42 @@ import type { Shot } from "@/services/shotSimulation";
 import { pickCue } from "@/data/cueLibrary";
 import type { ExerciseListItem, Section } from "@/services/sessionService";
 import { PhaseHints, type RemoteKeyHint } from "@/components/prototyp/PhaseHints";
-import { dukTypography, focusRing } from "@/theme/tv";
+import { dukTypography } from "@/theme/tv";
+import {
+  m3Duration,
+  m3Easing,
+  statusTintedSurface,
+  tvFocus,
+} from "@/theme/m3State";
 
 /**
- * Helhetsprototyp — AARDuk (M3-omskrivning 2026-05-28).
+ * Helhetsprototyp — AARDuk (M3 Immersive List redesign 2026-05-28).
  *
- * Två lägen styrda av DukShell via fjärr:
- *   1. OVERVIEW — alla skyttar sida vid sida som M3 Cards. ◀ ▶ flyttar
- *      M3 focus-ring runt vald bana. Pick-up-line per kort (kort version).
- *   2. ZOOM — hero-vy för en skytt. Stor target med annoteringar
- *      (pilar, spread-ringar), full pick-up-line per criterion.
+ * RIKTIG M3-applikation, inte tokens-på-existing-layout:
  *
- * M3-stil:
- *   - Lane-cards: surfaceContainerLow + outline focus
- *   - Status-färger via tokens (status-attention/-warning/-success)
- *   - Criterion-cards: surfaceContainer med tonal tint per status
- *   - SVG-targets: behåller egen rendering men strokes via CSS vars
- *   - Type scale: dukTypography för 10-foot UI
+ *  - Layout-template: IMMERSIVE LIST (Android TV M3-pattern).
+ *    Fokuserad skytt = hero, andra = quiet bottom-strip.
+ *  - INGEN zoom-toggle. Selected ÄR immersive. En modal, en grammatik.
+ *  - Hero-bakgrund = tonal surface tintad med fokuserad skytts status-
+ *    färg (vår "content-derived color" — utan bilder).
+ *  - Target som hero-element, INTE en av tre rutor på samma yta.
+ *  - Pick-up-line som Headline (M3 type role = primary message).
+ *  - Bottom-strip cards med RIKTIG M3 focus-indikator (scale + glow +
+ *    outline + color), inte bara outline.
+ *  - State layers (opacity overlays) för hovered/focused, inte
+ *    utility-stilar.
+ *  - Typography per ROLL: Display för namn, Headline för cue, Label
+ *    för metrics. Inte storleksbaserat.
+ *  - Predictable nav: ◀▶ alltid = navigate, HoldOK = next exercise.
+ *    OK gör ingenting (allt syns redan).
+ *  - Reducerat info-density: skytte-info → hero, metrics → kompakta
+ *    chips, alla andra skyttar → bottom-strip avatar-style.
+ *
+ * Fjärr-grammatik:
+ *   ◀ ▶       → navigate lanes (cyclic)
+ *   HOLD OK   → next exercise / end session
+ *   OK        → no-op (allt syns)
+ *   BACK      → no-op
  */
 
 interface LaneInfo {
@@ -44,49 +59,47 @@ interface LaneInfo {
   status: string;
 }
 
-// Status-tokens via M3 + våra extensions
-const STATUS_BG: Record<Status, string> = {
-  red: "var(--mui-palette-m3-statusAttentionContainer)",
-  yellow: "var(--mui-palette-m3-statusWarningContainer)",
-  green: "var(--mui-palette-m3-statusSuccessContainer)",
-};
-const STATUS_FG: Record<Status, string> = {
-  red: "var(--mui-palette-error-main)",
-  yellow: "var(--mui-palette-warning-main)",
-  green: "var(--mui-palette-success-main)",
-};
-const STATUS_DOT: Record<Status, string> = {
-  red: "var(--mui-palette-error-main)",
-  yellow: "var(--mui-palette-warning-main)",
-  green: "var(--mui-palette-success-main)",
-};
-const STATUS_STROKE: Record<Status, string> = {
+const HINTS: RemoteKeyHint[] = [
+  { keys: ["◀", "▶"], label: "navigate lanes", primary: true },
+  { keys: ["HOLD OK"], label: "next exercise" },
+];
+
+const STATUS_COLOR: Record<Status, string> = {
   red: "var(--mui-palette-error-main)",
   yellow: "var(--mui-palette-warning-main)",
   green: "var(--mui-palette-success-main)",
 };
 
-const OVERVIEW_HINTS: RemoteKeyHint[] = [
-  { keys: ["◀", "▶"], label: "select trainee" },
-  { keys: ["OK"], label: "zoom in", primary: true },
-  { keys: ["HOLD OK"], label: "next exercise" },
-];
-const ZOOM_HINTS: RemoteKeyHint[] = [
-  { keys: ["◀", "▶"], label: "other trainee" },
-  { keys: ["BACK"], label: "back to overview" },
-  { keys: ["HOLD OK"], label: "next exercise" },
-];
+const STATUS_TEXT: Record<Status, string> = {
+  red: "Needs coaching",
+  yellow: "Worth a follow-up",
+  green: "On track",
+};
+
+// M3 Filled Tonal Card-färger per status — använder containerColor från
+// M3-paletten så cue:n känns som en del av temat, inte en alert.
+const STATUS_CONTAINER: Record<Status, string> = {
+  red: "var(--mui-palette-m3-statusAttentionContainer)",
+  yellow: "var(--mui-palette-m3-statusWarningContainer)",
+  green: "var(--mui-palette-m3-statusSuccessContainer)",
+};
+const STATUS_ON_CONTAINER: Record<Status, string> = {
+  red: "var(--mui-palette-m3-onErrorContainer)",
+  yellow: "var(--mui-palette-text-primary)",
+  green: "var(--mui-palette-text-primary)",
+};
 
 export function AARDuk({
   exercise,
   section,
   focusIndex,
-  zoomed,
 }: {
   exercise: ExerciseListItem | null;
   section: Section;
+  /** Index i prioriterad resultatlista — clampas cykliskt här. */
   focusIndex: number;
-  zoomed: boolean;
+  /** Kvar för API-kompat men ignoreras: Immersive List ÄR den fokuserade vyn. */
+  zoomed?: boolean;
 }) {
   const prefersReducedMotion = useReducedMotion();
   const [lanes, setLanes] = useState<LaneInfo[]>([]);
@@ -114,9 +127,10 @@ export function AARDuk({
     );
   }, [lanes, exercise]);
 
-  const safeFocus = results.length > 0
-    ? ((focusIndex % results.length) + results.length) % results.length
-    : 0;
+  const safeFocus =
+    results.length > 0
+      ? ((focusIndex % results.length) + results.length) % results.length
+      : 0;
 
   if (!exercise) {
     return <EmptyState title="No exercise to review" sub="Return to preflight or load an exercise." />;
@@ -125,396 +139,494 @@ export function AARDuk({
     return <EmptyState title="No trainees on the lanes" sub="Press OK on the remote to continue." />;
   }
 
+  const focused = results[safeFocus];
+  const focusedStatus: Status = worstStatus(focused);
+
   return (
-    <Stack sx={{ flex: 1, color: "text.primary" }}>
-      {/* Header */}
-      <Box
+    <Stack
+      sx={{
+        flex: 1,
+        color: "text.primary",
+        // Dynamic hero-tint follows the focused skytts status — content-derived color.
+        // Transition between lane-switches creates ambient context change.
+        transition: `background-image ${m3Duration.medium3}ms ${m3Easing.emphasized}`,
+        ...statusTintedSurface(focusedStatus, "ambient"),
+      }}
+    >
+      {/* Top app bar — Label Medium (M3 role: nav context, not chrome).
+          Responsiv overscan: 24px på laptop, full 48dp på projektor. */}
+      <Stack
+        direction="row"
+        spacing={{ xs: 2, md: 4 }}
         sx={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
+          px: { xs: "24px", md: "36px", xl: "48px" },
+          pt: { xs: "16px", md: "24px", xl: "32px" },
+          pb: { xs: "8px", md: "12px", xl: "16px" },
           alignItems: "baseline",
-          px: 6,
-          pt: 5,
-          pb: 2,
+          justifyContent: "space-between",
         }}
       >
-        <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
-          After Action Review
-        </Typography>
         <Typography
           sx={{
-            ...dukTypography.labelMedium,
+            fontSize: { xs: 11, md: 13, xl: 14 },
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            fontWeight: 500,
             color: "text.secondary",
-            textAlign: "center",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}
         >
-          {exercise.title}
+          After Action Review · {exercise.title}
         </Typography>
         <Typography
           sx={{
-            ...dukTypography.labelMedium,
+            fontSize: { xs: 11, md: 13, xl: 14 },
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            fontWeight: 500,
             color: "text.secondary",
-            textAlign: "right",
             fontFamily: '"Roboto Mono", monospace',
+            flexShrink: 0,
           }}
         >
-          {results.length} trainees · {results.filter((r) => r.reds.length > 0).length} priority
+          {safeFocus + 1} of {results.length}
         </Typography>
-      </Box>
+      </Stack>
 
-      {/* Main */}
+      {/* HERO — fokuserad skytt tar hela ytan */}
       <AnimatePresence mode="wait">
-        {zoomed ? (
-          <motion.div
-            key="zoom"
-            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.98 }}
-            transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: "easeOut" }}
-            style={{ flex: 1, display: "flex", flexDirection: "column" }}
-          >
-            <ZoomView result={results[safeFocus]} exercise={exercise} />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="overview"
-            initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
-            transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
-            style={{ flex: 1, display: "flex", flexDirection: "column" }}
-          >
-            <OverviewGrid results={results} exercise={exercise} focusIndex={safeFocus} />
-          </motion.div>
-        )}
+        <motion.div
+          key={focused.lane}
+          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: -16 }}
+          transition={{
+            duration: prefersReducedMotion ? 0 : m3Duration.medium3 / 1000,
+            ease: [0.2, 0, 0, 1],
+          }}
+          style={{ flex: 1, display: "flex", flexDirection: "column" }}
+        >
+          <Hero result={focused} exercise={exercise} status={focusedStatus} />
+        </motion.div>
       </AnimatePresence>
 
-      <PhaseHints hints={zoomed ? ZOOM_HINTS : OVERVIEW_HINTS} />
+      {/* Bottom strip — alla skyttar, fokuserad highlighted */}
+      <LaneStrip results={results} focusedIndex={safeFocus} />
+
+      <PhaseHints hints={HINTS} />
     </Stack>
   );
 }
 
-/* ─── Overview ─────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────── */
+/* HERO — Immersive treatment av fokuserad skytt                         */
+/* ──────────────────────────────────────────────────────────────────── */
 
-function OverviewGrid({
-  results,
-  exercise,
-  focusIndex,
-}: {
-  results: AARResult[];
-  exercise: ExerciseListItem;
-  focusIndex: number;
-}) {
-  return (
-    <Box
-      sx={{
-        flex: 1,
-        px: 4,
-        pb: 1,
-        display: "grid",
-        gap: 2,
-        gridTemplateColumns: `repeat(${results.length}, minmax(0, 1fr))`,
-      }}
-    >
-      {results.map((r, i) => (
-        <LaneCard key={r.lane} result={r} exercise={exercise} focused={i === focusIndex} />
-      ))}
-    </Box>
-  );
-}
-
-function LaneCard({
+function Hero({
   result,
   exercise,
-  focused,
+  status,
 }: {
   result: AARResult;
   exercise: ExerciseListItem;
-  focused: boolean;
+  status: Status;
 }) {
-  const prefersReducedMotion = useReducedMotion();
-  const worst: Status =
-    result.reds.length > 0 ? "red" : result.yellows.length > 0 ? "yellow" : "green";
-
-  const headlineCue = useMemo(() => {
+  // Pick-up line for the most-critical red criterion (the message).
+  const cue = useMemo(() => {
     const priorityOrder = ["hit", "time", "spread"] as const;
     for (const crit of priorityOrder) {
       if (result.reds.includes(crit)) {
-        return { crit, cue: pickCue(result.lane, exercise.id, crit, "red") };
+        return { crit, text: pickCue(result.lane, exercise.id, crit, "red"), severity: "red" as const };
+      }
+    }
+    for (const crit of priorityOrder) {
+      if (result.yellows.includes(crit)) {
+        return { crit, text: pickCue(result.lane, exercise.id, crit, "yellow"), severity: "yellow" as const };
       }
     }
     return null;
   }, [result, exercise.id]);
 
   return (
-    <Card
-      component={motion.div}
-      layout
-      animate={{ scale: focused && !prefersReducedMotion ? 1.04 : 1 }}
-      transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: "easeOut" }}
-      sx={{
-        p: 2,
-        display: "flex",
-        flexDirection: "column",
-        gap: 1.5,
-        bgcolor: "var(--mui-palette-m3-surfaceContainerLow)",
-        outline: focused ? "3px solid" : "none",
-        outlineColor: "warning.main",
-        outlineOffset: "2px",
-        transition: "outline-color 200ms",
-      }}
-    >
-      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "baseline" }}>
-        <Box>
-          <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
-            Lane {result.lane}
-          </Typography>
-          <Typography
-            sx={{
-              ...dukTypography.titleMedium,
-              color: "text.primary",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              maxWidth: 180,
-            }}
-          >
-            {result.trainee ?? "—"}
-          </Typography>
-        </Box>
-        <StatusBadge status={worst} />
-      </Stack>
-
-      <TargetSvg shots={result.sequence.shots} worst={worst} size="md" />
-
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0.75 }}>
-        <MetricChip label="Hit" value={`${result.hits}`} status={result.hit_status} />
-        <MetricChip label="Time" value={`${result.time_seconds}s`} status={result.time_status} />
-        <MetricChip label="Spread" value={`${result.spread_cm}cm`} status={result.spread_status} />
-      </Box>
-
-      <Box sx={{ minHeight: 44 }}>
-        {headlineCue ? (
-          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: "error.main" }}>
-            "{headlineCue.cue}"
-          </Typography>
-        ) : worst === "yellow" ? (
-          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: "warning.main", opacity: 0.85 }}>
-            Borderline — worth a follow-up.
-          </Typography>
-        ) : (
-          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: "success.main", opacity: 0.85 }}>
-            ✓ On track across all criteria.
-          </Typography>
-        )}
-      </Box>
-    </Card>
-  );
-}
-
-function MetricChip({ label, value, status }: { label: string; value: string; status: Status }) {
-  return (
-    <Box
-      sx={{
-        borderRadius: 1.5,
-        border: 1,
-        borderColor: STATUS_FG[status],
-        bgcolor: STATUS_BG[status],
-        color: STATUS_FG[status],
-        px: 1,
-        py: 0.75,
-      }}
-    >
-      <Typography sx={{ fontSize: 9, letterSpacing: "0.25em", opacity: 0.7, textTransform: "uppercase" }}>
-        {label}
-      </Typography>
-      <Typography sx={{ fontSize: 16, fontWeight: 400, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}>
-        {value}
-      </Typography>
-    </Box>
-  );
-}
-
-function StatusBadge({ status }: { status: Status }) {
-  const label = status === "red" ? "Attention" : status === "yellow" ? "Review" : "Good";
-  return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: STATUS_DOT[status] }} />
-      <Typography sx={{ fontSize: 9, letterSpacing: "0.3em", color: "text.secondary", textTransform: "uppercase" }}>
-        {label}
-      </Typography>
-    </Stack>
-  );
-}
-
-/* ─── Zoom ─────────────────────────────────────────────────────────── */
-
-function ZoomView({ result, exercise }: { result: AARResult; exercise: ExerciseListItem }) {
-  const worst: Status =
-    result.reds.length > 0 ? "red" : result.yellows.length > 0 ? "yellow" : "green";
-
-  return (
     <Box
       sx={{
         flex: 1,
+        minHeight: 0, // viktigt för att låta children krympa istället för overflow
         display: "grid",
-        gridTemplateColumns: "380px 1fr 460px",
-        gap: 5,
-        px: 6,
-        py: 3,
+        // Stackar vertikalt på små viewports, grid 50/50 på md+
+        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+        gap: { xs: 3, md: 4, xl: 6 },
+        px: { xs: "24px", md: "36px", xl: "48px" },
+        py: { xs: "8px", md: "12px", xl: "16px" },
+        overflow: "auto", // skydd om någon overflow-edge ändå händer
       }}
     >
-      {/* Identity */}
-      <Stack sx={{ justifyContent: "center" }} spacing={2}>
-        <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
-          Lane {result.lane}
-        </Typography>
-        <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+      {/* LEFT — skytte-identitet + cue */}
+      <Stack
+        sx={{ justifyContent: "center", minHeight: 0 }}
+        spacing={{ xs: 2, md: 3, xl: 4 }}
+      >
+        {/* Lane indicator — Label Large */}
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Box
+            sx={{
+              width: { xs: 8, md: 10 },
+              height: { xs: 8, md: 10 },
+              borderRadius: "50%",
+              bgcolor: STATUS_COLOR[status],
+              boxShadow: `0 0 12px ${STATUS_COLOR[status]}`,
+              flexShrink: 0,
+            }}
+          />
+          <Typography
+            sx={{
+              fontSize: { xs: 12, md: 14, xl: 16 },
+              letterSpacing: "0.3em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+              color: "text.secondary",
+            }}
+          >
+            Lane {result.lane} · {STATUS_TEXT[status]}
+          </Typography>
+        </Stack>
+
+        {/* Trainee name — Display (hero identity), skalas med viewport */}
+        <Typography
+          sx={{
+            fontSize: { xs: 36, sm: 44, md: 52, lg: 60, xl: 72 },
+            fontWeight: 400,
+            lineHeight: 1.05,
+            letterSpacing: "-1px",
+            color: "text.primary",
+          }}
+        >
           {result.trainee ?? "—"}
         </Typography>
-        <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>
+
+        {/* Weapon — Body Large */}
+        <Typography
+          sx={{
+            fontSize: { xs: 14, md: 16, xl: 20 },
+            color: "text.secondary",
+          }}
+        >
           {result.weapon ?? "—"}
         </Typography>
-        <Box sx={{ mt: 4 }}>
-          <StatusBadge status={worst} />
-          {result.reds.length > 0 && (
-            <Typography sx={{ ...dukTypography.labelMedium, color: "error.main", mt: 1 }}>
-              {result.reds.length} priorit{result.reds.length > 1 ? "ies" : "y"} to work on
+
+        {/* THE MESSAGE — M3 Filled Tonal Card. Responsiv typografi-skala. */}
+        {cue ? (
+          <Card
+            sx={{
+              maxWidth: 640,
+              bgcolor: STATUS_CONTAINER[cue.severity],
+              color: STATUS_ON_CONTAINER[cue.severity],
+              borderRadius: "16px",
+              borderLeft: "4px solid",
+              borderLeftColor: STATUS_COLOR[cue.severity],
+              boxShadow: "none",
+              px: { xs: 2, md: 3 },
+              py: { xs: 2, md: 2.5 },
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: { xs: 10, md: 12, xl: 14 },
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                fontWeight: 500,
+                color: STATUS_COLOR[cue.severity],
+                mb: { xs: 1, md: 1.5 },
+              }}
+            >
+              {cue.crit.toUpperCase()} · Coaching cue
             </Typography>
-          )}
-        </Box>
+            <Typography
+              sx={{
+                fontSize: { xs: 16, md: 20, lg: 24, xl: 28 },
+                lineHeight: 1.3,
+                fontWeight: 400,
+              }}
+            >
+              {cue.text}
+            </Typography>
+          </Card>
+        ) : (
+          <Card
+            sx={{
+              maxWidth: 640,
+              bgcolor: STATUS_CONTAINER.green,
+              borderRadius: "16px",
+              borderLeft: "4px solid",
+              borderLeftColor: STATUS_COLOR.green,
+              boxShadow: "none",
+              px: { xs: 2, md: 3 },
+              py: { xs: 2, md: 2.5 },
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: { xs: 16, md: 20, lg: 24, xl: 28 },
+                color: "success.main",
+                lineHeight: 1.3,
+              }}
+            >
+              ✓ On track across all criteria.
+            </Typography>
+          </Card>
+        )}
       </Stack>
 
-      {/* Target with annotations */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", maxWidth: 460, aspectRatio: "1 / 1" }}>
+      {/* RIGHT — target (hero visual) + metrics nedanför.
+          Target krymper på små viewports. */}
+      <Stack
+        sx={{ justifyContent: "center", minHeight: 0 }}
+        spacing={{ xs: 1.5, md: 2, xl: 3 }}
+      >
+        <Box
+          sx={{
+            width: "100%",
+            aspectRatio: "1 / 1",
+            maxHeight: { xs: "35vh", sm: "40vh", md: "45vh", lg: "50vh", xl: "55vh" },
+            mx: "auto",
+          }}
+        >
           <TargetSvg
             shots={result.sequence.shots}
-            worst={worst}
-            size="lg"
+            status={status}
             annotations={computeAnnotations(result)}
           />
         </Box>
-      </Box>
-
-      {/* Criterion cards */}
-      <Stack sx={{ justifyContent: "center" }} spacing={1.5}>
-        <CriterionCard
-          icon={<TargetIcon sx={{ fontSize: 22 }} />}
-          label="Hits"
-          value={`${result.hits}`}
-          threshold={`≥ ${exercise.hits_threshold ?? "—"}`}
-          status={result.hit_status}
-          cue={
-            severityOf(result.hit_status)
-              ? pickCue(result.lane, exercise.id, "hit", severityOf(result.hit_status)!)
-              : null
-          }
-          expanded={result.hit_status !== "green"}
-        />
-        <CriterionCard
-          icon={<TimerIcon sx={{ fontSize: 22 }} />}
-          label="Time"
-          value={`${result.time_seconds}s`}
-          threshold={`≤ ${exercise.time_seconds}s`}
-          status={result.time_status}
-          cue={
-            severityOf(result.time_status)
-              ? pickCue(result.lane, exercise.id, "time", severityOf(result.time_status)!)
-              : null
-          }
-          expanded={result.time_status !== "green"}
-        />
-        <CriterionCard
-          icon={<SpreadIcon sx={{ fontSize: 22 }} />}
-          label="Spread"
-          value={`${result.spread_cm} cm`}
-          threshold={`≤ ${exercise.spread_threshold} cm`}
-          status={result.spread_status}
-          cue={
-            severityOf(result.spread_status)
-              ? pickCue(result.lane, exercise.id, "spread", severityOf(result.spread_status)!)
-              : null
-          }
-          expanded={result.spread_status !== "green"}
-        />
+        {/* Metric chips */}
+        <Stack
+          direction="row"
+          spacing={{ xs: 1, md: 1.5, xl: 2 }}
+          sx={{ justifyContent: "center" }}
+        >
+          <Metric
+            icon={<GpsFixed sx={{ fontSize: { xs: 16, md: 20 } }} />}
+            label="Hits"
+            value={String(result.hits)}
+            threshold={`≥ ${exercise.hits_threshold ?? "—"}`}
+            status={result.hit_status}
+          />
+          <Metric
+            icon={<AccessTime sx={{ fontSize: { xs: 16, md: 20 } }} />}
+            label="Time"
+            value={`${result.time_seconds}s`}
+            threshold={`≤ ${exercise.time_seconds}s`}
+            status={result.time_status}
+          />
+          <Metric
+            icon={<CenterFocusStrong sx={{ fontSize: { xs: 16, md: 20 } }} />}
+            label="Spread"
+            value={`${result.spread_cm}cm`}
+            threshold={`≤ ${exercise.spread_threshold}cm`}
+            status={result.spread_status}
+          />
+        </Stack>
       </Stack>
     </Box>
   );
 }
 
-function CriterionCard({
+function Metric({
   icon,
   label,
   value,
   threshold,
   status,
-  cue,
-  expanded,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   threshold: string;
   status: Status;
-  cue: string | null;
-  expanded: boolean;
 }) {
   return (
-    <Card
+    <Stack
       sx={{
-        bgcolor: STATUS_BG[status],
-        borderRadius: "20px",
+        flex: 1,
+        maxWidth: { xs: 120, md: 160, xl: 180 },
+        alignItems: "center",
+        gap: 0.25,
+        py: { xs: 1, md: 1.25, xl: 1.5 },
+        px: { xs: 0.5, md: 1 },
+        borderRadius: "12px",
         border: 1,
-        borderColor: STATUS_FG[status],
-        px: 2.5,
-        py: 2,
-        color: STATUS_FG[status],
+        borderColor: "divider",
       }}
     >
-      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: STATUS_DOT[status] }} />
-          {icon}
-          <Typography sx={{ fontSize: 11, letterSpacing: "0.3em", opacity: 0.85, textTransform: "uppercase" }}>
-            {label}
-          </Typography>
-        </Stack>
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline" }}>
-          <Typography sx={{ ...dukTypography.headlineSmall, fontVariantNumeric: "tabular-nums" }}>
-            {value}
-          </Typography>
-          <Typography sx={{ fontSize: 12, opacity: 0.6, fontFamily: '"Roboto Mono", monospace' }}>
-            {threshold}
-          </Typography>
-        </Stack>
+      <Stack
+        direction="row"
+        spacing={{ xs: 0.5, md: 1 }}
+        sx={{ alignItems: "center", color: STATUS_COLOR[status] }}
+      >
+        {icon}
+        <Typography
+          sx={{
+            fontSize: { xs: 10, md: 12, xl: 14 },
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            fontWeight: 500,
+          }}
+        >
+          {label}
+        </Typography>
       </Stack>
-      <AnimatePresence>
-        {expanded && cue && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            style={{ overflow: "hidden" }}
-          >
-            <Box sx={{ pt: 1.5, mt: 1.5, borderTop: 1, borderColor: "rgba(255,255,255,0.1)" }}>
-              <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", opacity: 0.6, mb: 0.5, textTransform: "uppercase" }}>
-                Pick-up line
-              </Typography>
-              <Typography sx={{ fontSize: 16, lineHeight: 1.4 }}>"{cue}"</Typography>
-            </Box>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Card>
+      <Typography
+        sx={{
+          fontSize: { xs: 24, md: 32, lg: 40, xl: 48 },
+          color: STATUS_COLOR[status],
+          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1.1,
+          fontWeight: 400,
+        }}
+      >
+        {value}
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: { xs: 10, md: 11, xl: 12 },
+          color: "text.secondary",
+          fontFamily: '"Roboto Mono", monospace',
+        }}
+      >
+        {threshold}
+      </Typography>
+    </Stack>
   );
 }
 
-/* ─── Annotations ──────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────── */
+/* LANE STRIP — bottom navigation strip (Netflix-episodes-style)         */
+/* ──────────────────────────────────────────────────────────────────── */
+
+function LaneStrip({
+  results,
+  focusedIndex,
+}: {
+  results: AARResult[];
+  focusedIndex: number;
+}) {
+  return (
+    <Box
+      sx={{
+        px: { xs: "24px", md: "36px", xl: "48px" },
+        py: { xs: "10px", md: "12px", xl: "16px" },
+        display: "flex",
+        gap: { xs: 1, md: 1.5, xl: 2 },
+        justifyContent: "center",
+        flexWrap: "wrap",
+        borderTop: 1,
+        borderColor: "divider",
+        flexShrink: 0,
+      }}
+    >
+      {results.map((r, i) => (
+        <LaneChip key={r.lane} result={r} focused={i === focusedIndex} />
+      ))}
+    </Box>
+  );
+}
+
+function LaneChip({ result, focused }: { result: AARResult; focused: boolean }) {
+  const status = worstStatus(result);
+
+  return (
+    <Box
+      sx={{
+        // M3 focus mix: scale + glow + outline + color
+        ...tvFocus(focused, "medium"),
+        position: "relative",
+        minWidth: { xs: 110, md: 130, xl: 160 },
+        maxWidth: { xs: 150, md: 180, xl: 220 },
+        flex: "0 1 auto",
+        borderRadius: { xs: "12px", md: "16px" },
+        overflow: "hidden",
+        bgcolor: focused
+          ? "var(--mui-palette-m3-surfaceContainerHigh)"
+          : "var(--mui-palette-m3-surfaceContainer)",
+        "&::after": {
+          content: '""',
+          position: "absolute",
+          inset: 0,
+          backgroundColor: "rgba(255, 255, 255, 1)",
+          opacity: focused ? 0.08 : 0,
+          pointerEvents: "none",
+          transition: "opacity 150ms cubic-bezier(0.2, 0, 0, 1)",
+          borderRadius: "inherit",
+        },
+      }}
+    >
+      <Stack
+        sx={{ position: "relative", zIndex: 1, p: { xs: 1, md: 1.25, xl: 1.5 } }}
+        spacing={0.5}
+      >
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              bgcolor: STATUS_COLOR[status],
+              flexShrink: 0,
+            }}
+          />
+          <Typography
+            sx={{
+              fontSize: { xs: 9, md: 10, xl: 11 },
+              letterSpacing: "0.15em",
+              color: "text.secondary",
+              textTransform: "uppercase",
+            }}
+          >
+            Lane {result.lane}
+          </Typography>
+        </Stack>
+        <Typography
+          sx={{
+            fontSize: { xs: 13, md: 14, xl: 16 },
+            fontWeight: 500,
+            color: focused ? "text.primary" : "text.secondary",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            transition: "color 200ms",
+          }}
+        >
+          {result.trainee ?? "—"}
+        </Typography>
+        {/* Compact metric trio — three colored dots */}
+        <Stack direction="row" spacing={0.5} sx={{ pt: 0.5 }}>
+          <StatusPip status={result.hit_status} />
+          <StatusPip status={result.time_status} />
+          <StatusPip status={result.spread_status} />
+        </Stack>
+      </Stack>
+    </Box>
+  );
+}
+
+function StatusPip({ status }: { status: Status }) {
+  return (
+    <Box
+      sx={{
+        flex: 1,
+        height: 3,
+        borderRadius: "999px",
+        bgcolor: STATUS_COLOR[status],
+        opacity: status === "green" ? 0.5 : 0.9,
+      }}
+    />
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/* TARGET SVG — hero visual                                              */
+/* ──────────────────────────────────────────────────────────────────── */
 
 type Annotation =
   | { type: "arrow"; x1: number; y1: number; x2: number; y2: number; label: string }
@@ -549,94 +661,140 @@ function computeAnnotations(result: AARResult): Annotation[] {
   return ann;
 }
 
-/* ─── Target SVG ───────────────────────────────────────────────────── */
-
 function TargetSvg({
   shots,
-  worst,
-  size,
-  annotations = [],
+  status,
+  annotations,
 }: {
   shots: Shot[];
-  worst: Status;
-  size: "md" | "lg";
-  annotations?: Annotation[];
+  status: Status;
+  annotations: Annotation[];
 }) {
-  const hitRadius = size === "lg" ? 2.4 : 2.2;
-  const missRadius = size === "lg" ? 1.6 : 1.5;
-  const accent = STATUS_STROKE[worst];
+  const accent = STATUS_COLOR[status];
 
   return (
-    <Box sx={{ width: "100%", aspectRatio: "1 / 1" }}>
-      <svg
-        viewBox="-50 -50 100 100"
-        style={{ width: "100%", height: "100%" }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle cx="0" cy="0" r="48" fill="var(--mui-palette-m3-surfaceContainer)" stroke="var(--mui-palette-m3-outlineVariant)" strokeWidth="0.4" />
-        <circle cx="0" cy="0" r="36" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.4" />
-        <circle cx="0" cy="0" r="25" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.4" />
-        <circle cx="0" cy="0" r="14" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.4" />
-        <circle cx="0" cy="0" r="2.5" fill="rgba(255,255,255,0.18)" />
-        <line x1="-4" y1="0" x2="4" y2="0" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
-        <line x1="0" y1="-4" x2="0" y2="4" stroke="rgba(255,255,255,0.10)" strokeWidth="0.3" />
+    <svg
+      viewBox="-50 -50 100 100"
+      style={{
+        width: "100%",
+        height: "100%",
+        // Hela SVG:n ärver text-primary via currentColor. Per M3 audit
+        // (skill 2026-05-28): SVG ska INTE hårdkoda färger — använder
+        // text-primary som inverteras automatiskt i dark/light.
+        color: "var(--mui-palette-text-primary)",
+      }}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Target rings — theme-aware via currentColor */}
+      <circle cx="0" cy="0" r="48" fill="currentColor" fillOpacity="0.025" stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="36" fill="none" stroke="currentColor" strokeOpacity="0.06" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="25" fill="none" stroke="currentColor" strokeOpacity="0.10" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="14" fill="none" stroke="currentColor" strokeOpacity="0.14" strokeWidth="0.4" />
+      <circle cx="0" cy="0" r="2.5" fill="currentColor" fillOpacity="0.20" />
+      <line x1="-5" y1="0" x2="5" y2="0" stroke="currentColor" strokeOpacity="0.10" strokeWidth="0.3" />
+      <line x1="0" y1="-5" x2="0" y2="5" stroke="currentColor" strokeOpacity="0.10" strokeWidth="0.3" />
 
-        <circle
-          cx="0"
-          cy="0"
-          r="48"
-          fill="none"
-          stroke={accent}
-          strokeOpacity={worst === "green" ? 0.15 : worst === "yellow" ? 0.35 : 0.5}
-          strokeWidth="0.6"
-        />
+      {/* Status accent ring — subtle ambient */}
+      <circle
+        cx="0"
+        cy="0"
+        r="48"
+        fill="none"
+        stroke={accent}
+        strokeOpacity={status === "green" ? 0.2 : status === "yellow" ? 0.4 : 0.55}
+        strokeWidth="0.5"
+      />
 
-        {annotations.map((a, i) => {
-          if (a.type === "spread-rings") {
-            return (
-              <g key={`ann-${i}`}>
-                <circle cx="0" cy="0" r={a.r_limit} fill="none" stroke="var(--mui-palette-success-main)" strokeOpacity="0.7" strokeWidth="0.5" strokeDasharray="2,1.5" />
-                <circle cx="0" cy="0" r={a.r_actual} fill="none" stroke="var(--mui-palette-error-main)" strokeOpacity="0.8" strokeWidth="0.6" strokeDasharray="2,1.5" />
-                <text x={a.r_limit + 2} y="-1.5" fill="var(--mui-palette-success-main)" fontSize="3.2" opacity="0.85" fontFamily="ui-monospace, monospace">
-                  limit
-                </text>
-                <text x={a.r_actual + 2} y="4" fill="var(--mui-palette-error-main)" fontSize="3.2" opacity="0.85" fontFamily="ui-monospace, monospace">
-                  actual
-                </text>
-              </g>
-            );
-          }
+      {/* Annotations — DEFAULT visible (not hidden behind zoom).
+          Drawn BEHIND shots so dots stay readable. */}
+      {annotations.map((a, i) => {
+        if (a.type === "spread-rings") {
           return (
             <g key={`ann-${i}`}>
-              <defs>
-                <marker id={`arrowhead-${i}`} markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto">
-                  <path d="M0,0 L5,2.5 L0,5 Z" fill={accent} opacity="0.7" />
-                </marker>
-              </defs>
-              <line x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke={accent} strokeWidth="0.8" strokeDasharray="2,1.2" opacity="0.55" markerEnd={`url(#arrowhead-${i})`} />
-              <text x={a.x2} y={a.y2 - 3} fill={accent} fontSize="3.2" opacity="0.9" fontFamily="ui-monospace, monospace" textAnchor="middle">
-                {a.label}
+              <circle
+                cx="0"
+                cy="0"
+                r={a.r_limit}
+                fill="none"
+                stroke="var(--mui-palette-success-main)"
+                strokeOpacity="0.7"
+                strokeWidth="0.6"
+                strokeDasharray="2,1.5"
+              />
+              <circle
+                cx="0"
+                cy="0"
+                r={a.r_actual}
+                fill="none"
+                stroke="var(--mui-palette-error-main)"
+                strokeOpacity="0.85"
+                strokeWidth="0.7"
+                strokeDasharray="2,1.5"
+              />
+              <text x={a.r_limit + 2} y="-1.5" fill="var(--mui-palette-success-main)" fontSize="3.2" opacity="0.85" fontFamily="ui-monospace, monospace">
+                limit
+              </text>
+              <text x={a.r_actual + 2} y="4" fill="var(--mui-palette-error-main)" fontSize="3.2" opacity="0.9" fontFamily="ui-monospace, monospace">
+                actual
               </text>
             </g>
           );
-        })}
-
-        {shots.map((shot) => (
-          <g key={shot.i}>
-            {shot.hit ? (
-              <>
-                <circle cx={shot.x} cy={shot.y} r={hitRadius} fill="#ffffff" opacity="0.92" />
-                <circle cx={shot.x} cy={shot.y} r={hitRadius + 1} fill="none" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="0.4" />
-              </>
-            ) : (
-              <circle cx={shot.x} cy={shot.y} r={missRadius} fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="0.5" />
-            )}
+        }
+        return (
+          <g key={`ann-${i}`}>
+            <defs>
+              <marker id={`ah-${i}`} markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill={accent} opacity="0.7" />
+              </marker>
+            </defs>
+            <line
+              x1={a.x1}
+              y1={a.y1}
+              x2={a.x2}
+              y2={a.y2}
+              stroke={accent}
+              strokeWidth="0.9"
+              strokeDasharray="2,1.2"
+              opacity="0.6"
+              markerEnd={`url(#ah-${i})`}
+            />
+            <text
+              x={a.x2}
+              y={a.y2 - 3}
+              fill={accent}
+              fontSize="3.4"
+              opacity="0.95"
+              fontFamily="ui-monospace, monospace"
+              textAnchor="middle"
+              fontWeight="600"
+            >
+              {a.label}
+            </text>
           </g>
-        ))}
-      </svg>
-    </Box>
+        );
+      })}
+
+      {/* Shots — theme-aware via currentColor. Hits = high-emphasis
+          on-surface, misses = lower opacity. Funkar både i dark + light. */}
+      {shots.map((shot) => (
+        <g key={shot.i}>
+          {shot.hit ? (
+            <>
+              <circle cx={shot.x} cy={shot.y} r="2.4" fill="currentColor" fillOpacity="0.95" />
+              <circle cx={shot.x} cy={shot.y} r="3.4" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="0.4" />
+            </>
+          ) : (
+            <circle cx={shot.x} cy={shot.y} r="1.6" fill="none" stroke="currentColor" strokeOpacity="0.55" strokeWidth="0.6" />
+          )}
+        </g>
+      ))}
+    </svg>
   );
 }
+
+/* ──────────────────────────────────────────────────────────────────── */
+/* Empty                                                                */
+/* ──────────────────────────────────────────────────────────────────── */
 
 function EmptyState({ title, sub }: { title: string; sub: string }) {
   return (
@@ -644,8 +802,16 @@ function EmptyState({ title, sub }: { title: string; sub: string }) {
       <Typography sx={{ ...dukTypography.labelLarge, color: "text.secondary" }}>
         After Action Review
       </Typography>
-      <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>{title}</Typography>
+      <Typography sx={{ ...dukTypography.displayMedium, color: "text.primary" }}>
+        {title}
+      </Typography>
       <Typography sx={{ ...dukTypography.bodyLarge, color: "text.secondary" }}>{sub}</Typography>
     </Stack>
   );
+}
+
+function worstStatus(r: AARResult): Status {
+  if (r.reds.length > 0) return "red";
+  if (r.yellows.length > 0) return "yellow";
+  return "green";
 }

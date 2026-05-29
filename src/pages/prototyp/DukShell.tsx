@@ -58,11 +58,9 @@ export default function DukShell() {
   const section = (searchParams.get("section") ?? "idt") as SessionSection;
   const { session, loading } = useSession(section);
 
-  // AAR-läge — split-view per [beslut 2026-05-28] istället för karusell.
-  // focusIndex pekar ut vald skytt (cirkulärt clampad i AARDuk).
-  // zoomed = hero-vy för djupare analys av en skytt.
+  // AAR Immersive List per [beslut 2026-05-28]: focused = hero, ingen
+  // separat zoom-state. ◀▶ navigerar; OK gör inget eftersom allt syns.
   const [aarFocus, setAarFocus] = useState(0);
-  const [aarZoom, setAarZoom] = useState(false);
 
   // Select-exercise picker highlight — lokalt state (Q3 = A).
   // Resettas till 0 när vi går in i select-exercise-fasen.
@@ -109,11 +107,10 @@ export default function DukShell() {
     if (session?.phase !== "check-in") setConfirmOpen(false);
   }, [session?.phase]);
 
-  // Reset focus + zoom när phase byter till AAR eller övning byts.
+  // Reset focus när phase byter till AAR eller övning byts.
   useEffect(() => {
     if (session?.phase === "aar") {
       setAarFocus(0);
-      setAarZoom(false);
     }
   }, [session?.phase, session?.current_exercise_index]);
 
@@ -164,10 +161,8 @@ export default function DukShell() {
         }
         else if (phase === "preflight") void setPhase(session.id, "exercise");
         else if (phase === "exercise") void setPhase(session.id, "aar");
-        else if (phase === "aar") {
-          // OK togglar zoom in/ut. Nästa övning ligger på HoldOK.
-          setAarZoom((z) => !z);
-        }
+        // AAR: OK gör ingenting — Immersive List visar allt redan,
+        // ingen sub-modal att toggla. Predictable nav per M3 TV.
       } else if (event === "holdOk") {
         // Commit-action: i AAR = nästa övning eller avsluta.
         if (phase === "aar") void advanceFromAAR();
@@ -176,8 +171,6 @@ export default function DukShell() {
           setConfirmOpen(false);
         } else if (phase === "preflight") {
           void setPhase(session.id, "check-in");
-        } else if (phase === "aar" && aarZoom) {
-          setAarZoom(false);
         }
       } else if (event === "left") {
         if (phase === "aar") setAarFocus((i) => i - 1); // cirkulärt clamp i AARDuk
@@ -193,7 +186,7 @@ export default function DukShell() {
       // ▲ ▼ ignoreras i nya gränssnittet — Lane UI är permanent under
       // exercise och AAR har inga browse-listor.
     },
-    [session, advanceFromAAR, allReady, confirmOpen, occupiedLanes.length, pickIndex, aarZoom],
+    [session, advanceFromAAR, allReady, confirmOpen, occupiedLanes.length, pickIndex],
   );
   useRemoteControl(handleRemote);
 
@@ -217,7 +210,16 @@ export default function DukShell() {
   const totalExercises = session?.exercise_list.length ?? 0;
 
   return (
-    <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
+    // Duken ärver app-temat (M3 dark by default, kan toggla:as via
+    // ThemeToggle på andra sidor). I produktion = alltid dark eftersom
+    // det är en projektor; i dev kan light testas via /tablet-toggle.
+    <div
+      className="fixed inset-0 overflow-hidden flex"
+      style={{
+        background: "var(--mui-palette-background-default)",
+        color: "var(--mui-palette-text-primary)",
+      }}
+    >
       {loading && (
         <PlaceholderScreen section={section} text="Connecting…" />
       )}
@@ -263,7 +265,6 @@ export default function DukShell() {
           exercise={currentExercise}
           section={section}
           focusIndex={aarFocus}
-          zoomed={aarZoom}
         />
       )}
 

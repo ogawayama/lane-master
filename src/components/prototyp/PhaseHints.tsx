@@ -25,13 +25,15 @@ export function PhaseHints({ hints }: { hints: RemoteKeyHint[] }) {
   return (
     <Box
       sx={{
-        px: 6,
-        pb: 4,
-        pt: 2,
+        px: { xs: 3, md: 5, xl: 6 },
+        pb: { xs: 2, md: 3, xl: 4 },
+        pt: { xs: 1, md: 1.5, xl: 2 },
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 5,
+        gap: { xs: 3, md: 4, xl: 5 },
+        flexWrap: "wrap",
+        flexShrink: 0,
       }}
     >
       {hints.map((h, i) => (
