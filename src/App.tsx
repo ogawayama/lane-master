@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
@@ -32,6 +33,7 @@ import {
   surfaceThemesForBrand,
 } from "@/theme/surfaces";
 import { useUserHubSync } from "@/hooks/useUserHubSync";
+import { viewMetaForPath } from "@/theme/viewMeta";
 
 const queryClient = new QueryClient();
 
@@ -88,8 +90,8 @@ const ThemedApp = () => {
   const contrastParam = params.get("contrast");
   const contrast =
     contrastParam === "high" ? "high" : contrastParam === "medium" ? "medium" : "standard";
-  // ?brand=saab → additivt Saab-branding-tema (annars teal-M3 default).
-  const brand = params.get("brand") === "saab" ? "saab" : "m3";
+  // Saab-branding är default på alla vyer (2026-06-02). ?brand=m3 → teal-M3.
+  const brand = params.get("brand") === "m3" ? "m3" : "saab";
   const baseTheme =
     brand === "saab"
       ? saabTheme
@@ -110,6 +112,20 @@ const ThemedApp = () => {
   const scopeMode: "light" | "dark" | null =
     modeOverride ??
     (brand === "saab" ? "dark" : surface ? surfaceIntent[surface].mode : null);
+
+  // Per-vy dokumenttitel + favicon (se theme/viewMeta.ts).
+  useEffect(() => {
+    const { title, svg } = viewMetaForPath(pathname);
+    document.title = title === "Gunnery & Skills" ? title : `${title} · G&S`;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.type = "image/svg+xml";
+    link.href = "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  }, [pathname]);
   const routes = (
     <>
       <ConditionalThemeToggle />
