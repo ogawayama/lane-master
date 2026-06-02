@@ -10,6 +10,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useSession } from "@/hooks/useSession";
 import {
   createIdleSession,
@@ -80,6 +81,23 @@ export default function WizardShell() {
   const section = (searchParams.get("section") ?? "idt") as Section;
   const { session, loading } = useSession(section);
   const { byLane } = useDARSignals(session?.id);
+
+  // Brand-medveten styling. Under Saab (?brand=saab) blir WoZ-zonerna NEUTRALT
+  // grå med färgad overline som identitet (per design/saab-branding.md
+  // "Application notes" #4); teal-M3 behåller sina tonade container-zoner.
+  const theme = useTheme();
+  const isSaab = (theme.palette as { m3?: { brand?: string } }).m3?.brand === "saab";
+  const darZoneBg = isSaab
+    ? "var(--mui-palette-m3-surfaceContainer)"
+    : "var(--mui-palette-m3-statusWarningContainer)";
+  const readyZoneBg = isSaab
+    ? "var(--mui-palette-m3-surfaceContainer)"
+    : "var(--mui-palette-m3-primaryContainer)";
+  const readyLaneBg = isSaab
+    ? "var(--mui-palette-m3-surfaceContainerHigh)"
+    : "var(--mui-palette-m3-surfaceContainer)";
+  // Readiness-accent: blått under Saab (gult kan inte vara förgrund), primary i teal.
+  const readyAccent = isSaab ? "secondary.main" : "primary.main";
 
   const laneSection = section as unknown as LaneSection;
   const [laneRows, setLaneRows] = useState<LaneAssignment[]>([]);
@@ -170,7 +188,7 @@ export default function WizardShell() {
         </Card>
 
         {/* DAR WoZ */}
-        <Card sx={{ p: 2.5, mb: 2, bgcolor: "var(--mui-palette-m3-statusWarningContainer)", opacity: 0.95 }}>
+        <Card sx={{ p: 2.5, mb: 2, bgcolor: darZoneBg, opacity: 0.95 }}>
           <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
             <Box>
               <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "warning.main", textTransform: "uppercase" }}>
@@ -250,7 +268,7 @@ export default function WizardShell() {
                       variant="text"
                       disabled={!current || !session}
                       onClick={() => session && void clearSignal(session.id, lane)}
-                      sx={{ fontSize: 10, minWidth: 50 }}
+                      sx={{ fontSize: 10, minWidth: 50, color: isSaab ? "text.secondary" : undefined }}
                     >
                       clear
                     </Button>
@@ -262,10 +280,10 @@ export default function WizardShell() {
         </Card>
 
         {/* Readiness WoZ */}
-        <Card sx={{ p: 2.5, bgcolor: "var(--mui-palette-m3-primaryContainer)", opacity: 0.95 }}>
+        <Card sx={{ p: 2.5, bgcolor: readyZoneBg, opacity: 0.95 }}>
           <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
             <Box>
-              <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "primary.main", textTransform: "uppercase" }}>
+              <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: readyAccent, textTransform: "uppercase" }}>
                 Lane readiness · Wizard-of-Oz (spår 02 halva A)
               </Typography>
               <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>
@@ -281,7 +299,7 @@ export default function WizardShell() {
           ) : (
             <Stack spacing={1.5}>
               {occupiedRows.map((row) => (
-                <Card key={row.lane_number} sx={{ p: 1.5, bgcolor: "var(--mui-palette-m3-surfaceContainer)" }}>
+                <Card key={row.lane_number} sx={{ p: 1.5, bgcolor: readyLaneBg }}>
                   <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                     <Typography sx={{ fontSize: 12 }}>
                       <Box component="span" sx={{ fontFamily: '"Roboto Mono", monospace', color: "text.secondary" }}>
@@ -292,7 +310,7 @@ export default function WizardShell() {
                     <Button
                       size="small"
                       variant="text"
-                      sx={{ fontSize: 10, minHeight: 32, color: "primary.main" }}
+                      sx={{ fontSize: 10, minHeight: 32, color: readyAccent }}
                       onClick={() => void resetLaneToOk(laneSection, row.lane_number)}
                     >
                       All OK

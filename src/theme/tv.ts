@@ -122,6 +122,10 @@ export const dukTypography = {
  *
  * Användning:
  *   <Box sx={{ ...focusRing(focused), ... }}>
+ *
+ * OBS: per Android TV focus-system är *skalning* (focusScale nedan) den
+ * primära fokus-indikatorn; ringen är ett kompletterande lager. Använd
+ * helst båda tillsammans (scale + ring) på fokuserbara duk-element.
  */
 export function focusRing(active: boolean): SxProps<Theme> {
   return {
@@ -133,14 +137,40 @@ export function focusRing(active: boolean): SxProps<Theme> {
 }
 
 /**
- * TV-safe insets — ungefärlig overscan-margin för äldre TV (idag mest
- * irrelevant men billig försäkring). Drar in 5% från varje kant.
+ * Scale-on-focus — den PRIMÄRA fokus-indikatorn på 10-fots-ytor enligt
+ * Android TV focus-system. Defaultvärden 1.025 / 1.05 / 1.1× där mindre
+ * element skalar mer och stora hero-element mindre:
+ *   "sm" 1.1×  · "md" 1.05× · "lg" 1.025×
+ *
+ * Använder emphasized-easing (cinema-känsla). Kombinera med focusRing för
+ * dubbel affordance. Sätt en transform-origin som passar elementets plats.
+ *
+ * Användning:
+ *   <Box sx={{ ...focusScale(focused, "md"), ...focusRing(focused) }}>
+ */
+export function focusScale(
+  active: boolean,
+  size: "sm" | "md" | "lg" = "md",
+): SxProps<Theme> {
+  const scale = { sm: 1.1, md: 1.05, lg: 1.025 }[size];
+  return {
+    transform: active ? `scale(${scale})` : "scale(1)",
+    // emphasizedDecelerate — mjuk, filmisk inzoomning på fokus.
+    transition: "transform 300ms cubic-bezier(0.05, 0.7, 0.1, 1)",
+    willChange: "transform",
+  };
+}
+
+/**
+ * TV-safe insets — overscan-margin per Android TV layout-spec: 5% i sidled
+ * (48dp/960) och ~3.5–5% i höjdled (27dp/540) så projektor/TV-overscan inte
+ * klipper kritiskt innehåll. (Tidigare 2.5% var halva spec-värdet.)
  */
 export const tvSafeInset = {
-  paddingTop: "2.5vh",
-  paddingBottom: "2.5vh",
-  paddingLeft: "2.5vw",
-  paddingRight: "2.5vw",
+  paddingTop: "4vh",
+  paddingBottom: "4vh",
+  paddingLeft: "5vw",
+  paddingRight: "5vw",
 };
 
 /**

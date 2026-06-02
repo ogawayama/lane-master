@@ -177,7 +177,9 @@ function CatalogRow({
           p: 1.5,
           bgcolor: ok ? "var(--mui-palette-m3-surfaceContainerLow)" : "var(--mui-palette-m3-surfaceContainerLowest)",
           border: 1,
-          borderColor: ok ? "divider" : "rgba(255,255,255,0.05)",
+          // Icke-redo kort: ingen synlig kant (de dimmas via opacity). Tidigare
+          // rgba(255,255,255,0.05) var osynlig i ljust läge (prepare = ljus).
+          borderColor: ok ? "divider" : "transparent",
         }}
       >
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>

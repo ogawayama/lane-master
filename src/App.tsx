@@ -5,7 +5,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { m3Theme } from "@/theme/m3Theme";
+import { m3Theme, m3ThemeHighContrast, m3ThemeMediumContrast, saabTheme } from "@/theme/m3Theme";
 import Landing from "./pages/Landing";
 import LoginScreen from "./pages/LoginScreen";
 import OdtScreen from "./pages/OdtScreen";
@@ -26,6 +26,11 @@ import TabletShell from "./pages/prototyp/TabletShell";
 import WizardShell from "./pages/prototyp/WizardShell";
 import PreparePage from "./pages/prototyp/PreparePage";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  surfaceIntent,
+  surfaceForPath,
+  surfaceThemesForBrand,
+} from "@/theme/surfaces";
 import { useUserHubSync } from "@/hooks/useUserHubSync";
 
 const queryClient = new QueryClient();
@@ -43,41 +48,113 @@ const ConditionalThemeToggle = () => {
   return show ? <ThemeToggle /> : null;
 };
 
-const App = () => (
-  <ThemeProvider theme={m3Theme} defaultMode="dark" modeStorageKey="lanemaster-color-scheme">
-    <CssBaseline enableColorScheme />
-    <QueryClientProvider client={queryClient}>
+// Scope:ar ytans mode på ett WRAPPER-element via data-mui-color-scheme.
+// MUI genererar attribut-selektorer (`[data-mui-color-scheme="light"]`) vars
+// CSS-variabler kaskaderar till subträdet — så detta tvingar ytans schema
+// OBEROENDE av vad MUI sätter på <html> globalt.
+// VIKTIGT: vi använder medvetet INTE setMode (skriver storage + triggar
+// reconcile-flicker) och inte heller manuell html-attribut-manipulation
+// (MUI:s provider återställer html-attributet → flicker). Scope = stabilt.
+const ModeScope = ({
+  mode,
+  children,
+}: {
+  mode: "light" | "dark";
+  children: React.ReactNode;
+}) => {
+  return (
+    <div
+      data-mui-color-scheme={mode}
+      style={{
+        minHeight: "100vh",
+        colorScheme: mode,
+        backgroundColor: "var(--mui-palette-background-default)",
+        color: "var(--mui-palette-text-primary)",
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// Ett route-styrt ThemeProvider: pathname → yt-tema (motion/densitet). Mode
+// scope:as per yta via SurfaceScope (ovan), inte via provider-mode. Ligger
+// inuti BrowserRouter så useLocation funkar; inga nästlade ThemeProviders.
+const ThemedApp = () => {
+  const { pathname, search } = useLocation();
+  const surface = surfaceForPath(pathname);
+  const params = new URLSearchParams(search);
+  // ?contrast=high|medium → M3 high/medium contrast baseline (annars standard).
+  const contrastParam = params.get("contrast");
+  const contrast =
+    contrastParam === "high" ? "high" : contrastParam === "medium" ? "medium" : "standard";
+  // ?brand=saab → additivt Saab-branding-tema (annars teal-M3 default).
+  const brand = params.get("brand") === "saab" ? "saab" : "m3";
+  const baseTheme =
+    brand === "saab"
+      ? saabTheme
+      : contrast === "high"
+        ? m3ThemeHighContrast
+        : contrast === "medium"
+          ? m3ThemeMediumContrast
+          : m3Theme;
+  const theme = surface ? surfaceThemesForBrand(brand, contrast)[surface] : baseTheme;
+  // ?mode=light|dark → överrider ytans default-mode (spot-check).
+  const modeParam = params.get("mode");
+  const modeOverride = modeParam === "light" || modeParam === "dark" ? modeParam : null;
+  // Vilket mode ska scope:as på wrapper-elementet?
+  //  • explicit ?mode vinner alltid
+  //  • Saab: DARK som default på ALLA ytor (även annars-ljusa kiosk/prepare)
+  //  • M3 yt-route: ytans egna intent-mode (light/dark)
+  //  • M3 bas-route: null → ingen scope, ThemeToggle/provider styr (oförändrat)
+  const scopeMode: "light" | "dark" | null =
+    modeOverride ??
+    (brand === "saab" ? "dark" : surface ? surfaceIntent[surface].mode : null);
+  const routes = (
+    <>
+      <ConditionalThemeToggle />
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/idt" element={<LoginScreen />} />
+        <Route path="/odt" element={<OdtScreen />} />
+        <Route path="/live-fire" element={<LiveFireScreen />} />
+        <Route path="/qm360" element={<Qm360Screen />} />
+        <Route path="/idt/lanes" element={<IdtLanes />} />
+        <Route path="/odt/lanes" element={<OdtLanes />} />
+        <Route path="/live-fire/lanes" element={<LiveFireLanes />} />
+        <Route path="/qm360/lanes" element={<Qm360Lanes />} />
+        <Route path="/idt/admin" element={<IdtAdmin />} />
+        <Route path="/odt/admin" element={<OdtAdmin />} />
+        <Route path="/live-fire/admin" element={<LiveFireAdmin />} />
+        <Route path="/qm360/admin" element={<Qm360Admin />} />
+        {/* Helhetsprototyp — skal-spår (spår 05) — drivs av sessions-tabellen */}
+        <Route path="/duk" element={<DukShell />} />
+        <Route path="/tablet" element={<TabletShell />} />
+        <Route path="/tablet/prepare" element={<PreparePage />} />
+        <Route path="/wizard" element={<WizardShell />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
+  );
+  return (
+    <ThemeProvider theme={theme} defaultMode="dark" modeStorageKey="lanemaster-color-scheme">
+      <CssBaseline enableColorScheme />
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <AppShell />
-          <ConditionalThemeToggle />
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/idt" element={<LoginScreen />} />
-          <Route path="/odt" element={<OdtScreen />} />
-          <Route path="/live-fire" element={<LiveFireScreen />} />
-          <Route path="/qm360" element={<Qm360Screen />} />
-          <Route path="/idt/lanes" element={<IdtLanes />} />
-          <Route path="/odt/lanes" element={<OdtLanes />} />
-          <Route path="/live-fire/lanes" element={<LiveFireLanes />} />
-          <Route path="/qm360/lanes" element={<Qm360Lanes />} />
-          <Route path="/idt/admin" element={<IdtAdmin />} />
-          <Route path="/odt/admin" element={<OdtAdmin />} />
-          <Route path="/live-fire/admin" element={<LiveFireAdmin />} />
-          <Route path="/qm360/admin" element={<Qm360Admin />} />
-          {/* Helhetsprototyp — skal-spår (spår 05) — drivs av sessions-tabellen */}
-          <Route path="/duk" element={<DukShell />} />
-          <Route path="/tablet" element={<TabletShell />} />
-          <Route path="/tablet/prepare" element={<PreparePage />} />
-          <Route path="/wizard" element={<WizardShell />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+        <AppShell />
+        {scopeMode ? <ModeScope mode={scopeMode}>{routes}</ModeScope> : routes}
       </TooltipProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
+    </ThemeProvider>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <BrowserRouter>
+      <ThemedApp />
+    </BrowserRouter>
+  </QueryClientProvider>
 );
 
 export default App;

@@ -12,6 +12,7 @@ import {
   ToggleButton,
   Collapse,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useState } from "react";
 import { useSession } from "@/hooks/useSession";
 import {
@@ -46,6 +47,12 @@ export default function TabletShell() {
   const section = (searchParams.get("section") ?? "idt") as Section;
   const { session, loading } = useSession(section);
   const [debugOpen, setDebugOpen] = useState(false);
+
+  // Under Saab är primaryContainer en gul yta — en gul overline på den blir
+  // gul-på-gul. Använd onPrimaryContainer (legibel charcoal/ljusgul) i stället.
+  const theme = useTheme();
+  const isSaab = (theme.palette as { m3?: { brand?: string } }).m3?.brand === "saab";
+  const ctaOverlineColor = isSaab ? "var(--mui-palette-m3-onPrimaryContainer)" : "primary.main";
 
   if (loading) {
     return (
@@ -109,7 +116,7 @@ export default function TabletShell() {
               "&:hover": { filter: "brightness(1.1)" },
             }}
           >
-            <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: "primary.main", textTransform: "uppercase", mb: 0.5 }}>
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: ctaOverlineColor, textTransform: "uppercase", mb: 0.5 }}>
               Pre-pass · spår 01
             </Typography>
             <Typography sx={{ fontSize: 18, fontWeight: 500 }}>
