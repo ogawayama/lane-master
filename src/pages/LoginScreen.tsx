@@ -7,6 +7,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import {
   Shield,
   WarningAmber,
@@ -188,8 +189,15 @@ export default function LoginScreen({
     }
   };
 
-  const themeStyle = themeHsl
-    ? ({ ["--primary" as string]: themeHsl, ["--ring" as string]: themeHsl } as React.CSSProperties)
+  // Under Saab: enad brand — tvinga Tailwind-`--primary` (sub-widgets som
+  // RFIDSimulator/RegistrationForm) till Saab-gult, så section-hue (grön/röd)
+  // inte krockar med MUI-temats gula primary. MUI-delarna är redan gula.
+  const muiTheme = useTheme();
+  const isSaab = (muiTheme.palette as { m3?: { brand?: string } }).m3?.brand === "saab";
+  const SAAB_PRIMARY_HSL = "44 100% 49%"; // ≈ #FAB900
+  const effectiveHsl = isSaab ? SAAB_PRIMARY_HSL : themeHsl;
+  const themeStyle = effectiveHsl
+    ? ({ ["--primary" as string]: effectiveHsl, ["--ring" as string]: effectiveHsl } as React.CSSProperties)
     : undefined;
 
   return (
@@ -302,7 +310,11 @@ export default function LoginScreen({
               sx={{
                 width: "100%",
                 p: 4,
-                bgcolor: "var(--mui-palette-m3-primaryContainer)",
+                // Saab: neutral container så de gula accenterna (namn/ikon/ram)
+                // läses — primaryContainer är gult och gav gul-på-gul.
+                bgcolor: isSaab
+                  ? "var(--mui-palette-m3-surfaceContainerHigh)"
+                  : "var(--mui-palette-m3-primaryContainer)",
                 border: 1,
                 borderColor: "primary.main",
                 textAlign: "center",

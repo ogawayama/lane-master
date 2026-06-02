@@ -1,4 +1,5 @@
 import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import {
   GpsFixed as TargetIcon,
   AccessTime as TimerIcon,
@@ -38,6 +39,8 @@ export function KriterieDuk({
   totalExercises: number;
   awaitingExercise?: boolean;
 }) {
+  const theme = useTheme();
+  const isSaab = (theme.palette as { m3?: { brand?: string } }).m3?.brand === "saab";
   if (awaitingExercise || !exercise) {
     return (
       <Stack
@@ -165,7 +168,7 @@ export function KriterieDuk({
               borderRadius: { xs: "20px", md: "28px" },
               overflow: "hidden",
               position: "relative",
-              background: gradientFor(exercise.weapon),
+              background: gradientFor(exercise.weapon, isSaab),
               boxShadow: "none",
             }}
           >
@@ -308,7 +311,10 @@ function CriterionChip({
 
 // Stable gradient per weapon — funkar i båda themes via HSL med moderate
 // saturation/lightness som ger god kontrast oavsett scheme.
-function gradientFor(weapon?: string): string {
+function gradientFor(weapon?: string, isSaab = false): string {
+  if (isSaab) {
+    return "linear-gradient(135deg, #303032 0%, #1A1A1B 100%)";
+  }
   if (!weapon) {
     return "linear-gradient(135deg, hsl(200 25% 25%) 0%, hsl(220 30% 15%) 100%)";
   }

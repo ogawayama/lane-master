@@ -1,4 +1,5 @@
 import { Box, Card, Chip, Stack, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { PlayArrow, CenterFocusStrong } from "@mui/icons-material";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ExerciseListItem } from "@/services/sessionService";
@@ -35,6 +36,8 @@ export function SelectExerciseDuk({
   selectedIndex: number;
 }) {
   const prefersReducedMotion = useReducedMotion();
+  const theme = useTheme();
+  const isSaab = (theme.palette as { m3?: { brand?: string } }).m3?.brand === "saab";
 
   if (exercises.length === 0) {
     return (
@@ -130,7 +133,7 @@ export function SelectExerciseDuk({
                 overflow: "hidden",
                 bgcolor: "var(--mui-palette-m3-surfaceContainerHigh)",
                 boxShadow: "none",
-                background: gradientFor(current.weapon),
+                background: gradientFor(current.weapon, isSaab),
               }}
             >
               {/* Left content panel — text + chips + CTA */}
@@ -260,6 +263,10 @@ function HeroChip({ children }: { children: React.ReactNode }) {
 }
 
 function SelectCta() {
+  // Saab: primär-CTA = gul fill med charcoal text (yellow activates).
+  // Teal-M3 behåller den vita hög-kontrast-pillen.
+  const theme = useTheme();
+  const isSaab = (theme.palette as { m3?: { brand?: string } }).m3?.brand === "saab";
   return (
     <Box
       aria-hidden
@@ -268,8 +275,8 @@ function SelectCta() {
         alignSelf: "flex-start",
         alignItems: "center",
         gap: 1.5,
-        bgcolor: "#ffffff",
-        color: "#000000",
+        bgcolor: isSaab ? "primary.main" : "#ffffff",
+        color: isSaab ? "primary.contrastText" : "#000000",
         px: { xs: 2.5, md: 3.5 },
         py: { xs: 1, md: 1.5 },
         borderRadius: "9999px",
@@ -302,8 +309,13 @@ function PageIndicator({ active }: { active: boolean }) {
   );
 }
 
-// Stabil gradient per vapen — väl-skalig i båda themes via HSL.
-function gradientFor(weapon?: string): string {
+// Stabil gradient per vapen. Saab är grey-first → neutral mörk grå hero-
+// backdrop (slumpade kulör-gradienter är off-brand); teal-M3 behåller
+// vapen-hue-varianten.
+function gradientFor(weapon?: string, isSaab = false): string {
+  if (isSaab) {
+    return "linear-gradient(135deg, #303032 0%, #1A1A1B 100%)";
+  }
   if (!weapon) {
     return "linear-gradient(135deg, hsl(200 25% 25%) 0%, hsl(220 30% 15%) 100%)";
   }
