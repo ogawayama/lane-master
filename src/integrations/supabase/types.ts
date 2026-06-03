@@ -14,9 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      dar_signals: {
+        Row: {
+          id: string
+          lane_number: number
+          reason: string | null
+          section: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lane_number: number
+          reason?: string | null
+          section: string
+          session_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lane_number?: number
+          reason?: string | null
+          section?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dar_signals_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lane_assignments: {
         Row: {
+          ammo_status: string | null
           assigned_at: string | null
+          battery_status: string | null
+          comms_status: string | null
           id: string
           lane_number: number
           name: string | null
@@ -26,10 +67,14 @@ export type Database = {
           user_id: number | null
           weapon_id: number | null
           weapon_name: string | null
+          weapon_status: string | null
           weapon_type: string | null
         }
         Insert: {
+          ammo_status?: string | null
           assigned_at?: string | null
+          battery_status?: string | null
+          comms_status?: string | null
           id?: string
           lane_number: number
           name?: string | null
@@ -39,10 +84,14 @@ export type Database = {
           user_id?: number | null
           weapon_id?: number | null
           weapon_name?: string | null
+          weapon_status?: string | null
           weapon_type?: string | null
         }
         Update: {
+          ammo_status?: string | null
           assigned_at?: string | null
+          battery_status?: string | null
+          comms_status?: string | null
           id?: string
           lane_number?: number
           name?: string | null
@@ -52,6 +101,7 @@ export type Database = {
           user_id?: number | null
           weapon_id?: number | null
           weapon_name?: string | null
+          weapon_status?: string | null
           weapon_type?: string | null
         }
         Relationships: [
@@ -132,6 +182,48 @@ export type Database = {
           gear_type?: string
           id?: string
           is_assigned?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          current_exercise_index: number
+          current_trainee_id: number | null
+          ended_at: string | null
+          exercise_list: Json
+          id: string
+          lane_ui_visible: boolean
+          phase: string
+          section: string
+          started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_exercise_index?: number
+          current_trainee_id?: number | null
+          ended_at?: string | null
+          exercise_list?: Json
+          id?: string
+          lane_ui_visible?: boolean
+          phase?: string
+          section?: string
+          started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_exercise_index?: number
+          current_trainee_id?: number | null
+          ended_at?: string | null
+          exercise_list?: Json
+          id?: string
+          lane_ui_visible?: boolean
+          phase?: string
+          section?: string
+          started_at?: string | null
           updated_at?: string
         }
         Relationships: []
