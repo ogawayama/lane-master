@@ -95,15 +95,17 @@ export function RegistrationForm({ rfid, onRegister, onLink, onCancel, isLoading
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1 h-12 text-lg" disabled={isLoading}>
           Cancel
         </Button>
-        <Button
-          type="button"
-          onClick={handleRegister}
-          className="flex-1 h-12 text-lg font-bold"
-          disabled={isLoading || !name.trim()}
-        >
-          <UserPlus className="h-4 w-4 mr-1" />
-          {isLoading ? "Registering..." : "Register New"}
-        </Button>
+        {searched && results.length === 0 && name.trim() && (
+          <Button
+            type="button"
+            onClick={handleRegister}
+            className="flex-1 h-12 text-lg font-bold"
+            disabled={isLoading}
+          >
+            <UserPlus className="h-4 w-4 mr-1" />
+            {isLoading ? "Registering..." : "Register New"}
+          </Button>
+        )}
       </div>
     </div>
   );
