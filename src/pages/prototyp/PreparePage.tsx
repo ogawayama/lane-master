@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Card,
-  Chip,
   Container,
   IconButton,
   Stack,
@@ -204,16 +203,18 @@ function CatalogRow({
               </Stack>
             )}
           </Box>
+          {/* Aldrig disable:ad — samma övning två gånger i ett pass är
+              legitimt (exercise = ett varv), och beslutat mönster är
+              "inga disable:ade Add-knappar". */}
           <Button
             variant={already ? "contained" : "outlined"}
             color={already ? "secondary" : "primary"}
             size="small"
-            disabled={already}
             onClick={onAdd}
             startIcon={already ? <Check /> : <Add />}
-            sx={{ minHeight: 36, flexShrink: 0 }}
+            sx={{ minHeight: 44, flexShrink: 0 }}
           >
-            {already ? "Added" : "Add"}
+            {already ? "Add again" : "Add"}
           </Button>
         </Stack>
       </Card>
@@ -228,12 +229,17 @@ export default function PreparePage() {
   const { session, loading } = useSession(section);
   const { availableTypes, loading: weaponsLoading } = useWeapons();
 
+  // Hydrera EN gång från sessionens sparade lista. Villkoret
+  // list.length === 0 gav en bugg: tömde instruktören listan för att
+  // bygga sin egen poppade den gamla tillbaka vid nästa realtime-event.
   const [list, setList] = useState<ExerciseListItem[]>([]);
+  const hydratedRef = useRef(false);
   useEffect(() => {
-    if (session && session.exercise_list.length > 0 && list.length === 0) {
-      setList(session.exercise_list);
+    if (!hydratedRef.current && session) {
+      hydratedRef.current = true;
+      if (session.exercise_list.length > 0) setList(session.exercise_list);
     }
-  }, [session, list.length]);
+  }, [session]);
 
   const [traineeCount, setTraineeCount] = useState<number | null>(null);
   useEffect(() => {
@@ -265,6 +271,7 @@ export default function PreparePage() {
         id: ex.id,
         title: ex.title,
         weapon: ex.weaponTypes[0],
+        image: ex.image,
         hits_threshold: ex.hits_threshold,
         time_seconds: ex.time_seconds,
         spread_threshold: ex.spread_threshold,
@@ -337,7 +344,10 @@ export default function PreparePage() {
           </Typography>
         </Box>
 
-        <Box sx={{ display: "grid", gridTemplateColumns: { md: "1fr 440px" }, gap: 3 }}>
+        {/* sm-breakpoint (600px) så iPad portrait (768px) får två kolumner —
+            med md (900px) kollapsade layouten och Start-CTA:n hamnade
+            below fold under hela katalogen. */}
+        <Box sx={{ display: "grid", gridTemplateColumns: { sm: "1fr 360px", lg: "1fr 440px" }, gap: 3 }}>
           {/* Catalog */}
           <Box>
             <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "text.secondary", textTransform: "uppercase", mb: 1 }}>
@@ -444,8 +454,13 @@ export default function PreparePage() {
                 onClick={() => void startSession()}
                 sx={{ minHeight: 48 }}
               >
-                Start session → Pick on the duk
+                Start session → pick on the projector
               </Button>
+              {!session && (
+                <Typography sx={{ fontSize: 11, color: "text.secondary", textAlign: "center" }}>
+                  No active session for this studio yet.
+                </Typography>
+              )}
               {session && session.phase !== "idle" && session.phase !== "prepare" && (
                 <Alert severity="warning" sx={{ fontSize: 11 }}>
                   A session is already running (phase: {session.phase}). Starting a new one will interrupt it.

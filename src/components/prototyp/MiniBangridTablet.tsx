@@ -112,7 +112,7 @@ export function MiniBangridTablet({ section }: { section: LaneSection }) {
       </Box>
 
       <Typography sx={{ mt: 1.5, fontSize: 10, color: "text.secondary", textAlign: "center" }}>
-        Mirrors the duk · drive with the remote
+        Mirrors the projector · drive with the remote
       </Typography>
     </Card>
   );

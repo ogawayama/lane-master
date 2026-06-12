@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import { RemoteOverlay } from "@/components/prototyp/RemoteOverlay";
@@ -9,10 +9,10 @@ import { AARDuk } from "@/components/prototyp/AARDuk";
 import { SelectExerciseDuk } from "@/components/prototyp/SelectExerciseDuk";
 import { StartConfirmOverlay } from "@/components/prototyp/StartConfirmOverlay";
 import { useRemoteControl, type RemoteEvent } from "@/hooks/useRemoteControl";
-import { supabase } from "@/integrations/supabase/client";
 import {
   setPhase,
   pickStartExercise,
+  advanceToNextExercise,
   type Section as SessionSection,
 } from "@/services/sessionService";
 import {
@@ -80,6 +80,19 @@ export default function DukShell() {
     return () => unsubscribe(channel);
   }, [laneSectionEarly]);
 
+  // Preloada övningsbilderna så fort sessionen har en lista — annars
+  // poppar fotot in synligt vid varje ◀▶-tryck i pickern och vid
+  // fasbyte till preflight (bilderna laddas annars lazy som
+  // CSS-background först vid render).
+  useEffect(() => {
+    for (const ex of session?.exercise_list ?? []) {
+      if (ex.image) {
+        const img = new Image();
+        img.src = ex.image;
+      }
+    }
+  }, [session?.exercise_list]);
+
   const occupiedLanes = useMemo(
     () =>
       lanes
@@ -101,11 +114,20 @@ export default function DukShell() {
 
   // Confirm overlay visibility — endast i check-in när någon lane är non-ok.
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Skydd mot nervös dubbel-OK: andra trycket får inte tolkas som
+  // "Start anyway" innan overlayen hunnit uppfattas.
+  const confirmOpenedAt = useRef(0);
   // Stäng confirm:en så fort phase ändras bort från check-in (t.ex. om
   // någon annan driver via /wizard medan overlayen är öppen).
   useEffect(() => {
     if (session?.phase !== "check-in") setConfirmOpen(false);
   }, [session?.phase]);
+  // Auto-recovery: om alla lanes flippar tillbaka till ok medan
+  // dialogen är öppen finns inget kvar att bekräfta — stäng den i
+  // stället för att visa "Start with 0 lanes not ready?".
+  useEffect(() => {
+    if (readinessAlerts.length === 0) setConfirmOpen(false);
+  }, [readinessAlerts.length]);
 
   // Reset focus när phase byter till AAR eller övning byts.
   useEffect(() => {
@@ -114,17 +136,16 @@ export default function DukShell() {
     }
   }, [session?.phase, session?.current_exercise_index]);
 
-  // Avancera till nästa övning (eller avsluta) när OK trycks i AAR.
+  // Avancera till nästa övning (eller avsluta) när HoldOK trycks i AAR.
+  // Guardade writes via sessionService — dubbel HoldOK på stale lokalt
+  // state blir en no-op i stället för ett tyst dubbelhopp.
   const advanceFromAAR = useCallback(async () => {
-    if (!session) return;
+    if (!session || session.phase !== "aar") return;
     const next = session.current_exercise_index + 1;
     if (next < session.exercise_list.length) {
-      await supabase
-        .from("sessions")
-        .update({ current_exercise_index: next, phase: "preflight" })
-        .eq("id", session.id);
+      await advanceToNextExercise(session.id, session.current_exercise_index);
     } else {
-      await setPhase(session.id, "ended");
+      await setPhase(session.id, "ended", "aar");
     }
   }, [session]);
 
@@ -151,16 +172,20 @@ export default function DukShell() {
         }
         else if (phase === "check-in") {
           if (confirmOpen) {
+            // Kräv att overlayen varit synlig en stund — annars tolkas
+            // en nervös dubbeltryckning som "Start anyway".
+            if (Date.now() - confirmOpenedAt.current < 500) return;
             setConfirmOpen(false);
-            void setPhase(session.id, "preflight");
+            void setPhase(session.id, "preflight", "check-in");
           } else if (allReady) {
-            void setPhase(session.id, "preflight");
+            void setPhase(session.id, "preflight", "check-in");
           } else if (occupiedLanes.length > 0) {
+            confirmOpenedAt.current = Date.now();
             setConfirmOpen(true);
           }
         }
-        else if (phase === "preflight") void setPhase(session.id, "exercise");
-        else if (phase === "exercise") void setPhase(session.id, "aar");
+        else if (phase === "preflight") void setPhase(session.id, "exercise", "preflight");
+        else if (phase === "exercise") void setPhase(session.id, "aar", "exercise");
         // AAR: OK gör ingenting — Immersive List visar allt redan,
         // ingen sub-modal att toggla. Predictable nav per M3 TV.
       } else if (event === "holdOk") {
@@ -170,7 +195,7 @@ export default function DukShell() {
         if (confirmOpen) {
           setConfirmOpen(false);
         } else if (phase === "preflight") {
-          void setPhase(session.id, "check-in");
+          void setPhase(session.id, "check-in", "preflight");
         }
       } else if (event === "left") {
         if (phase === "aar") setAarFocus((i) => i - 1); // cirkulärt clamp i AARDuk
@@ -195,7 +220,7 @@ export default function DukShell() {
   // on every parent render.
   const handleExerciseEnd = useCallback(() => {
     if (session && session.phase === "exercise") {
-      void setPhase(session.id, "aar");
+      void setPhase(session.id, "aar", "exercise");
     }
   }, [session]);
 
@@ -277,11 +302,7 @@ export default function DukShell() {
               ? `Exercise ${exerciseNumber} / ${totalExercises}`
               : undefined
           }
-          hint={
-            phase === "idle"
-              ? "Open /wizard or /tablet to start a session."
-              : `Pass ${phaseToBuiltInPass(phase)} bygger denna vy.`
-          }
+          hint={PHASE_HINT[phase]}
         />
       )}
 
@@ -290,16 +311,13 @@ export default function DukShell() {
   );
 }
 
-function phaseToBuiltInPass(phase: string): string {
-  switch (phase) {
-    case "prepare":
-      return "2";
-    case "ended":
-      return "7";
-    default:
-      return "0";
-  }
-}
+// Publika hint-texter — duken ses av testpersoner, så ingen intern
+// jargong ("Pass N", /wizard) och inget svenskt.
+const PHASE_HINT: Record<string, string | undefined> = {
+  idle: "Waiting for the instructor to start a session.",
+  prepare: "The instructor is building today's session.",
+  ended: "Session complete. Well done.",
+};
 
 function PlaceholderScreen({
   section,

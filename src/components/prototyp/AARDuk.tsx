@@ -132,11 +132,13 @@ export function AARDuk({
       ? ((focusIndex % results.length) + results.length) % results.length
       : 0;
 
+  // Tomma lägen får inte bli död-ändar: Hold OK är den enda vägen
+  // vidare i aar-fasen, så instruktionen måste peka på just den.
   if (!exercise) {
-    return <EmptyState title="No exercise to review" sub="Return to preflight or load an exercise." />;
+    return <EmptyState title="No exercise to review" sub="Hold OK on the remote to continue." />;
   }
   if (results.length === 0) {
-    return <EmptyState title="No trainees on the lanes" sub="Press OK on the remote to continue." />;
+    return <EmptyState title="No trainees on the lanes" sub="Hold OK on the remote to continue." />;
   }
 
   const focused = results[safeFocus];
@@ -406,14 +408,14 @@ function Hero({
             icon={<AccessTime sx={{ fontSize: { xs: 16, md: 20 } }} />}
             label="Time"
             value={`${result.time_seconds}s`}
-            threshold={`≤ ${exercise.time_seconds}s`}
+            threshold={`≤ ${exercise.time_seconds ?? "—"}s`}
             status={result.time_status}
           />
           <Metric
             icon={<CenterFocusStrong sx={{ fontSize: { xs: 16, md: 20 } }} />}
             label="Spread"
             value={`${result.spread_cm}cm`}
-            threshold={`≤ ${exercise.spread_threshold}cm`}
+            threshold={`≤ ${exercise.spread_threshold ?? "—"}cm`}
             status={result.spread_status}
           />
         </Stack>

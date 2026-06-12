@@ -6,7 +6,7 @@ import {
   CheckCircle as CheckIcon,
   PlayArrow,
 } from "@mui/icons-material";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import type { LaneAssignment, Section } from "@/services/assignmentService";
 import {
   aggregateLaneStatus,
@@ -17,6 +17,7 @@ import {
 import { useLastRemoteEvent } from "@/hooks/useRemoteControl";
 import type { ExerciseListItem } from "@/services/sessionService";
 import { dukTypography } from "@/theme/tv";
+import { statusTintedSurface } from "@/theme/m3State";
 
 /**
  * BangridDuk — M3 Grid layout-template (redesign 2026-05-28).
@@ -125,6 +126,10 @@ export function BangridDuk({
         flex: 1,
         px: { xs: "24px", md: "36px", xl: "48px" },
         py: { xs: "16px", md: "24px", xl: "32px" },
+        transition: "background-image 400ms ease",
+        // Success state = grön tint i bakgrunden, inte bara ikon
+        // (beslutat designmönster). Subtil ambient när alla är redo.
+        ...(allReady ? statusTintedSurface("green", "subtle") : {}),
       }}
     >
       {/* Header — exercise context + readiness alerts */}
@@ -283,7 +288,7 @@ export function BangridDuk({
             </Typography>
           )}
           {lanes.map((lane) => (
-            <LaneTile key={lane.id} lane={lane} />
+            <LaneTile key={lane.id} lane={lane} compact={totalCount > 5} />
           ))}
         </Box>
       </Box>
@@ -317,8 +322,10 @@ export function BangridDuk({
   );
 }
 
-function LaneTile({ lane }: { lane: LaneAssignment }) {
-  const prefersReducedMotion = useReducedMotion();
+// compact: vid >5 banor (Double Studio) blir det två rader — kortens
+// minHeight måste krympa så bottenraden med Next-CTA:n inte klipps
+// under fold (roten är overflow-hidden utan scroll).
+function LaneTile({ lane, compact = false }: { lane: LaneAssignment; compact?: boolean }) {
   const occupied = lane.status === "occupied";
   const readiness: ReadinessStatus = occupied
     ? aggregateLaneStatus({
@@ -361,12 +368,11 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
       <Card
         component={motion.div}
         layout
-        animate={
-          prefersReducedMotion ? undefined : { scale: hasIssues ? 1.0 : 1.0 }
-        }
         sx={{
           width: "100%",
-          minHeight: { xs: 200, md: 240, xl: 280 },
+          minHeight: compact
+            ? { xs: 140, md: 160, xl: 190 }
+            : { xs: 200, md: 240, xl: 280 },
           bgcolor: hasIssues
             ? STATUS_CONTAINER[readiness]
             : "var(--mui-palette-m3-surfaceContainerLow)",
@@ -393,8 +399,10 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
           >
             {occupied ? lane.name : "—"}
           </Typography>
+          {/* Ingen "Rank"-platshållare — grad-data finns inte i DB, och en
+              grad-etikett utan grad ser trasig ut för militära användare. */}
           <Typography sx={{ ...dukTypography.labelMedium, color: "text.secondary" }}>
-            {occupied ? "Rank" : "Empty"}
+            {occupied ? "Checked in" : "Empty"}
           </Typography>
 
           {/* Status bar — den enda alltid-synliga status-cue:n */}
@@ -429,7 +437,8 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
                   bgcolor: "transparent",
                   px: 1.5,
                   py: 1,
-                  fontSize: 11,
+                  // Läsbart på 3 m — 11px försvinner på projektorn.
+                  fontSize: "clamp(12px, 0.9vw, 16px)",
                   color: "text.disabled",
                   textAlign: "left",
                 }}
@@ -454,18 +463,20 @@ function LaneTile({ lane }: { lane: LaneAssignment }) {
                     <Chip
                       icon={
                         issue.severity === "critical" ? (
-                          <ErrorIcon sx={{ fontSize: "14px !important" }} />
+                          <ErrorIcon sx={{ fontSize: "18px !important" }} />
                         ) : (
-                          <WarningIcon sx={{ fontSize: "14px !important" }} />
+                          <WarningIcon sx={{ fontSize: "18px !important" }} />
                         )
                       }
                       label={ISSUE_LABEL[issue.indicator][issue.severity]}
                       size="small"
                       sx={{
                         width: "100%",
-                        height: 26,
+                        height: { xs: 28, md: 34 },
                         borderRadius: "8px",
-                        fontSize: 11,
+                        // Chipen bär säkerhetsrelevant status — måste gå
+                        // att läsa på 3 m (11px gjorde inte det).
+                        fontSize: "clamp(12px, 1vw, 17px)",
                         fontWeight: 500,
                         bgcolor: "transparent",
                         border: 1,
@@ -571,6 +582,8 @@ function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean
     return () => clearTimeout(t);
   }, [last, enabled]);
 
+  // CTA-roll och status-roll hålls isär: warning-gult är status (chips,
+  // alerts) — affordancen "Next" är neutral tills allt är grönt.
   const tone = !enabled
     ? {
         bg: "var(--mui-palette-m3-surfaceContainerLow)",
@@ -584,9 +597,9 @@ function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean
           border: "success.main",
         }
       : {
-          bg: "var(--mui-palette-m3-statusWarningContainer)",
-          fg: "warning.main",
-          border: "warning.main",
+          bg: "var(--mui-palette-m3-surfaceContainerHigh)",
+          fg: "text.primary",
+          border: "divider",
         };
 
   return (
@@ -618,11 +631,11 @@ function NextButton({ enabled, allReady }: { enabled: boolean; allReady: boolean
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: 9, md: 10 },
-            letterSpacing: "0.3em",
+            fontSize: { xs: 11, md: 13 },
+            letterSpacing: "0.2em",
             textTransform: "uppercase",
             color: tone.fg,
-            opacity: 0.7,
+            opacity: 0.8,
           }}
         >
           Press OK on remote

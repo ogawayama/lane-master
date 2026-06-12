@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Box,
@@ -20,7 +20,6 @@ import {
   type Section,
 } from "@/services/sessionService";
 import { pressRemote } from "@/hooks/useRemoteControl";
-import { supabase } from "@/integrations/supabase/client";
 import {
   setSignal,
   clearSignal,
@@ -36,10 +35,12 @@ import {
 } from "@/services/readinessService";
 import {
   fetchAllLanes,
+  resetAllAssignments,
   type LaneAssignment,
   type Section as LaneSection,
 } from "@/services/assignmentService";
 import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
+import { EXERCISE_CATALOG } from "@/data/exerciseCatalog";
 
 /**
  * Helhetsprototyp — WizardShell (M3-omskrivning 2026-05-28).
@@ -49,32 +50,21 @@ import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeServic
  * stil). Större touch-targets (h: 48px) per UX-review.
  */
 
-const DEMO_EXERCISES = [
-  {
-    id: "ex-1",
-    title: "Basic accuracy — 5 shots, paper target",
-    weapon: "Glock 17",
-    hits_threshold: 4,
-    time_seconds: 60,
-    spread_threshold: 15,
-  },
-  {
-    id: "ex-2",
-    title: "Speed engagement — 3D targets",
-    weapon: "AR15",
-    hits_threshold: 6,
-    time_seconds: 45,
-    spread_threshold: 20,
-  },
-  {
-    id: "ex-3",
-    title: "CG M4 — HEAT 551, single target",
-    weapon: "CG M4",
-    hits_threshold: 1,
-    time_seconds: 90,
-    spread_threshold: 30,
-  },
-];
+// Demo-genvägen härleds ur EXERCISE_CATALOG — tidigare var listan en
+// kopia med egna bilder, så samma övning såg olika ut beroende på om
+// passet startades via /wizard-demo eller PreparePage.
+const DEMO_IDS = ["basic-glock-paper", "adv-3d-rifle", "cg-heat-single"];
+const DEMO_EXERCISES = EXERCISE_CATALOG.filter((ex) => DEMO_IDS.includes(ex.id)).map(
+  (ex) => ({
+    id: ex.id,
+    title: ex.title,
+    weapon: ex.weaponTypes[0],
+    image: ex.image,
+    hits_threshold: ex.hits_threshold,
+    time_seconds: ex.time_seconds,
+    spread_threshold: ex.spread_threshold,
+  }),
+);
 
 export default function WizardShell() {
   const [searchParams] = useSearchParams();
@@ -101,6 +91,22 @@ export default function WizardShell() {
 
   const laneSection = section as unknown as LaneSection;
   const [laneRows, setLaneRows] = useState<LaneAssignment[]>([]);
+
+  // Destruktiva actions kräver två tryck — ett facilitator-felklick på
+  // "Reset" mitt i exercise skulle annars förstöra testpasset.
+  const [armedAction, setArmedAction] = useState<"reset" | "newSubject" | null>(null);
+  const armTimer = useRef<number | null>(null);
+  const armOrRun = (action: "reset" | "newSubject", run: () => void) => {
+    if (armedAction === action) {
+      if (armTimer.current !== null) window.clearTimeout(armTimer.current);
+      setArmedAction(null);
+      run();
+      return;
+    }
+    setArmedAction(action);
+    if (armTimer.current !== null) window.clearTimeout(armTimer.current);
+    armTimer.current = window.setTimeout(() => setArmedAction(null), 3000);
+  };
   useEffect(() => {
     void fetchAllLanes(laneSection).then(setLaneRows);
     const channel = subscribeLaneAssignments(laneSection, setLaneRows);
@@ -120,7 +126,7 @@ export default function WizardShell() {
             Backstage control
           </Typography>
           <Typography sx={{ fontSize: 14, color: "text.secondary" }}>
-            Inte synlig för test-instruktörer. Driver fejkdata och scenario.
+            Not visible to test instructors. Drives mock data and scenarios.
           </Typography>
         </Box>
 
@@ -157,16 +163,45 @@ export default function WizardShell() {
             Session actions
           </Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }} useFlexGap>
-            <Button variant="outlined" size="small" disabled={!session} onClick={() => session && void resetSession(session.id)}>
-              Reset to idle
-            </Button>
             <Button variant="outlined" size="small" disabled={!session} onClick={() => session && void setExerciseList(session.id, DEMO_EXERCISES)}>
               Load demo exercises ({DEMO_EXERCISES.length})
             </Button>
             <Button variant="outlined" size="small" disabled={!session} onClick={() => session && void setPhase(session.id, "check-in")}>
               Jump to check-in
             </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              color={armedAction === "reset" ? "error" : undefined}
+              disabled={!session}
+              onClick={() =>
+                session && armOrRun("reset", () => void resetSession(session.id))
+              }
+            >
+              {armedAction === "reset" ? "Tap again to confirm reset" : "Reset to idle"}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              color={armedAction === "newSubject" ? "error" : undefined}
+              disabled={!session}
+              onClick={() =>
+                session &&
+                armOrRun("newSubject", () => {
+                  // Samlad nollställning inför nästa testperson:
+                  // session → idle (+ dar_signals rensas i resetSession),
+                  // lanes töms och vapen släpps.
+                  void resetSession(session.id);
+                  void resetAllAssignments(laneSection);
+                })
+              }
+            >
+              {armedAction === "newSubject" ? "Tap again to confirm" : "New test subject"}
+            </Button>
           </Stack>
+          <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 1 }}>
+            New test subject = session to idle + clear DAR signals + empty all lanes and release weapons.
+          </Typography>
         </Card>
 
         {/* Inject remote — touch-friendly */}
@@ -192,20 +227,23 @@ export default function WizardShell() {
           <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
             <Box>
               <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: "warning.main", textTransform: "uppercase" }}>
-                DAR signals · Wizard-of-Oz (spår 03)
+                DAR signals · Wizard-of-Oz
               </Typography>
               <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>
-                Drive triage state per lane. Appears live on /tablet during the exercise phase. Never on the duk.
+                Drive triage state per lane. Appears live on /tablet during the exercise phase. Never on the projector.
               </Typography>
             </Box>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Button
                 variant="outlined"
                 size="small"
-                disabled={!session || lanes.length === 0}
+                disabled={!session || occupiedRows.length === 0}
                 onClick={() => {
                   if (!session) return;
-                  const shuffled = [...lanes].sort(() => Math.random() - 0.5);
+                  // Endast incheckade banor — en röd signal på en tom
+                  // bana (namn "—") är ett falsklarm som stör testet.
+                  const occupied = occupiedRows.map((r) => r.lane_number);
+                  const shuffled = [...occupied].sort(() => Math.random() - 0.5);
                   const statuses: DarStatus[] = ["red", "yellow", "yellow", "green", "green", "green", "green"];
                   shuffled.forEach((lane, i) => {
                     const status = statuses[i] ?? "green";
@@ -255,7 +293,7 @@ export default function WizardShell() {
                           fontSize: 10,
                           letterSpacing: "0.1em",
                           textTransform: "uppercase",
-                          minHeight: 32,
+                          minHeight: 44, // iPad touch-target
                         },
                       }}
                     >
@@ -268,7 +306,7 @@ export default function WizardShell() {
                       variant="text"
                       disabled={!current || !session}
                       onClick={() => session && void clearSignal(session.id, lane)}
-                      sx={{ fontSize: 10, minWidth: 50, color: isSaab ? "text.secondary" : undefined }}
+                      sx={{ fontSize: 10, minWidth: 50, minHeight: 44, color: isSaab ? "text.secondary" : undefined }}
                     >
                       clear
                     </Button>
@@ -284,10 +322,10 @@ export default function WizardShell() {
           <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
             <Box>
               <Typography sx={{ fontSize: 11, letterSpacing: "0.15em", color: readyAccent, textTransform: "uppercase" }}>
-                Lane readiness · Wizard-of-Oz (spår 02 halva A)
+                Lane readiness · Wizard-of-Oz
               </Typography>
               <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>
-                Drive weapon / battery / ammo / comms status per lane. Visible publicly on the duk during check-in. Defaults to OK when a trainee blips in.
+                Drive weapon / battery / ammo / comms status per lane. Visible publicly on the projector during check-in. Defaults to OK when a trainee blips in.
               </Typography>
             </Box>
           </Stack>
@@ -310,7 +348,7 @@ export default function WizardShell() {
                     <Button
                       size="small"
                       variant="text"
-                      sx={{ fontSize: 10, minHeight: 32, color: readyAccent }}
+                      sx={{ fontSize: 10, minHeight: 44, color: readyAccent }}
                       onClick={() => void resetLaneToOk(laneSection, row.lane_number)}
                     >
                       All OK
@@ -363,7 +401,7 @@ function ReadinessRow({
             fontSize: 10,
             textTransform: "uppercase",
             letterSpacing: "0.1em",
-            minHeight: 32,
+            minHeight: 44, // iPad touch-target
           },
         }}
       >

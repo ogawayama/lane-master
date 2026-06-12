@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { Section } from "@/services/sessionService";
 
 /**
@@ -25,6 +26,12 @@ export interface DarSignal {
 
 const tbl = () => supabase.from("dar_signals" as never) as never;
 
+/** Tysta fel är testgift — visa facilitatorn när en write failar. */
+function reportError(op: string, message: string) {
+  console.warn(`${op} failed:`, message);
+  toast.error(`${op} failed — ${message}`);
+}
+
 export async function setSignal(
   sessionId: string,
   section: Section,
@@ -45,7 +52,7 @@ export async function setSignal(
       },
       { onConflict: "session_id,lane_number" },
     );
-  if (error) console.warn("setSignal failed:", error.message);
+  if (error) reportError("setSignal", error.message);
 }
 
 export async function clearSignal(
@@ -56,12 +63,12 @@ export async function clearSignal(
     .delete()
     .eq("session_id", sessionId)
     .eq("lane_number", lane);
-  if (error) console.warn("clearSignal failed:", error.message);
+  if (error) reportError("clearSignal", error.message);
 }
 
 export async function clearAllSignals(sessionId: string): Promise<void> {
   const { error } = await (tbl() as any).delete().eq("session_id", sessionId);
-  if (error) console.warn("clearAllSignals failed:", error.message);
+  if (error) reportError("clearAllSignals", error.message);
 }
 
 export async function getSignals(sessionId: string): Promise<DarSignal[]> {
@@ -70,7 +77,7 @@ export async function getSignals(sessionId: string): Promise<DarSignal[]> {
     .eq("session_id", sessionId)
     .order("lane_number");
   if (error) {
-    console.warn("getSignals failed:", error.message);
+    reportError("getSignals", error.message);
     return [];
   }
   return (data as DarSignal[]) ?? [];

@@ -50,6 +50,8 @@ interface LaneInfo {
   status: string;
 }
 
+const LAYOUT_STORAGE_KEY = "dar-tablet-layout";
+
 export function DARTablet({
   sessionId,
   section,
@@ -57,7 +59,17 @@ export function DARTablet({
   sessionId: string;
   section: Section;
 }) {
-  const [variant, setVariant] = useState<LayoutVariant>("B");
+  // Layoutvalet persistas — komponenten unmountas varje gång fasen
+  // lämnar exercise, och instruktören ska inte tappa sitt val mellan
+  // övningsvarven mitt i ett test.
+  const [variant, setVariant] = useState<LayoutVariant>(() => {
+    const stored = localStorage.getItem(LAYOUT_STORAGE_KEY);
+    return stored === "A" || stored === "B" || stored === "C" ? stored : "B";
+  });
+  const pickVariant = (v: LayoutVariant) => {
+    setVariant(v);
+    localStorage.setItem(LAYOUT_STORAGE_KEY, v);
+  };
   const { byLane, loading } = useDARSignals(sessionId);
 
   const [lanes, setLanes] = useState<LaneInfo[]>([]);
@@ -76,7 +88,11 @@ export function DARTablet({
     };
   }, [section]);
 
-  const merged = lanes.map((l) => ({ ...l, signal: byLane.get(l.lane_number) ?? null }));
+  // Endast incheckade banor — en signal på en tom bana (namn "—") är
+  // ett falsklarm som stör testet. MiniAARTablet filtrerar redan så.
+  const merged = lanes
+    .filter((l) => l.status === "occupied")
+    .map((l) => ({ ...l, signal: byLane.get(l.lane_number) ?? null }));
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary", p: 2 }}>
@@ -93,9 +109,9 @@ export function DARTablet({
           <ToggleButtonGroup
             value={variant}
             exclusive
-            onChange={(_, v) => v && setVariant(v as LayoutVariant)}
+            onChange={(_, v) => v && pickVariant(v as LayoutVariant)}
             size="small"
-            sx={{ "& .MuiToggleButton-root": { borderRadius: "8px !important", px: 2, textTransform: "none" } }}
+            sx={{ "& .MuiToggleButton-root": { borderRadius: "8px !important", px: 2, textTransform: "none", minHeight: 44 } }}
           >
             <ToggleButton value="B">Grid</ToggleButton>
             <ToggleButton value="A">Queue</ToggleButton>

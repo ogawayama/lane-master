@@ -35,6 +35,7 @@ import type { Section as LaneSection } from "@/services/assignmentService";
 const PHASES: SessionPhase[] = [
   "idle",
   "prepare",
+  "select-exercise",
   "check-in",
   "preflight",
   "exercise",
@@ -47,6 +48,10 @@ export default function TabletShell() {
   const section = (searchParams.get("section") ?? "idt") as Section;
   const { session, loading } = useSession(section);
   const [debugOpen, setDebugOpen] = useState(false);
+  // Debug-fasväljaren är facilitator-verktyg — på instruktörens tablet
+  // kan en nyfiken testperson annars hoppa fas mitt i passet. Visas
+  // bara med ?debug=1.
+  const debugEnabled = searchParams.get("debug") === "1";
 
   // Under Saab är primaryContainer en gul yta — en gul overline på den blir
   // gul-på-gul. Använd onPrimaryContainer (legibel charcoal/ljusgul) i stället.
@@ -95,8 +100,7 @@ export default function TabletShell() {
 
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography color="text.secondary" sx={{ mb: 3, fontSize: 14 }}>
-          Phase-aware. Real surfaces appear during their phase; phase-controls
-          below for debugging.
+          Follows the session — the right panel appears for each phase.
         </Typography>
 
         {showPrepareCta && (
@@ -117,12 +121,14 @@ export default function TabletShell() {
             }}
           >
             <Typography sx={{ fontSize: 10, letterSpacing: "0.3em", color: ctaOverlineColor, textTransform: "uppercase", mb: 0.5 }}>
-              Pre-pass · spår 01
+              Pre-session
             </Typography>
             <Typography sx={{ fontSize: 18, fontWeight: 500 }}>
               Build today's session →
             </Typography>
-            <Typography sx={{ fontSize: 14, color: "text.secondary", mt: 0.5 }}>
+            {/* onPrimaryContainer + opacity — text.secondary är ljusgrå och
+                faller på kontrast mot den gula Saab-ytan. */}
+            <Typography sx={{ fontSize: 14, color: "var(--mui-palette-m3-onPrimaryContainer)", opacity: 0.75, mt: 0.5 }}>
               Pick exercises in order before trainees arrive.
             </Typography>
           </Card>
@@ -152,12 +158,13 @@ export default function TabletShell() {
         )}
         {session && session.phase === "ended" && (
           <WaitingPanel
-            title="Session ended"
-            body="All exercises done. Reset from /wizard to start over."
+            title="Session complete"
+            body="All exercises done. Great work today."
           />
         )}
 
-        {/* Debug-panel — M3 segmented button-stil */}
+        {/* Debug-panel — M3 segmented button-stil. Endast ?debug=1. */}
+        {debugEnabled && (
         <Box sx={{ mt: 4 }}>
           <Button
             size="small"
@@ -211,6 +218,7 @@ export default function TabletShell() {
             </Card>
           </Collapse>
         </Box>
+        )}
       </Container>
     </Box>
   );

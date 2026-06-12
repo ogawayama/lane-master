@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { Section } from "@/services/assignmentService";
 
 /**
@@ -140,7 +141,10 @@ export async function setLaneIndicator(
     .update({ [column]: status })
     .eq("section", section)
     .eq("lane_number", lane);
-  if (error) console.warn(`setLaneIndicator(${indicator}) failed:`, error.message);
+  if (error) {
+    console.warn(`setLaneIndicator(${indicator}) failed:`, error.message);
+    toast.error(`setLaneIndicator(${indicator}) failed — ${error.message}`);
+  }
 }
 
 /** Återställ alla fyra indikatorer för en bana till 'ok'. */
@@ -159,5 +163,8 @@ export async function resetLaneToOk(
     .eq("section", section)
     .eq("lane_number", lane)
     .eq("status", "occupied"); // bara om lanen faktiskt är ifylld
-  if (error) console.warn("resetLaneToOk failed:", error.message);
+  if (error) {
+    console.warn("resetLaneToOk failed:", error.message);
+    toast.error(`resetLaneToOk failed — ${error.message}`);
+  }
 }

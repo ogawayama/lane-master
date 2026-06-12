@@ -133,10 +133,12 @@ export function MiniAARTablet({
                       {r.trainee ?? "—"}
                     </Typography>
                   </Stack>
+                  {/* Synliga mikro-etiketter — title-tooltips finns inte
+                      på iPad, och en naken siffra säger inget. */}
                   <Stack direction="row" spacing={1.5} sx={{ fontSize: 12, fontFamily: '"Roboto Mono", monospace', opacity: 0.85, flexShrink: 0 }}>
-                    <span title="Hits">{r.hits}</span>
-                    <span title="Time">{r.time_seconds}s</span>
-                    <span title="Spread">{r.spread_cm}cm</span>
+                    <span><MetricLabel>Hit</MetricLabel> {r.hits}</span>
+                    <span><MetricLabel>Time</MetricLabel> {r.time_seconds}s</span>
+                    <span><MetricLabel>Spread</MetricLabel> {r.spread_cm}cm</span>
                   </Stack>
                 </Stack>
               </Box>
@@ -146,8 +148,16 @@ export function MiniAARTablet({
       </Stack>
 
       <Typography sx={{ mt: 1.5, fontSize: 10, color: "text.secondary", textAlign: "center" }}>
-        Mirrors the duk · use ◀ ▶ remote to focus, OK to zoom
+        Mirrors the projector · ◀ ▶ moves focus · hold OK for next exercise
       </Typography>
     </Card>
+  );
+}
+
+function MetricLabel({ children }: { children: string }) {
+  return (
+    <Box component="span" sx={{ opacity: 0.55, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", mr: 0.25 }}>
+      {children}
+    </Box>
   );
 }

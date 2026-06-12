@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Stack, Typography } from "@mui/material";
@@ -81,8 +81,18 @@ export function SimulationDuk({
     return () => cancelAnimationFrame(rafId);
   }, [exercise?.id, totalMs]);
 
+  // Fyra onEnd EN gång per övning — utan guard fyrar effekten på varje
+  // render efter att timern nått 0 tills realtime-fasbytet landat,
+  // vilket spammar identiska setPhase('aar')-writes.
+  const endedRef = useRef(false);
   useEffect(() => {
-    if (totalMs > 0 && elapsedMs >= totalMs) onEnd();
+    endedRef.current = false;
+  }, [exercise?.id]);
+  useEffect(() => {
+    if (totalMs > 0 && elapsedMs >= totalMs && !endedRef.current) {
+      endedRef.current = true;
+      onEnd();
+    }
   }, [elapsedMs, totalMs, onEnd]);
 
   if (!exercise) {
