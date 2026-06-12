@@ -168,27 +168,32 @@ export function KriterieDuk({
               borderRadius: { xs: "20px", md: "28px" },
               overflow: "hidden",
               position: "relative",
-              background: gradientFor(exercise.weapon, isSaab),
+              background: exercise.image
+                ? `linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.1) 100%), url(${exercise.image}) center / cover no-repeat`
+                : gradientFor(exercise.weapon, isSaab),
               boxShadow: "none",
             }}
           >
-            <Box
-              sx={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <SpreadIcon
+            {/* Placeholder-symbol endast utan foto — med foto bär bilden visualen. */}
+            {!exercise.image && (
+              <Box
                 sx={{
-                  fontSize: { xs: 140, md: 200, xl: 260 },
-                  color: "rgba(255,255,255,0.20)",
-                  strokeWidth: 0.5,
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
-              />
-            </Box>
+              >
+                <SpreadIcon
+                  sx={{
+                    fontSize: { xs: 140, md: 200, xl: 260 },
+                    color: "rgba(255,255,255,0.20)",
+                    strokeWidth: 0.5,
+                  }}
+                />
+              </Box>
+            )}
             <Stack
               sx={{
                 position: "absolute",

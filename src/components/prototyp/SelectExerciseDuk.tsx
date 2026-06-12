@@ -70,8 +70,9 @@ export function SelectExerciseDuk({
         >
           No exercises planned
         </Typography>
+        {/* Ingen route-jargong på duken — den ses av testpersoner. */}
         <Typography sx={{ fontSize: 14, color: "text.secondary", textAlign: "center" }}>
-          Open /tablet/prepare to add exercises before starting.
+          Add exercises on the instructor tablet before starting.
         </Typography>
       </Stack>
     );
@@ -133,7 +134,9 @@ export function SelectExerciseDuk({
                 overflow: "hidden",
                 bgcolor: "var(--mui-palette-m3-surfaceContainerHigh)",
                 boxShadow: "none",
-                background: gradientFor(current.weapon, isSaab),
+                background: current.image
+                  ? `linear-gradient(to right, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.4) 55%, rgba(0,0,0,0.15) 100%), url(${current.image}) center / cover no-repeat`
+                  : gradientFor(current.weapon, isSaab),
               }}
             >
               {/* Left content panel — text + chips + CTA */}
@@ -188,36 +191,39 @@ export function SelectExerciseDuk({
                 <SelectCta />
               </Stack>
 
-              {/* Right visual area — gradient bleed + symbol */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: { xs: "30%", md: "45%" },
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  pointerEvents: "none",
-                }}
-              >
+              {/* Right visual area — placeholder symbol only when no photo.
+                  Med riktigt foto bär kortets background-bild visualen. */}
+              {!current.image && (
                 <Box
                   sx={{
                     position: "absolute",
-                    inset: 0,
-                    background:
-                      "linear-gradient(to left, transparent, transparent 30%, rgba(0,0,0,0.5))",
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: { xs: "30%", md: "45%" },
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
                   }}
-                />
-                <CenterFocusStrong
-                  sx={{
-                    fontSize: { xs: 120, md: 200, xl: 280 },
-                    color: "rgba(255,255,255,0.16)",
-                    strokeWidth: 0.5,
-                  }}
-                />
-              </Box>
+                >
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      inset: 0,
+                      background:
+                        "linear-gradient(to left, transparent, transparent 30%, rgba(0,0,0,0.5))",
+                    }}
+                  />
+                  <CenterFocusStrong
+                    sx={{
+                      fontSize: { xs: 120, md: 200, xl: 280 },
+                      color: "rgba(255,255,255,0.16)",
+                      strokeWidth: 0.5,
+                    }}
+                  />
+                </Box>
+              )}
             </Card>
           </motion.div>
         </AnimatePresence>
