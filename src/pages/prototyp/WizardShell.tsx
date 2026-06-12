@@ -41,6 +41,7 @@ import {
 } from "@/services/assignmentService";
 import { subscribeLaneAssignments, unsubscribe } from "@/services/realtimeService";
 import { EXERCISE_CATALOG } from "@/data/exerciseCatalog";
+import { ScenarioPanel } from "@/components/prototyp/ScenarioPanel";
 
 /**
  * Helhetsprototyp — WizardShell (M3-omskrivning 2026-05-28).
@@ -203,6 +204,9 @@ export default function WizardShell() {
             New test subject = session to idle + clear DAR signals + empty all lanes and release weapons.
           </Typography>
         </Card>
+
+        {/* Pass 8 — scriptat scenario + eventlogg */}
+        <ScenarioPanel session={session} section={section} laneRows={laneRows} byLane={byLane} />
 
         {/* Inject remote — touch-friendly */}
         <Card sx={{ p: 2.5, mb: 2, bgcolor: "var(--mui-palette-m3-surfaceContainerLow)" }}>
